@@ -11,10 +11,14 @@ QBase/
 │   ├── trend/               # 25个趋势类
 │   ├── volatility/          # 25个波动率类
 │   └── volume/              # 25个成交量/持仓类
-├── strategies/              # 按品种组织
-│   └── <symbol>/            # 如 ag/, au/, I/
-│       ├── trend_v1.py      # 策略文件: {类型}_v{版本}.py
-│       └── portfolio/       # 该品种的组合权重方案
+├── strategies/              # 按市场状态 → 品种组织
+│   ├── strong_trend/        # 强趋势（涨幅>100%，6个月+）
+│   ├── medium_trend/        # 中趋势（涨幅20-80%，2-4个月）
+│   ├── weak_trend/          # 弱趋势（小幅趋势）
+│   └── mean_reversion/      # 震荡（区间震荡行情）
+│       └── <symbol>/        # 如 ag/, au/, I/
+│           ├── v1.py        # 策略文件: v{版本}.py
+│           └── portfolio/   # 该品种在该状态下的组合方案
 ├── screener/                # 品种筛选器
 ├── fundamental/             # 基本面量化（预留）
 ├── research_log/            # 实验记录
@@ -37,35 +41,61 @@ QBase/
 
 指标可以来自任意分类，自由组合。关键是 3 个指标之间要有互补性，不要选同类指标（如同时用 RSI + Stochastic + Williams %R 是错误的）。
 
-### 2. 品种目录结构
+### 2. 策略目录结构：按市场状态分类
 
-每个品种在 `strategies/` 下有独立文件夹：
+策略按**市场状态**分四大类，策略本身不分品种 — 同一个趋势策略可以跑在任何品种上：
 
 ```
-strategies/ag/
-├── trend_v1.py              # 趋势策略 v1
-├── mean_reversion_v1.py     # 震荡策略 v1
-├── breakout_v1.py           # 突破策略 v1
-└── portfolio/               # 组合方案
-    ├── weights.json          # 策略权重配置
-    └── README.md             # 组合说明：哪些策略、如何加权、回测结果
+strategies/
+├── strong_trend/            # 强趋势策略（捕捉涨幅>100%的大行情）
+│   ├── v1.py                # 策略 v1（不同指标组合）
+│   ├── v2.py                # 策略 v2
+│   └── portfolio/           # 强趋势策略组合方案
+│       ├── weights.json
+│       └── README.md
+├── medium_trend/            # 中趋势策略（涨幅20-80%，2-4个月）
+│   ├── v1.py
+│   └── portfolio/
+├── weak_trend/              # 弱趋势策略（小幅趋势、波段）
+│   ├── v1.py
+│   └── portfolio/
+└── mean_reversion/          # 震荡策略（区间震荡、均值回归）
+    ├── v1.py
+    └── portfolio/
+```
+
+**市场状态定义：**
+
+| 状态 | 涨幅范围 | 持续时间 | 参考数据 |
+|------|---------|---------|---------|
+| 强趋势 | >100% | 6个月+ | trend/RALLIES.md |
+| 中趋势 | 20-80% | 2-4个月 | trend/MEDIUM_TRENDS.md |
+| 弱趋势 | 5-20% | 1-3个月 | 待整理 |
+| 震荡 | ±5%内 | 不定 | 待整理 |
+
+**策略是品种无关的。** 运行时通过 `--symbols` 指定品种：
+```bash
+# 同一个强趋势策略，跑不同品种
+./run.sh strategies/strong_trend/v1.py --symbols AG --freq daily --start 2022
+./run.sh strategies/strong_trend/v1.py --symbols J --freq daily --start 2016
+./run.sh strategies/strong_trend/v1.py --symbols ZC --freq daily --start 2021
 ```
 
 ### 3. portfolio 文件夹
 
-每个品种下的 `portfolio/` 是该品种的**终极运行方案**：
-- 包含多个策略的加权组合
-- 权重通过回测研究确定（如等权、风险平价、最优化等）
+每个市场状态下的 `portfolio/` 是该状态的**终极运行方案**：
+- 包含该状态下多个策略版本的加权组合
+- 权重通过多品种回测研究确定
 - `weights.json` 格式：
 
 ```json
 {
-  "name": "ag_portfolio_v1",
-  "symbol": "AG",
+  "name": "strong_trend_portfolio_v1",
+  "regime": "strong_trend",
   "strategies": {
-    "trend_v1": {"weight": 0.4, "sharpe": 1.2, "max_dd": -0.15},
-    "mean_reversion_v1": {"weight": 0.35, "sharpe": 0.9, "max_dd": -0.12},
-    "breakout_v1": {"weight": 0.25, "sharpe": 0.7, "max_dd": -0.18}
+    "v1": {"weight": 0.5, "sharpe": 1.2, "max_dd": -0.15},
+    "v2": {"weight": 0.3, "sharpe": 0.9, "max_dd": -0.12},
+    "v3": {"weight": 0.2, "sharpe": 0.7, "max_dd": -0.18}
   },
   "method": "risk_parity",
   "backtest_period": "2020-01-01 to 2025-12-31",
