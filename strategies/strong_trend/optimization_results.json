@@ -1,0 +1,15 @@
+[
+  {
+    "version": "v1",
+    "best_sharpe": 0.17501122131244404,
+    "best_params": {
+      "st_period": 12,
+      "st_mult": 4.852142919229749,
+      "roc_period": 32,
+      "roc_threshold": 9.782560294561476,
+      "vol_threshold": 1.812037280884873
+    },
+    "n_trials": 3,
+    "n_completed": 3
+  }
+]
