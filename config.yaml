@@ -1,0 +1,8 @@
+alphaforge:
+  path: ~/Desktop/AlphaForge
+  data_dir: ~/Desktop/AlphaForge/data
+
+defaults:
+  capital: 1_000_000
+  freq: daily
+  slippage_ticks: 2.0
