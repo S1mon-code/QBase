@@ -239,13 +239,97 @@ def create_strategy_with_params(version: str, params: dict):
     return instance
 
 
+def _map_freq(freq: str) -> tuple:
+    """Map strategy freq to (AlphaForge load freq, resample factor).
+
+    AlphaForge native: 1min, 5min, 10min, 15min, 30min, 60min, daily.
+    Non-native frequencies are loaded at a base freq and resampled.
+
+    Returns (load_freq, resample_factor) where factor=1 means no resample.
+    """
+    NATIVE = {"1min", "5min", "10min", "15min", "30min", "60min", "daily"}
+    if freq in NATIVE:
+        return freq, 1
+
+    # Map non-native freqs → (base_freq, how_many_bars_to_merge)
+    resample_map = {
+        "1h":   ("60min", 1),   # 60min IS 1h
+        "20min": ("10min", 2),  # 2 × 10min = 20min
+        "4h":   ("60min", 4),   # 4 × 60min = 4h
+    }
+    if freq in resample_map:
+        return resample_map[freq]
+
+    # Fallback: try to use as-is
+    return freq, 1
+
+
+def _resample_bars(bars, step: int):
+    """Resample BarArray by grouping every `step` bars (e.g. step=4 for 60min→4h)."""
+    from alphaforge.data.bardata import BarArray
+    n = len(bars)
+    indices = list(range(step - 1, n, step))
+    if not indices:
+        return bars
+
+    new_len = len(indices)
+
+    def _ohlcv_resample(src, mode):
+        arr = np.array(src, dtype=np.float64)
+        out = np.empty(new_len, dtype=np.float64)
+        for j, end_idx in enumerate(indices):
+            s = max(0, end_idx - step + 1)
+            chunk = arr[s:end_idx + 1]
+            if mode == 'first':
+                out[j] = chunk[0]
+            elif mode == 'max':
+                out[j] = chunk.max()
+            elif mode == 'min':
+                out[j] = chunk.min()
+            elif mode == 'last':
+                out[j] = chunk[-1]
+            elif mode == 'sum':
+                out[j] = chunk.sum()
+        return out
+
+    def _pick(src):
+        return np.array(src)[indices]
+
+    return BarArray(
+        datetime_arr=_pick(bars.datetime),
+        open_arr=_ohlcv_resample(bars.open, 'first'),
+        high_arr=_ohlcv_resample(bars.high, 'max'),
+        low_arr=_ohlcv_resample(bars.low, 'min'),
+        close_arr=_ohlcv_resample(bars.close, 'last'),
+        volume_arr=_ohlcv_resample(bars.volume, 'sum'),
+        amount_arr=_ohlcv_resample(bars.amount, 'sum'),
+        oi_arr=_ohlcv_resample(bars.oi, 'last'),
+        trading_day_arr=_pick(bars.trading_day),
+        open_raw_arr=_ohlcv_resample(bars.open_raw, 'first'),
+        high_raw_arr=_ohlcv_resample(bars.high_raw, 'max'),
+        low_raw_arr=_ohlcv_resample(bars.low_raw, 'min'),
+        close_raw_arr=_ohlcv_resample(bars.close_raw, 'last'),
+        origin_symbol_arr=_pick(bars.origin_symbol),
+        factor_arr=_pick(bars.factor),
+        is_rollover_arr=_pick(bars.is_rollover),
+    )
+
+
 def run_single_backtest(strategy, symbol, start, end, freq="daily"):
     """Run a single backtest, return Sharpe (or -999 on failure)."""
     try:
         loader = MarketDataLoader(DATA_DIR)
         spec_manager = ContractSpecManager()
 
-        bars = loader.load(symbol, freq=freq, start=start, end=end)
+        load_freq, resample_factor = _map_freq(freq)
+        bars = loader.load(symbol, freq=load_freq, start=start, end=end)
+        if bars is None or len(bars) < strategy.warmup + 20:
+            return -999.0
+
+        # Resample if needed (e.g. 60min → 4h = factor 4)
+        if resample_factor > 1:
+            bars = _resample_bars(bars, resample_factor)
+
         if bars is None or len(bars) < strategy.warmup + 20:
             return -999.0
 
