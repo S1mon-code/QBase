@@ -214,9 +214,89 @@ strategies/all_time/
 ./run.sh strategies/strong_trend/v1.py --symbols ZC --freq daily --start 2021
 ```
 
-### 4. portfolio（待定）
+### 4. Portfolio 构建
 
-Portfolio 的加权方案和组合逻辑尚需进一步讨论确定。当前每个策略目录下预留了 `portfolio/` 文件夹。
+#### 构建流程
+
+```
+开发 N 个策略 → 按 Sharpe 取 top 50% → 相关性过滤 → 独立策略池
+→ HRP 或 Risk Parity 赋权 → Walk-forward 验证 → 最终 portfolio
+```
+
+#### Step 1: 策略筛选
+
+1. 按测试集 Sharpe 排序，取 top 50%
+2. 计算策略间日收益率相关性矩阵
+3. 相关性 > 0.7 的一对中，保留 Sharpe 更高的那个
+4. 最终保留多少个策略不设固定数量 — **以 portfolio 整体 Sharpe 和 Information Ratio 最高为目标**
+
+#### Step 2: 赋权方式
+
+保留两种方法，后续通过回测对比选择：
+
+**方法 A: HRP (Hierarchical Risk Parity)（首选）**
+- 对策略收益做层次聚类（按相关性距离）
+- 自顶向下分配权重：相关性低的分组获得更多权重
+- 优势：不需要矩阵求逆，处理相关策略最稳，样本外最优
+
+**方法 B: Risk Parity（备选）**
+- 每个策略对组合贡献相等的风险
+- 权重 ∝ 1/vol，再调整使风险贡献相等
+- 优势：简单直观，易于理解和调试
+
+```python
+# portfolio/weights.json 格式
+{
+  "name": "ag_alltime_portfolio_v1",
+  "method": "hrp",            # "hrp" 或 "risk_parity"
+  "n_strategies": 12,
+  "portfolio_sharpe": 2.1,
+  "portfolio_ir": 1.8,
+  "strategies": {
+    "v3": {"weight": 0.12, "sharpe": 1.85},
+    "v7": {"weight": 0.10, "sharpe": 1.62},
+    "v15": {"weight": 0.09, "sharpe": 1.45}
+  },
+  "rebalance": "quarterly",
+  "backtest_period": "2022-01-01 to 2026-03-01"
+}
+```
+
+#### Step 3: Portfolio 质量要求
+
+**Portfolio 必须优于最佳单策略，否则不采用：**
+
+| 指标 | 要求 |
+|------|------|
+| Portfolio Sharpe | > 最佳单策略 Sharpe 的 **80%** |
+| Portfolio MaxDD | < 最佳单策略 MaxDD 的 **70%**（回撤更小） |
+| Information Ratio | > 1.0 |
+| 策略间平均相关性 | < 0.5 |
+
+如果 portfolio Sharpe 低于最佳单策略，必须在 `research_log/` 中分析原因：
+- 策略间相关性太高？→ 加强过滤
+- 赋权方法不适合？→ 换方法对比
+- 策略数量太多稀释了 alpha？→ 减少策略数
+
+#### Step 4: Portfolio 止损标准
+
+| 级别 | 触发条件 | 动作 |
+|------|---------|------|
+| **预警** | 组合回撤达 **-10%** | 记录日志，检查各策略状态，不自动操作 |
+| **减仓** | 组合回撤达 **-15%** | 所有策略仓位减半，暂停加仓 |
+| **熔断** | 组合回撤达 **-20%** | 全部平仓，停止交易，人工审查后重启 |
+| **单日熔断** | 单日亏损达权益 **-5%** | 当日全部平仓，次日恢复 |
+
+熔断后的恢复规则：
+- 减仓后：回撤收窄至 -10% 以内，恢复正常仓位
+- 全面熔断后：必须人工审查并确认市场环境正常后才能重启
+- 连续 2 次触发 -20% 熔断：停止该 portfolio，重新优化权重
+
+#### Step 5: Walk-forward 重平衡
+
+- 每季度用最近 2 年数据重新计算策略权重
+- 如果某策略近期 Sharpe 转负，从 portfolio 中移除
+- 如果有新策略通过质量门槛，可以加入
 
 ## 频率体系与多周期协作
 
