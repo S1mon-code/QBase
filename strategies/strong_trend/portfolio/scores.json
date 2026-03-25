@@ -1,0 +1,114 @@
+{
+  "AG Strong Trend HRP (AG+EC)": {
+    "composite_score": 73.8,
+    "grade": "B",
+    "dimension_scores": {
+      "return_risk": 7.22,
+      "quality": 6.43,
+      "robustness": 9.0,
+      "practical": 7.5
+    },
+    "metrics": {
+      "sharpe": {
+        "value": "2.43",
+        "score": 8.1
+      },
+      "calmar": {
+        "value": "6.78",
+        "score": 6.8
+      },
+      "max_drawdown": {
+        "value": "5.92%",
+        "score": 7
+      },
+      "dd_duration_est": {
+        "value": "~18d",
+        "score": 7
+      },
+      "avg_correlation": {
+        "value": "0.449",
+        "score": 5.5
+      },
+      "portfolio_vs_best": {
+        "value": "0.786",
+        "score": 4
+      },
+      "positive_ratio": {
+        "value": "49/50",
+        "score": 9.8
+      },
+      "cross_symbol": {
+        "value": "2 symbols",
+        "score": 9.0
+      },
+      "strategy_count": {
+        "value": "17",
+        "score": 8
+      },
+      "max_weight": {
+        "value": "24.1%",
+        "score": 5
+      },
+      "freq_diversity": {
+        "value": "5 freqs (10min, 1h, 30min, 4h, daily)",
+        "score": 9.5
+      }
+    }
+  },
+  "LC Strong Trend HRP (\u78b3\u9178\u9502)": {
+    "composite_score": 81.4,
+    "grade": "A-",
+    "dimension_scores": {
+      "return_risk": 8.82,
+      "quality": 8.77,
+      "robustness": 6.0,
+      "practical": 8.17
+    },
+    "metrics": {
+      "sharpe": {
+        "value": "2.908",
+        "score": 9.7
+      },
+      "calmar": {
+        "value": "9.12",
+        "score": 9.1
+      },
+      "max_drawdown": {
+        "value": "3.07%",
+        "score": 8.5
+      },
+      "dd_duration_est": {
+        "value": "~9d",
+        "score": 8
+      },
+      "avg_correlation": {
+        "value": "0.249",
+        "score": 8.5
+      },
+      "portfolio_vs_best": {
+        "value": "1.16",
+        "score": 9
+      },
+      "positive_ratio": {
+        "value": "44/50",
+        "score": 8.8
+      },
+      "cross_symbol": {
+        "value": "1 symbols",
+        "score": 6
+      },
+      "strategy_count": {
+        "value": "14",
+        "score": 10
+      },
+      "max_weight": {
+        "value": "21.6%",
+        "score": 5
+      },
+      "freq_diversity": {
+        "value": "5 freqs (1h, 4h, 5min, 60min, daily)",
+        "score": 9.5
+      }
+    }
+  }
+}
