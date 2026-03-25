@@ -40,16 +40,24 @@ QBase/
 
 ## 核心规则
 
-### 1. 策略指标限制：最多 3 个
+### 1. 策略指标规则
 
-每个策略最多使用 **3 个指标**的组合。不要堆砌指标。
+每个策略使用 **1-3 个指标**，只要有效就行，不强制用满 3 个。
 
-选择指标时的思路：
-- **趋势策略**: 1个趋势判断 + 1个动量确认 + 1个波动率过滤（如 ADX + ROC + ATR）
-- **震荡策略**: 1个振荡器 + 1个波动率 + 1个量价确认（如 RSI + Bollinger + MFI）
-- **突破策略**: 1个通道/区间 + 1个波动率 + 1个量能确认（如 Donchian + NR7 + Volume Spike）
+**指标来源不限于 100 个库存指标。** 可以随时开发新指标加入库中，例如：
+- 品种特有指标（如铁煤比 I/J ratio、金银比 AU/AG ratio）
+- 跨品种价差/比值指标
+- 基本面衍生指标（库存、持仓结构等）
+- 自定义统计量
 
-指标可以来自任意分类，自由组合。关键是 3 个指标之间要有互补性，不要选同类指标（如同时用 RSI + Stochastic + Williams %R 是错误的）。
+开发新指标时放入 `indicators/` 对应分类，保持纯函数风格（numpy in → numpy out）。
+
+**选择思路（参考，不强制）：**
+- 趋势策略常见组合: 趋势判断 + 动量确认 + 波动率过滤
+- 震荡策略常见组合: 振荡器 + 波动率 + 量价确认
+- 单指标策略也完全可行，如果该指标本身信号足够强
+
+**核心原则：力求高效，不堆砌。** 1 个强指标 > 3 个弱指标。
 
 ### 2. 加仓减仓机制
 
@@ -196,27 +204,9 @@ strategies/all_time/
 ./run.sh strategies/strong_trend/v1.py --symbols ZC --freq daily --start 2021
 ```
 
-### 3. portfolio 文件夹
+### 4. portfolio（待定）
 
-每个市场状态下的 `portfolio/` 是该状态的**终极运行方案**：
-- 包含该状态下多个策略版本的加权组合
-- 权重通过多品种回测研究确定
-- `weights.json` 格式：
-
-```json
-{
-  "name": "strong_trend_portfolio_v1",
-  "regime": "strong_trend",
-  "strategies": {
-    "v1": {"weight": 0.5, "sharpe": 1.2, "max_dd": -0.15},
-    "v2": {"weight": 0.3, "sharpe": 0.9, "max_dd": -0.12},
-    "v3": {"weight": 0.2, "sharpe": 0.7, "max_dd": -0.18}
-  },
-  "method": "risk_parity",
-  "backtest_period": "2020-01-01 to 2025-12-31",
-  "portfolio_sharpe": 1.8
-}
-```
+Portfolio 的加权方案和组合逻辑尚需进一步讨论确定。当前每个策略目录下预留了 `portfolio/` 文件夹。
 
 ## 频率体系与多周期协作
 
