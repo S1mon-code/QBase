@@ -226,9 +226,35 @@ strategies/all_time/
 #### Step 1: 策略筛选
 
 1. 按测试集 Sharpe 排序，取 top 50%
-2. 计算策略间日收益率相关性矩阵
-3. 相关性 > 0.7 的一对中，保留 Sharpe 更高的那个
-4. 最终保留多少个策略不设固定数量 — **以 portfolio 整体 Sharpe 和 Information Ratio 最高为目标**
+2. **统一到日收益率** — 不同频率策略的收益率必须先对齐到日线级别再比较（见下方多频率处理）
+3. 计算策略间日收益率相关性矩阵
+4. 相关性 > 0.7 的一对中，保留 Sharpe 更高的那个
+5. 最终保留多少个策略不设固定数量 — **以 portfolio 整体 Sharpe 和 Information Ratio 最高为目标**
+
+#### 多频率策略混合
+
+Portfolio 中的策略可能混合 5min、1h、4h、daily 等不同频率，这需要特殊处理：
+
+**收益率对齐：** 所有策略的权益曲线统一 resample 到**日线级别**后再做相关性计算和赋权。
+
+```python
+# 5min 策略：取每日最后一笔权益作为日权益
+# 1h 策略：同上
+# daily 策略：已经是日线
+# 统一后计算日收益率 → 相关性矩阵 → HRP/Risk Parity
+daily_equity = resample_to_daily(strategy_equity_curve)
+daily_returns = daily_equity.pct_change()
+```
+
+**仓位管理注意：**
+- 高频策略（5min/10min）日内可能多次开平仓，日线策略可能持仓数天
+- 两者同时运行时，总保证金占用可能在盘中瞬间叠加
+- 风控的总敞口限制（80%）按**实时合计**，不是按日线合计
+
+**信号冲突处理：**
+- 不同频率策略可能对同一品种产生相反信号（如 daily 做多，5min 做空）
+- 在 `all_time/` 中这是允许的（多空均可），但需要注意净头寸
+- 在 `strong_trend/` 中不会冲突（都是只做多）
 
 #### Step 2: 赋权方式
 
