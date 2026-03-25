@@ -191,31 +191,166 @@ PARAM_SPACES = {
         "vroc_period":    ("int", 10, 25),
         "atr_trail_mult": ("float", 2.0, 5.0),
     },
+    # --- v21-v30 ---
+    "v21": {
+        "st_period": ("int", 7, 20), "st_mult": ("float", 2.0, 5.0),
+        "adx_period": ("int", 10, 25), "adx_threshold": ("float", 18.0, 35.0),
+        "atr_trail_mult": ("float", 3.0, 5.5),
+    },
+    "v22": {
+        "hma_period": ("int", 10, 40), "aroon_period": ("int", 15, 40),
+        "cmf_period": ("int", 10, 30), "atr_period": ("int", 10, 25),
+        "atr_trail_mult": ("float", 3.0, 5.5),
+    },
+    "v23": {
+        "kc_ema": ("int", 10, 30), "kc_mult": ("float", 1.0, 3.0),
+        "roc_period": ("int", 10, 40), "roc_threshold": ("float", 2.0, 15.0),
+        "atr_trail_mult": ("float", 3.0, 5.5),
+    },
+    "v24": {
+        "psar_af_step": ("float", 0.01, 0.04), "psar_af_max": ("float", 0.1, 0.3),
+        "cci_period": ("int", 10, 30), "oi_period": ("int", 10, 30),
+        "atr_trail_mult": ("float", 3.0, 5.5),
+    },
+    "v25": {
+        "slope_period": ("int", 10, 40), "vortex_period": ("int", 10, 25),
+        "vol_period": ("int", 10, 30), "vol_threshold": ("float", 1.5, 3.5),
+        "atr_trail_mult": ("float", 3.0, 5.5),
+    },
+    "v26": {
+        "squeeze_bb": ("int", 15, 30), "squeeze_kc": ("int", 15, 30),
+        "adx_period": ("int", 10, 25), "fi_period": ("int", 8, 20),
+        "atr_trail_mult": ("float", 3.0, 5.5),
+    },
+    "v27": {
+        "tenkan": ("int", 5, 15), "kijun": ("int", 15, 40),
+        "macd_fast": ("int", 8, 20), "macd_slow": ("int", 20, 40),
+        "atr_trail_mult": ("float", 3.0, 5.5),
+    },
+    "v28": {
+        "don_period": ("int", 25, 60), "chop_period": ("int", 10, 25),
+        "chop_threshold": ("float", 38.0, 62.0), "ad_lookback": ("int", 5, 20),
+        "atr_trail_mult": ("float", 3.0, 5.5),
+    },
+    "v29": {
+        "zlema_period": ("int", 10, 40), "rsi_period": ("int", 10, 25),
+        "klinger_fast": ("int", 20, 45), "klinger_slow": ("int", 40, 70),
+        "atr_trail_mult": ("float", 3.0, 5.5),
+    },
+    "v30": {
+        "st_period": ("int", 7, 20), "st_mult": ("float", 2.0, 5.0),
+        "cop_wma": ("int", 5, 15), "cop_roc_long": ("int", 10, 20),
+        "atr_trail_mult": ("float", 3.0, 5.5),
+    },
+    # --- v31-v40 ---
+    "v31": {
+        "tema_period": ("int", 10, 40), "fisher_period": ("int", 5, 20),
+        "obv_lookback": ("int", 5, 20), "atr_period": ("int", 10, 25),
+        "atr_trail_mult": ("float", 3.0, 5.5),
+    },
+    "v32": {
+        "ribbon_base": ("int", 5, 15), "tsi_long": ("int", 15, 35),
+        "tsi_short": ("int", 8, 20), "vroc_period": ("int", 10, 25),
+        "atr_trail_mult": ("float", 3.0, 5.5),
+    },
+    "v33": {
+        "t3_period": ("int", 3, 10), "t3_vfactor": ("float", 0.5, 0.9),
+        "aroon_period": ("int", 15, 40), "climax_period": ("int", 10, 30),
+        "atr_trail_mult": ("float", 3.0, 5.5),
+    },
+    "v34": {
+        "mcg_period": ("int", 8, 25), "ppo_fast": ("int", 8, 20),
+        "ppo_slow": ("int", 20, 40), "oi_period": ("int", 10, 30),
+        "atr_trail_mult": ("float", 3.0, 5.5),
+    },
+    "v35": {
+        "alma_period": ("int", 5, 20), "alma_offset": ("float", 0.7, 0.95),
+        "stochrsi_period": ("int", 10, 25), "emv_period": ("int", 10, 25),
+        "atr_trail_mult": ("float", 3.0, 5.5),
+    },
+    "v36": {
+        "dema_period": ("int", 10, 40), "uo_p1": ("int", 5, 12),
+        "uo_p2": ("int", 10, 20), "uo_p3": ("int", 20, 40),
+        "atr_trail_mult": ("float", 3.0, 5.5),
+    },
+    "v37": {
+        "fractal_period": ("int", 2, 5), "rwi_period": ("int", 10, 25),
+        "fi_period": ("int", 8, 20), "atr_period": ("int", 10, 25),
+        "atr_trail_mult": ("float", 3.0, 5.5),
+    },
+    "v38": {
+        "hma_period": ("int", 10, 40), "ergo_short": ("int", 3, 10),
+        "ergo_long": ("int", 15, 30), "ad_lookback": ("int", 5, 20),
+        "atr_trail_mult": ("float", 3.0, 5.5),
+    },
+    "v39": {
+        "kc_ema": ("int", 10, 30), "kc_mult": ("float", 1.0, 3.0),
+        "cmo_period": ("int", 10, 25), "vol_threshold": ("float", 1.5, 3.5),
+        "atr_trail_mult": ("float", 3.0, 5.5),
+    },
+    "v40": {
+        "psar_af_step": ("float", 0.01, 0.04), "psar_af_max": ("float", 0.1, 0.3),
+        "kst_signal": ("int", 5, 15), "klinger_fast": ("int", 20, 45),
+        "atr_trail_mult": ("float", 3.0, 5.5),
+    },
+    # --- v41-v45 (multi-timeframe) ---
+    "v41": {
+        "st_period": ("int", 7, 20), "st_mult": ("float", 2.0, 5.0),
+        "rsi_period": ("int", 10, 25), "rsi_entry": ("float", 25.0, 45.0),
+        "atr_trail_mult": ("float", 3.0, 5.5),
+    },
+    "v42": {
+        "adx_period": ("int", 10, 25), "adx_threshold": ("float", 18.0, 35.0),
+        "ema_fast": ("int", 10, 30), "ema_slow": ("int", 40, 80),
+        "atr_trail_mult": ("float", 3.0, 5.5),
+    },
+    "v43": {
+        "tenkan": ("int", 5, 15), "kijun": ("int", 15, 40),
+        "stoch_k": ("int", 10, 25), "stoch_d": ("int", 2, 5),
+        "atr_trail_mult": ("float", 3.0, 5.5),
+    },
+    "v44": {
+        "don_period": ("int", 25, 60), "roc_period": ("int", 10, 40),
+        "roc_threshold": ("float", 1.0, 8.0), "atr_period": ("int", 10, 25),
+        "atr_trail_mult": ("float", 3.0, 5.5),
+    },
+    "v45": {
+        "vortex_period": ("int", 10, 25), "cci_period": ("int", 10, 30),
+        "cci_entry": ("float", -150.0, -50.0), "atr_period": ("int", 10, 25),
+        "atr_trail_mult": ("float", 3.0, 5.5),
+    },
+    # --- v46-v48 (minimal) ---
+    "v46": {
+        "st_period": ("int", 7, 20), "st_mult": ("float", 2.0, 5.0),
+        "atr_period": ("int", 10, 25), "atr_trail_mult": ("float", 3.5, 6.0),
+        "new_high_lookback": ("int", 10, 40),
+    },
+    "v47": {
+        "adx_period": ("int", 10, 25), "adx_threshold": ("float", 18.0, 35.0),
+        "chand_period": ("int", 15, 35), "chand_mult": ("float", 2.0, 5.0),
+        "atr_trail_mult": ("float", 3.0, 5.5),
+    },
+    "v48": {
+        "rsq_period": ("int", 20, 60), "don_period": ("int", 25, 60),
+        "atr_period": ("int", 10, 25), "atr_trail_mult": ("float", 3.0, 5.5),
+        "rsq_threshold": ("float", 0.3, 0.7),
+    },
+    # --- v49-v50 (regime) ---
+    "v49": {
+        "hurst_lag": ("int", 10, 30), "st_period": ("int", 7, 20),
+        "st_mult": ("float", 2.0, 5.0), "vol_threshold": ("float", 1.5, 3.5),
+        "atr_trail_mult": ("float", 3.0, 5.5),
+    },
+    "v50": {
+        "yz_period": ("int", 10, 30), "don_period": ("int", 25, 60),
+        "obv_lookback": ("int", 5, 20), "atr_period": ("int", 10, 25),
+        "atr_trail_mult": ("float", 3.0, 5.5),
+    },
 }
 
 # Strategy class names mapping
-STRATEGY_CLASSES = {
-    "v1": "StrongTrendV1",
-    "v2": "StrongTrendV2",
-    "v3": "DonchianADXChandelierStrategy",
-    "v4": "StrongTrendV4",
-    "v5": "StrongTrendV5",
-    "v6": "StrongTrendV6",
-    "v7": "StrongTrendV7",
-    "v8": "StrongTrendV8",
-    "v9": "StrongTrendV9",
-    "v10": "StrongTrendV10",
-    "v11": "StrongTrendV11",
-    "v12": "StrongTrendV12",
-    "v13": "StrongTrendV13",
-    "v14": "StrongTrendV14",
-    "v15": "StrongTrendV15",
-    "v16": "StrongTrendV16",
-    "v17": "StrongTrendV17",
-    "v18": "StrongTrendV18",
-    "v19": "StrongTrendV19",
-    "v20": "StrongTrendV20",
-}
+STRATEGY_CLASSES = {f"v{i}": f"StrongTrendV{i}" for i in range(1, 51)}
+STRATEGY_CLASSES["v3"] = "DonchianADXChandelierStrategy"  # v3 has non-standard name
 
 
 # =========================================================================
