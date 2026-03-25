@@ -2,7 +2,13 @@
 Portfolio Scoring System
 ========================
 Computes comprehensive metrics and a composite score (0-100) for portfolios.
-Runs portfolio backtests to get equity curves, then evaluates on 4 dimensions.
+Designed for single-symbol all_time portfolios as the primary use case.
+
+4 Dimensions:
+  - 收益风险比 (40%): Sharpe, Calmar, MaxDD, DD Duration
+  - 组合质量  (25%): Avg Correlation, Portfolio vs Best Single, Positive Ratio
+  - 实操性    (20%): Strategy Count, Max Weight, Freq Diversity
+  - 稳定性    (15%): Equity Curve Stability, Return Consistency
 
 Usage:
     python strategies/strong_trend/portfolio_scorer.py
@@ -21,34 +27,27 @@ import conftest  # noqa: F401
 import numpy as np
 import pandas as pd
 
-from alphaforge.data.contract_specs import ContractSpecManager
-from alphaforge.engine.portfolio import (
-    PortfolioConfig, StrategyAllocation, PortfolioBacktester,
-)
-
-from strategies.strong_trend.optimizer import DATA_DIR
-
 OUTPUT_DIR = str(Path(QBASE_ROOT) / "strategies" / "strong_trend" / "portfolio")
 
 
 # =========================================================================
-# Scoring Rubric (each metric → 0-10 sub-score)
+# Sub-score functions (each → 0-10)
 # =========================================================================
 
 def score_sharpe(sharpe):
-    """Sharpe Ratio → 0-10. Benchmarks: 1.0=4, 2.0=7, 3.0=10."""
+    """Sharpe → 0-10. 1.0=3.3, 2.0=6.7, 3.0=10."""
     if sharpe <= 0: return 0
     if sharpe >= 3.0: return 10
     return min(10, round(sharpe * 10 / 3, 1))
 
 def score_calmar(calmar):
-    """Calmar Ratio → 0-10. Benchmarks: 1.0=3, 3.0=6, 5.0=8, 10+=10."""
+    """Calmar (annual return / maxdd) → 0-10."""
     if calmar <= 0: return 0
     if calmar >= 10: return 10
     return min(10, round(calmar, 1))
 
 def score_maxdd(maxdd_pct):
-    """Max Drawdown (positive %) → 0-10. Lower is better. <3%=10, <5%=8, <10%=6, <20%=4, <30%=2."""
+    """MaxDD (positive %) → 0-10. Lower = better."""
     if maxdd_pct <= 3: return 10
     if maxdd_pct <= 5: return 8.5
     if maxdd_pct <= 8: return 7
@@ -59,7 +58,7 @@ def score_maxdd(maxdd_pct):
     return 0
 
 def score_dd_duration(days):
-    """Max DD duration in days → 0-10. <7d=10, <14d=8, <30d=6, <60d=4, >60d=2."""
+    """Max DD duration (days) → 0-10. Shorter = better."""
     if days <= 7: return 10
     if days <= 14: return 8
     if days <= 21: return 7
@@ -69,7 +68,7 @@ def score_dd_duration(days):
     return 1.5
 
 def score_avg_corr(corr):
-    """Avg correlation → 0-10. <0.2=10, <0.3=8, <0.4=7, <0.5=5, >0.7=1."""
+    """Avg strategy correlation → 0-10. Lower = better."""
     if corr <= 0.15: return 10
     if corr <= 0.25: return 8.5
     if corr <= 0.35: return 7
@@ -79,7 +78,7 @@ def score_avg_corr(corr):
     return 1
 
 def score_portfolio_vs_best(ratio):
-    """Portfolio Sharpe / Best Single Sharpe → 0-10. >1.2=10, >1.0=8, >0.8=6, <0.6=2."""
+    """Portfolio Sharpe / Best Single Sharpe → 0-10. Higher = better."""
     if ratio >= 1.3: return 10
     if ratio >= 1.15: return 9
     if ratio >= 1.0: return 8
@@ -89,23 +88,12 @@ def score_portfolio_vs_best(ratio):
     if ratio >= 0.6: return 3
     return 1
 
-def score_cross_symbol(sharpes):
-    """Cross-symbol consistency → 0-10. More symbols tested + all positive = better."""
-    if not sharpes:
-        return 3
-    n_symbols = len(sharpes)
-    n_good = sum(1 for s in sharpes if s > 1.0)
-    # Penalize single-symbol (not enough validation)
-    if n_symbols == 1:
-        return 6 if sharpes[0] > 1.0 else 4
-    # Multi-symbol: score by consistency
-    ratio = n_good / n_symbols
-    base = ratio * 8  # max 8 from ratio
-    bonus = min(2, (n_symbols - 1) * 1.0)  # bonus for more symbols tested
-    return min(10, round(base + bonus, 1))
+def score_positive_ratio(ratio):
+    """Fraction of all strategies with positive Sharpe → 0-10."""
+    return min(10, round(ratio * 10, 1))
 
 def score_strategy_count(n):
-    """Strategy count → 0-10. Sweet spot 8-15. Too few (<5) or too many (>25) penalized."""
+    """Strategy count → 0-10. Sweet spot 8-15."""
     if 8 <= n <= 15: return 10
     if 6 <= n <= 20: return 8
     if 5 <= n <= 25: return 6
@@ -113,7 +101,7 @@ def score_strategy_count(n):
     return 2
 
 def score_max_weight(w_pct):
-    """Max single strategy weight (%) → 0-10. <10%=10, <15%=8, <20%=6, <30%=4, >30%=2."""
+    """Max single strategy weight (%) → 0-10. Lower = better."""
     if w_pct <= 10: return 10
     if w_pct <= 15: return 8
     if w_pct <= 20: return 6.5
@@ -122,78 +110,94 @@ def score_max_weight(w_pct):
     return 2
 
 def score_freq_diversity(n_freqs):
-    """Number of distinct frequencies → 0-10. 1=3, 2=5, 3=7, 4+=9."""
+    """Number of distinct frequencies → 0-10."""
     if n_freqs >= 4: return 9.5
     if n_freqs == 3: return 7.5
     if n_freqs == 2: return 5.5
     return 3
 
+def score_return_consistency(annual_return, sharpe):
+    """Reward consistent positive returns. High return + high Sharpe = stable."""
+    if sharpe <= 0 or annual_return <= 0:
+        return 0
+    # High Sharpe means the return came with low variance → consistent
+    # Annual return > 20% with Sharpe > 2 is very stable
+    if sharpe >= 2.5 and annual_return >= 0.2: return 10
+    if sharpe >= 2.0 and annual_return >= 0.15: return 8.5
+    if sharpe >= 1.5 and annual_return >= 0.1: return 7
+    if sharpe >= 1.0 and annual_return >= 0.05: return 5
+    return 3
+
+def score_equity_stability(maxdd_pct, calmar):
+    """Combined stability: low drawdown + high risk-adjusted return."""
+    # Penalize deep drawdowns, reward high calmar
+    dd_score = score_maxdd(maxdd_pct)
+    calmar_score = score_calmar(calmar)
+    return round((dd_score + calmar_score) / 2, 1)
+
 
 # =========================================================================
-# Composite Score Calculator
+# Dimension weights
 # =========================================================================
 
-# Weights for each dimension
 DIMENSION_WEIGHTS = {
-    "return_risk": 0.35,    # Sharpe, Calmar, MaxDD, DD Duration
-    "quality": 0.30,        # Correlation, Diversification, vs Best Single
-    "robustness": 0.20,     # Cross-symbol, positive ratio
-    "practical": 0.15,      # Strategy count, max weight, freq diversity
+    "return_risk": 0.40,   # 收益风险比 (Sharpe, Calmar, MaxDD, DD Duration)
+    "quality":     0.25,   # 组合质量 (Correlation, vs Best, Positive Ratio)
+    "practical":   0.20,   # 实操性 (Strategy Count, Max Weight, Freq Diversity)
+    "stability":   0.15,   # 稳定性 (Return Consistency, Equity Stability)
 }
 
 
+# =========================================================================
+# Compute metrics for one portfolio
+# =========================================================================
+
 def compute_portfolio_metrics(weights_file, portfolio_name):
-    """Load weights JSON and compute all metrics."""
+    """Load weights JSON and compute all metrics + composite score."""
     with open(weights_file) as f:
         data = json.load(f)
 
     strategies = data.get("strategies", {})
     n_strats = len(strategies)
 
-    # --- Extract raw metrics ---
-    # HRP metrics (primary)
+    # --- Raw metrics ---
     hrp_sharpe = data.get("hrp_sharpe") or data.get("hrp_ag_sharpe", 0)
     hrp_return = data.get("hrp_return") or data.get("hrp_ag_return", 0)
     hrp_maxdd = abs(data.get("hrp_maxdd") or data.get("hrp_ag_maxdd", 0))
+    avg_corr = data.get("avg_correlation", 0.5)
 
-    # Calmar
-    # Annualize return (assume ~9 months test period)
+    # Calmar (annualize ~9 months test period)
     test_months = 9
     annual_return = hrp_return * (12 / test_months) if hrp_return else 0
     calmar = annual_return / hrp_maxdd if hrp_maxdd > 0 else 0
 
-    # Avg correlation
-    avg_corr = data.get("avg_correlation", 0.5)
-
-    # Individual results (for LC this has all 50 strategies)
+    # Individual results
     individual = data.get("individual_results", [])
 
-    # Best single strategy Sharpe (on the SAME symbol as portfolio)
+    # Best single strategy Sharpe
     best_single = 0
     if individual:
-        # LC: use individual results directly
         for r in individual:
             sh = r.get("sharpe", 0)
             if sh > best_single:
                 best_single = sh
     else:
-        # AG: use ag_sharpe from portfolio strategies (or known v12 AG=3.09)
-        for v, s in strategies.items():
+        for s in strategies.values():
             sh = s.get("ag_sharpe", 0) or s.get("sharpe", 0) or 0
             if sh > best_single:
                 best_single = sh
     portfolio_vs_best = hrp_sharpe / best_single if best_single > 0 else 0
 
-    # Cross-symbol Sharpe list
-    cross_sharpes = []
-    if "hrp_ag_sharpe" in data:
-        cross_sharpes.append(data["hrp_ag_sharpe"])
-    if "hrp_ec_sharpe" in data:
-        cross_sharpes.append(data["hrp_ec_sharpe"])
-    if "hrp_sharpe" in data and "hrp_ag_sharpe" not in data:
-        cross_sharpes.append(data["hrp_sharpe"])
+    # Positive ratio
+    if individual:
+        n_positive = sum(1 for r in individual if r.get("sharpe", 0) > 0)
+        n_total = len(individual)
+    else:
+        n_positive = 49  # known from research: 49/50 positive on AG+EC
+        n_total = 50
+    positive_ratio = n_positive / n_total if n_total > 0 else 0
 
-    # Max weight
+    # Weights
     weights = [s.get("weight_hrp", 0) for s in strategies.values()]
     max_weight = max(weights) * 100 if weights else 0
 
@@ -201,77 +205,43 @@ def compute_portfolio_metrics(weights_file, portfolio_name):
     freqs = set(s.get("freq", "daily") for s in strategies.values())
     n_freqs = len(freqs)
 
-    # Positive strategy ratio (out of ALL 50 strategies, not just portfolio)
-    if individual:
-        n_positive = sum(1 for r in individual if r.get("sharpe", 0) > 0)
-        n_total = len(individual)
-    else:
-        # For AG portfolio: count strategies with positive mean_test_sharpe
-        # (ag_sharpe + ec_sharpe > 0 on average)
-        all_sharpes = []
-        for s in strategies.values():
-            sh = s.get("mean_test_sharpe", 0) or s.get("ag_sharpe", 0) or 0
-            all_sharpes.append(sh)
-        # We tested 50 strategies total; use known result from research log
-        n_positive = 49  # from optimization: 49/50 positive test Sharpe
-        n_total = 50
+    # DD duration estimate
+    dd_duration_est = hrp_maxdd * 100 * 3
 
-    # DD duration estimate (from return and maxdd)
-    # Rough: days ~ maxdd / (daily_return_std * sqrt(252))
-    # Simplified: use maxdd% * 10 as rough days estimate
-    dd_duration_est = hrp_maxdd * 100 * 3  # rough heuristic
-
-    # --- Compute sub-scores ---
+    # --- Sub-scores ---
     metrics = {
-        # Return-Risk (35%)
-        "sharpe": {"value": hrp_sharpe, "score": score_sharpe(hrp_sharpe)},
-        "calmar": {"value": round(calmar, 2), "score": score_calmar(calmar)},
-        "max_drawdown": {"value": f"{hrp_maxdd*100:.2f}%", "score": score_maxdd(hrp_maxdd * 100)},
-        "dd_duration_est": {"value": f"~{dd_duration_est:.0f}d", "score": score_dd_duration(dd_duration_est)},
-
-        # Quality (30%)
-        "avg_correlation": {"value": avg_corr, "score": score_avg_corr(avg_corr)},
-        "portfolio_vs_best": {"value": round(portfolio_vs_best, 3), "score": score_portfolio_vs_best(portfolio_vs_best)},
-        "positive_ratio": {"value": f"{n_positive}/{n_total}", "score": round(n_positive / n_total * 10, 1) if n_total > 0 else 0},
-
-        # Robustness (20%)
-        "cross_symbol": {"value": f"{len(cross_sharpes)} symbols", "score": score_cross_symbol(cross_sharpes)},
-
-        # Practical (15%)
-        "strategy_count": {"value": n_strats, "score": score_strategy_count(n_strats)},
-        "max_weight": {"value": f"{max_weight:.1f}%", "score": score_max_weight(max_weight)},
-        "freq_diversity": {"value": f"{n_freqs} freqs ({', '.join(sorted(freqs))})", "score": score_freq_diversity(n_freqs)},
+        # 收益风险比 (40%)
+        "sharpe":          {"value": hrp_sharpe,                      "score": score_sharpe(hrp_sharpe)},
+        "calmar":          {"value": round(calmar, 2),                "score": score_calmar(calmar)},
+        "max_drawdown":    {"value": f"{hrp_maxdd*100:.2f}%",         "score": score_maxdd(hrp_maxdd * 100)},
+        "dd_duration_est": {"value": f"~{dd_duration_est:.0f}d",      "score": score_dd_duration(dd_duration_est)},
+        # 组合质量 (25%)
+        "avg_correlation":    {"value": avg_corr,                     "score": score_avg_corr(avg_corr)},
+        "portfolio_vs_best":  {"value": round(portfolio_vs_best, 3),  "score": score_portfolio_vs_best(portfolio_vs_best)},
+        "positive_ratio":     {"value": f"{n_positive}/{n_total}",    "score": score_positive_ratio(positive_ratio)},
+        # 实操性 (20%)
+        "strategy_count":  {"value": n_strats,                                              "score": score_strategy_count(n_strats)},
+        "max_weight":      {"value": f"{max_weight:.1f}%",                                  "score": score_max_weight(max_weight)},
+        "freq_diversity":  {"value": f"{n_freqs} freqs ({', '.join(sorted(freqs))})",       "score": score_freq_diversity(n_freqs)},
+        # 稳定性 (15%)
+        "return_consistency": {"value": f"ret={annual_return:.1%} sh={hrp_sharpe:.2f}",     "score": score_return_consistency(annual_return, hrp_sharpe)},
+        "equity_stability":   {"value": f"dd={hrp_maxdd*100:.1f}% cal={calmar:.1f}",        "score": score_equity_stability(hrp_maxdd * 100, calmar)},
     }
 
     # --- Dimension scores ---
     dim_scores = {
-        "return_risk": np.mean([
-            metrics["sharpe"]["score"],
-            metrics["calmar"]["score"],
-            metrics["max_drawdown"]["score"],
-            metrics["dd_duration_est"]["score"],
-        ]),
-        "quality": np.mean([
-            metrics["avg_correlation"]["score"],
-            metrics["portfolio_vs_best"]["score"],
-            metrics["positive_ratio"]["score"],
-        ]),
-        "robustness": np.mean([
-            metrics["cross_symbol"]["score"],
-        ]),
-        "practical": np.mean([
-            metrics["strategy_count"]["score"],
-            metrics["max_weight"]["score"],
-            metrics["freq_diversity"]["score"],
-        ]),
+        "return_risk": np.mean([metrics["sharpe"]["score"], metrics["calmar"]["score"],
+                                metrics["max_drawdown"]["score"], metrics["dd_duration_est"]["score"]]),
+        "quality":     np.mean([metrics["avg_correlation"]["score"], metrics["portfolio_vs_best"]["score"],
+                                metrics["positive_ratio"]["score"]]),
+        "practical":   np.mean([metrics["strategy_count"]["score"], metrics["max_weight"]["score"],
+                                metrics["freq_diversity"]["score"]]),
+        "stability":   np.mean([metrics["return_consistency"]["score"], metrics["equity_stability"]["score"]]),
     }
 
-    # --- Composite score ---
-    composite = sum(
-        dim_scores[dim] * DIMENSION_WEIGHTS[dim]
-        for dim in DIMENSION_WEIGHTS
-    )
-    composite_100 = round(composite * 10, 1)  # Scale to 0-100
+    # --- Composite ---
+    composite = sum(dim_scores[d] * DIMENSION_WEIGHTS[d] for d in DIMENSION_WEIGHTS)
+    composite_100 = round(composite * 10, 1)
 
     return {
         "name": portfolio_name,
@@ -283,7 +253,6 @@ def compute_portfolio_metrics(weights_file, portfolio_name):
 
 
 def _grade(score):
-    """Convert 0-100 score to letter grade."""
     if score >= 90: return "A+"
     if score >= 85: return "A"
     if score >= 80: return "A-"
@@ -305,22 +274,20 @@ def print_scorecard(result):
     print(f"{'='*70}")
 
     sections = [
-        ("Return-Risk (35%)", ["sharpe", "calmar", "max_drawdown", "dd_duration_est"]),
-        ("Portfolio Quality (30%)", ["avg_correlation", "portfolio_vs_best", "positive_ratio"]),
-        ("Robustness (20%)", ["cross_symbol"]),
-        ("Practical (15%)", ["strategy_count", "max_weight", "freq_diversity"]),
+        ("收益风险比 (40%)", "return_risk", ["sharpe", "calmar", "max_drawdown", "dd_duration_est"]),
+        ("组合质量 (25%)",   "quality",     ["avg_correlation", "portfolio_vs_best", "positive_ratio"]),
+        ("实操性 (20%)",     "practical",   ["strategy_count", "max_weight", "freq_diversity"]),
+        ("稳定性 (15%)",     "stability",   ["return_consistency", "equity_stability"]),
     ]
 
-    dims = ["return_risk", "quality", "robustness", "practical"]
-
-    for (section_name, metric_keys), dim in zip(sections, dims):
+    for section_name, dim, metric_keys in sections:
         dim_score = result["dimension_scores"][dim]
-        print(f"\n  {section_name} — Dimension Score: {dim_score:.1f}/10")
+        print(f"\n  {section_name} — {dim_score:.1f}/10")
         print(f"  {'─'*60}")
         for key in metric_keys:
             m = result["metrics"][key]
             bar = "█" * int(m["score"]) + "░" * (10 - int(m["score"]))
-            print(f"    {key:<22s}  {str(m['value']):>14s}  {bar}  {m['score']:.1f}/10")
+            print(f"    {key:<22s}  {str(m['value']):>20s}  {bar}  {m['score']:.1f}/10")
 
 
 # =========================================================================
@@ -329,8 +296,8 @@ def print_scorecard(result):
 
 if __name__ == "__main__":
     portfolios = [
-        (str(Path(OUTPUT_DIR) / "weights.json"), "AG Strong Trend HRP (AG+EC)"),
-        (str(Path(OUTPUT_DIR) / "weights_lc.json"), "LC Strong Trend HRP (碳酸锂)"),
+        (str(Path(OUTPUT_DIR) / "weights.json"), "AG Strong Trend HRP"),
+        (str(Path(OUTPUT_DIR) / "weights_lc.json"), "LC Strong Trend HRP"),
     ]
 
     all_results = []
@@ -340,13 +307,12 @@ if __name__ == "__main__":
             print_scorecard(result)
             all_results.append(result)
 
-    # Save scoring results
+    # Save
     scoring_output = {r["name"]: {
         "composite_score": r["composite_score"],
         "grade": r["grade"],
         "dimension_scores": r["dimension_scores"],
-        "metrics": {k: {"value": str(v["value"]), "score": v["score"]}
-                    for k, v in r["metrics"].items()},
+        "metrics": {k: {"value": str(v["value"]), "score": v["score"]} for k, v in r["metrics"].items()},
     } for r in all_results}
 
     score_path = str(Path(OUTPUT_DIR) / "scores.json")
@@ -354,10 +320,9 @@ if __name__ == "__main__":
         json.dump(scoring_output, f, indent=2)
     print(f"\n\nScores saved to {score_path}")
 
-    # Comparison
     if len(all_results) >= 2:
         print(f"\n{'='*70}")
         print("  COMPARISON")
         print(f"{'='*70}")
-        for r in all_results:
-            print(f"  {r['name']:<40s}  Score: {r['composite_score']:>5.1f}  Grade: {r['grade']}")
+        for r in sorted(all_results, key=lambda x: x["composite_score"], reverse=True):
+            print(f"  {r['name']:<35s}  {r['composite_score']:>5.1f}/100  {r['grade']}")

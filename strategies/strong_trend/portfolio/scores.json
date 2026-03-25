@@ -1,12 +1,12 @@
 {
-  "AG Strong Trend HRP (AG+EC)": {
-    "composite_score": 73.8,
+  "AG Strong Trend HRP": {
+    "composite_score": 71.5,
     "grade": "B",
     "dimension_scores": {
       "return_risk": 7.22,
       "quality": 6.43,
-      "robustness": 9.0,
-      "practical": 7.5
+      "practical": 7.5,
+      "stability": 7.7
     },
     "metrics": {
       "sharpe": {
@@ -37,10 +37,6 @@
         "value": "49/50",
         "score": 9.8
       },
-      "cross_symbol": {
-        "value": "2 symbols",
-        "score": 9.0
-      },
       "strategy_count": {
         "value": "17",
         "score": 8
@@ -52,17 +48,25 @@
       "freq_diversity": {
         "value": "5 freqs (10min, 1h, 30min, 4h, daily)",
         "score": 9.5
+      },
+      "return_consistency": {
+        "value": "ret=40.1% sh=2.43",
+        "score": 8.5
+      },
+      "equity_stability": {
+        "value": "dd=5.9% cal=6.8",
+        "score": 6.9
       }
     }
   },
-  "LC Strong Trend HRP (\u78b3\u9178\u9502)": {
-    "composite_score": 81.4,
-    "grade": "A-",
+  "LC Strong Trend HRP": {
+    "composite_score": 87.6,
+    "grade": "A",
     "dimension_scores": {
       "return_risk": 8.82,
       "quality": 8.77,
-      "robustness": 6.0,
-      "practical": 8.17
+      "practical": 8.17,
+      "stability": 9.4
     },
     "metrics": {
       "sharpe": {
@@ -93,10 +97,6 @@
         "value": "44/50",
         "score": 8.8
       },
-      "cross_symbol": {
-        "value": "1 symbols",
-        "score": 6
-      },
       "strategy_count": {
         "value": "14",
         "score": 10
@@ -108,6 +108,14 @@
       "freq_diversity": {
         "value": "5 freqs (1h, 4h, 5min, 60min, daily)",
         "score": 9.5
+      },
+      "return_consistency": {
+        "value": "ret=28.0% sh=2.91",
+        "score": 10
+      },
+      "equity_stability": {
+        "value": "dd=3.1% cal=9.1",
+        "score": 8.8
       }
     }
   }
