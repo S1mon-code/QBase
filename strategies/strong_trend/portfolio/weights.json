@@ -1,0 +1,155 @@
+{
+  "method": "hrp",
+  "n_strategies": 17,
+  "sharpe_threshold": 0.5,
+  "corr_threshold": 0.7,
+  "total_capital": 3000000,
+  "strategies": {
+    "v12": {
+      "weight_hrp": 0.0072,
+      "weight_rp": 0.0322,
+      "mean_test_sharpe": 2.919,
+      "ag_sharpe": 3.09,
+      "ec_sharpe": 2.748,
+      "freq": "daily"
+    },
+    "v11": {
+      "weight_hrp": 0.0176,
+      "weight_rp": 0.0412,
+      "mean_test_sharpe": 2.531,
+      "ag_sharpe": 1.747,
+      "ec_sharpe": 3.316,
+      "freq": "daily"
+    },
+    "v34": {
+      "weight_hrp": 0.0654,
+      "weight_rp": 0.0974,
+      "mean_test_sharpe": 2.448,
+      "ag_sharpe": 1.689,
+      "ec_sharpe": 3.207,
+      "freq": "daily"
+    },
+    "v32": {
+      "weight_hrp": 0.1032,
+      "weight_rp": 0.1043,
+      "mean_test_sharpe": 1.947,
+      "ag_sharpe": 0.768,
+      "ec_sharpe": 3.126,
+      "freq": "daily"
+    },
+    "v9": {
+      "weight_hrp": 0.0097,
+      "weight_rp": 0.0227,
+      "mean_test_sharpe": 1.775,
+      "ag_sharpe": 2.152,
+      "ec_sharpe": 1.397,
+      "freq": "1h"
+    },
+    "v31": {
+      "weight_hrp": 0.0088,
+      "weight_rp": 0.0217,
+      "mean_test_sharpe": 1.553,
+      "ag_sharpe": 1.242,
+      "ec_sharpe": 1.864,
+      "freq": "4h"
+    },
+    "v44": {
+      "weight_hrp": 0.0205,
+      "weight_rp": 0.045,
+      "mean_test_sharpe": 1.328,
+      "ag_sharpe": 1.109,
+      "ec_sharpe": 1.547,
+      "freq": "10min"
+    },
+    "v16": {
+      "weight_hrp": 0.0112,
+      "weight_rp": 0.0333,
+      "mean_test_sharpe": 1.242,
+      "ag_sharpe": 1.166,
+      "ec_sharpe": 1.319,
+      "freq": "4h"
+    },
+    "v35": {
+      "weight_hrp": 0.005,
+      "weight_rp": 0.024,
+      "mean_test_sharpe": 1.196,
+      "ag_sharpe": -0.187,
+      "ec_sharpe": 2.578,
+      "freq": "daily"
+    },
+    "v1": {
+      "weight_hrp": 0.0035,
+      "weight_rp": 0.0183,
+      "mean_test_sharpe": 1.15,
+      "ag_sharpe": 0.439,
+      "ec_sharpe": 1.861,
+      "freq": "daily"
+    },
+    "v49": {
+      "weight_hrp": 0.0866,
+      "weight_rp": 0.0801,
+      "mean_test_sharpe": 1.094,
+      "ag_sharpe": 1.763,
+      "ec_sharpe": 0.426,
+      "freq": "daily"
+    },
+    "v27": {
+      "weight_hrp": 0.1509,
+      "weight_rp": 0.0896,
+      "mean_test_sharpe": 0.999,
+      "ag_sharpe": 0.388,
+      "ec_sharpe": 1.61,
+      "freq": "4h"
+    },
+    "v40": {
+      "weight_hrp": 0.1294,
+      "weight_rp": 0.1105,
+      "mean_test_sharpe": 0.946,
+      "ag_sharpe": 1.365,
+      "ec_sharpe": 0.527,
+      "freq": "4h"
+    },
+    "v36": {
+      "weight_hrp": 0.005,
+      "weight_rp": 0.0192,
+      "mean_test_sharpe": 0.869,
+      "ag_sharpe": 0.41,
+      "ec_sharpe": 1.327,
+      "freq": "daily"
+    },
+    "v41": {
+      "weight_hrp": 0.241,
+      "weight_rp": 0.1139,
+      "mean_test_sharpe": 0.859,
+      "ag_sharpe": 0.957,
+      "ec_sharpe": 0.76,
+      "freq": "30min"
+    },
+    "v13": {
+      "weight_hrp": 0.1217,
+      "weight_rp": 0.1072,
+      "mean_test_sharpe": 0.808,
+      "ag_sharpe": 0.017,
+      "ec_sharpe": 1.599,
+      "freq": "4h"
+    },
+    "v33": {
+      "weight_hrp": 0.0133,
+      "weight_rp": 0.0393,
+      "mean_test_sharpe": 0.53,
+      "ag_sharpe": -0.468,
+      "ec_sharpe": 1.528,
+      "freq": "daily"
+    }
+  },
+  "hrp_ag_sharpe": 2.43,
+  "hrp_ag_return": 0.3011,
+  "hrp_ag_maxdd": 0.0592,
+  "hrp_ec_sharpe": 3.309,
+  "hrp_ec_return": 1.281,
+  "hrp_ec_maxdd": 0.0878,
+  "rp_ag_sharpe": 2.351,
+  "rp_ag_return": 0.8263,
+  "rp_ag_maxdd": 0.1767,
+  "avg_correlation": 0.449
+}
