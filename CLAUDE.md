@@ -50,7 +50,17 @@ QBase/
 - 基本面衍生指标（库存、持仓结构等）
 - 自定义统计量
 
-开发新指标时放入 `indicators/` 对应分类，保持纯函数风格（numpy in → numpy out）。
+开发新指标时**必须**放入 `indicators/` 对应分类，保持纯函数风格（numpy in → numpy out），供未来所有策略复用。分类规则：
+
+| 分类 | 放入 | 示例 |
+|------|------|------|
+| 品种比值/价差 | `indicators/momentum/` 或新建 `indicators/spread/` | 铁煤比、金银比 |
+| 跨品种相关性 | `indicators/momentum/` | 板块动量扩散 |
+| 波动率衍生 | `indicators/volatility/` | 自定义波动率模型 |
+| 量价/持仓衍生 | `indicators/volume/` | OI 结构分析 |
+| 趋势衍生 | `indicators/trend/` | 自定义趋势评分 |
+
+如果现有 4 个分类都不合适，可以新建分类文件夹（如 `indicators/spread/`、`indicators/fundamental/`）。
 
 **选择思路（参考，不强制）：**
 - 趋势策略常见组合: 趋势判断 + 动量确认 + 波动率过滤
