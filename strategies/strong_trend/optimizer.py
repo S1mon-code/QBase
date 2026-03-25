@@ -578,7 +578,7 @@ if __name__ == "__main__":
     verbose = not args.quiet
 
     if args.strategy == "all":
-        versions = [f"v{i}" for i in range(1, 21)]
+        versions = [f"v{i}" for i in range(1, 51)]
     else:
         versions = [args.strategy]
 
