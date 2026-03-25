@@ -668,6 +668,89 @@ python strategies/strong_trend/validate_and_iterate.py
 [indicator] add parabolic SAR to trend category
 ```
 
+## 风险管理框架
+
+### 单笔风险
+
+每笔交易最大风险 = 账户权益的 **2%**。这是仓位计算的基础：
+
+```python
+# 标准仓位公式
+lots = (equity * 0.02) / (stop_distance * contract_multiplier)
+
+# 示例：AG 白银，权益 100万，ATR=50，止损 3.5×ATR
+# lots = 1,000,000 * 0.02 / (50 * 3.5 * 15) = 7.6 → 7 手
+```
+
+### 总敞口限制
+
+| 限制 | 数值 | 说明 |
+|------|------|------|
+| 单策略最大持仓 | 权益的 **30%** 保证金占用 | 含所有加仓层 |
+| 单品种最大持仓 | 权益的 **40%** 保证金占用 | 同品种多策略合计 |
+| 总账户最大持仓 | 权益的 **80%** 保证金占用 | 留 20% 现金缓冲 |
+| 单笔最大亏损 | 权益的 **2%** | 通过仓位公式控制 |
+| 单日最大亏损 | 权益的 **5%** | 触发后当日停止交易 |
+
+### 合约参数：动态获取，不要硬编码
+
+从 AlphaForge 的 `ContractSpecManager` 获取品种参数：
+
+```python
+from alphaforge.data.contract_specs import ContractSpecManager
+
+specs = ContractSpecManager()
+spec = specs.get("AG")
+spec.multiplier      # 15
+spec.tick_size        # 1.0
+spec.margin_rate      # 0.08
+spec.commission_open  # 0.00005 (ratio)
+
+# 仓位计算中使用
+margin_per_lot = price * spec.multiplier * spec.margin_rate
+max_lots_by_margin = int(equity * 0.30 / margin_per_lot)  # 30% 上限
+lots = min(risk_lots, max_lots_by_margin)
+```
+
+## 中国期货特殊规则
+
+### 夜盘归属
+
+中国期货夜盘（21:00-次日02:30）归属**下一个交易日**。AlphaForge 的 `context.trading_day` 已正确处理此逻辑。
+
+注意事项：
+- 周五夜盘 → 属于下周一交易日
+- 节假日前最后一个夜盘 → 属于节后第一个交易日
+- 判断日内/隔夜时用 `trading_day` 而非 `datetime`
+
+### 涨跌停
+
+- 触及涨跌停时 AlphaForge 拒绝成交
+- 不同品种涨跌停幅度不同（一般 4%-8%，通过 `spec.price_limit` 获取）
+- 策略不应在涨跌停附近下单（成交概率低）
+
+### 数据可用范围
+
+AlphaForge 含 95 品种的 1min 连续合约数据，但**各品种上市时间不同**：
+
+| 上市时间段 | 品种示例 |
+|-----------|---------|
+| 2005-2010 | CU, AL, ZN, RU, A, M, Y, C, CF, SR, TA, L |
+| 2010-2015 | AG, AU, I, J, JM, RB, HC, FG, RM, OI, CS |
+| 2015-2020 | NI, SN, SC, SP, EG, EB, SA, SS, PG, LU, BC |
+| 2020-2026 | LC, SI, PX, EC, BR, AO, PS |
+
+使用品种前先确认数据起始日期：
+```python
+loader = MarketDataLoader("data/")
+symbols = loader.available_symbols()  # 所有可用品种
+bars = loader.load("AG", freq="daily", start="2012-05-10")  # AG 从2012年开始
+```
+
+## 实战经验参考
+
+详见 `research_log/lessons_learned.md`（独立文档，记录已验证的实战经验和教训）。
+
 ## 注意事项
 
 - 指标是纯函数（numpy in → numpy out），每次 on_bar 传入数组调用
@@ -676,3 +759,5 @@ python strategies/strong_trend/validate_and_iterate.py
 - 信号在下一个 bar 的 open 执行，不是当前 bar
 - 同品种不可同时持有多空仓位
 - 保证金不足会被拒绝开仓，权益低于维持保证金会被强平
+- FIFO 平仓：先平昨仓（便宜），再平今仓（贵）
+- 单笔成交量不超过该 bar 成交量的 10%
