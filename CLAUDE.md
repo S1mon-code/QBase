@@ -51,7 +51,84 @@ QBase/
 
 指标可以来自任意分类，自由组合。关键是 3 个指标之间要有互补性，不要选同类指标（如同时用 RSI + Stochastic + Williams %R 是错误的）。
 
-### 2. 策略目录结构
+### 2. 加仓减仓机制
+
+#### 加仓：金字塔递减
+
+每次加仓手数递减，控制均价风险：
+
+```python
+# 标准配置
+SCALE_FACTORS = [1.0, 0.5, 0.25]   # 首仓100% → 加仓50% → 加仓25%
+MAX_SCALE = 3                        # 最多3层（首仓 + 2次加仓）
+```
+
+**加仓三大前提（缺一不可）：**
+
+1. **盈利前提** — 现有持仓浮盈 ≥ 1×ATR 才允许加仓。绝不在亏损时加仓
+2. **信号确认** — 策略指标仍然给出加仓信号（动量加速、突破新高等）
+3. **最小间隔** — 两次加仓之间至少间隔 10 根 bar，避免在同一位置连续加仓
+
+```python
+# 加仓逻辑模板
+def _should_add(self, context, price, atr_val):
+    """检查是否满足加仓条件"""
+    if self.position_scale >= MAX_SCALE:
+        return False
+    if self.bars_since_last_scale < 10:       # 最小间隔
+        return False
+    if price < self.entry_price + atr_val:    # 盈利前提：浮盈 ≥ 1ATR
+        return False
+    # ... 策略特定的信号确认条件
+    return True
+
+def _calc_add_lots(self, base_lots):
+    """金字塔递减手数"""
+    factor = SCALE_FACTORS[self.position_scale]  # 0.5, 0.25, ...
+    return max(1, int(base_lots * factor))
+```
+
+#### 减仓：分层止盈 + 信号弱化
+
+**分层止盈（锁定利润）：**
+
+| 浮盈达到 | 动作 | 剩余仓位 |
+|---------|------|---------|
+| 3×ATR | 减仓 1/3 | 67% |
+| 5×ATR | 再减 1/3 | 33% |
+| 追踪止损触发 | 平掉剩余 | 0% |
+
+**信号弱化减仓：**
+- 指标走弱但未反转（如 ROC 回落但仍为正、ADX 下降但仍 >20）→ 减半仓
+- 主退出信号触发 → 全部平仓
+
+```python
+# 减仓逻辑模板
+def _check_partial_exit(self, context, price, atr_val):
+    """分层止盈检查"""
+    profit_atr = (price - self.entry_price) / atr_val
+
+    if profit_atr >= 5.0 and not self._took_profit_5atr:
+        # 盈利达 5ATR → 再减 1/3
+        lots_to_close = max(1, context.position[1] // 3)
+        context.close_long(lots=lots_to_close)
+        self._took_profit_5atr = True
+        self.position_scale -= 1
+
+    elif profit_atr >= 3.0 and not self._took_profit_3atr:
+        # 盈利达 3ATR → 减 1/3
+        lots_to_close = max(1, context.position[1] // 3)
+        context.close_long(lots=lots_to_close)
+        self._took_profit_3atr = True
+        self.position_scale -= 1
+```
+
+**关键原则：**
+- 不要一次全部减完 — 趋势可能继续，减仓是锁利润不是放弃
+- 至少保留 25% 底仓直到主退出信号触发
+- 减仓后的止损只能收紧，不能放宽
+
+### 3. 策略目录结构
 
 策略库有两种组织方式：
 
