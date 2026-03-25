@@ -49,6 +49,15 @@ class StrongTrendV25(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        self._slope = None
+        self._vi_plus = None
+        self._vi_minus = None
+        self._vol_spikes = None
+        self._vol_dry = None
+        self._atr = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0          # 0 = flat, 1-3 = position tiers
@@ -58,36 +67,37 @@ class StrongTrendV25(TimeSeriesStrategy):
         self.prev_slope = np.nan         # Previous bar slope for acceleration
         self.prev_vi_spread = np.nan     # Previous VI+ - VI- spread
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        self._slope = linear_regression_slope(closes, self.slope_period)
+        self._vi_plus, self._vi_minus = vortex(highs, lows, closes, self.vortex_period)
+        self._vol_spikes = volume_spike(volumes, period=self.vol_period,
+                                        threshold=self.vol_threshold)
+        self._vol_dry = volume_dry_up(volumes, period=self.vol_period, threshold=0.5)
+        self._atr = atr(highs, lows, closes, period=14)
+
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.slope_period + 10,
-                       self.vortex_period + 10, self.vol_period + 10)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
+        i = context.bar_index
 
-        if len(closes) < lookback:
+        if i < 2:
             return
 
-        # ----- Compute indicators -----
-        slope = linear_regression_slope(closes, self.slope_period)
-        vi_plus, vi_minus = vortex(highs, lows, closes, self.vortex_period)
-        vol_spikes = volume_spike(volumes, period=self.vol_period,
-                                  threshold=self.vol_threshold)
-        vol_dry = volume_dry_up(volumes, period=self.vol_period, threshold=0.5)
-        atr_vals = atr(highs, lows, closes, period=14)
-
-        # Current values
-        cur_slope = slope[-1]
-        cur_vi_plus = vi_plus[-1]
-        cur_vi_minus = vi_minus[-1]
+        # ----- Look up pre-computed indicators -----
+        cur_slope = self._slope[i]
+        cur_vi_plus = self._vi_plus[i]
+        cur_vi_minus = self._vi_minus[i]
         cur_vi_spread = cur_vi_plus - cur_vi_minus
-        cur_atr = atr_vals[-1]
-        price = context.current_bar.close_raw
+        cur_atr = self._atr[i]
+        price = context.close_raw
 
         # Guard: skip if indicators aren't ready
         if (np.isnan(cur_slope) or np.isnan(cur_vi_plus)
@@ -97,8 +107,8 @@ class StrongTrendV25(TimeSeriesStrategy):
             return
 
         # Volume spike in last 3 bars
-        recent_vol_spike = np.any(vol_spikes[-3:])
-        cur_vol_dry = vol_dry[-1]
+        recent_vol_spike = np.any(self._vol_spikes[max(0, i - 2):i + 1])
+        cur_vol_dry = self._vol_dry[i]
 
         side, lots = context.position
         self.bars_since_last_scale += 1

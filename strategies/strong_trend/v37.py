@@ -50,6 +50,15 @@ class StrongTrendV37(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        self._frac_high = None
+        self._frac_low = None
+        self._rwi_high = None
+        self._rwi_low = None
+        self._fi = None
+        self._atr = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0
@@ -58,35 +67,34 @@ class StrongTrendV37(TimeSeriesStrategy):
         self.bars_since_last_scale = 999  # large initial value
         self.prev_fractal_high = 0.0      # track for add signal
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        self._frac_high, self._frac_low = fractal_levels(highs, lows, self.fractal_period)
+        self._rwi_high, self._rwi_low = rwi(highs, lows, closes, self.rwi_period)
+        self._fi = force_index(closes, volumes, self.fi_period)
+        self._atr = atr(highs, lows, closes, period=self.atr_period)
+
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.rwi_period * 3, self.fi_period + 10)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
-
-        if len(closes) < lookback:
-            return
+        i = context.bar_index
 
         self.bars_since_last_scale += 1
 
-        # ----- Compute indicators -----
-        frac_high, frac_low = fractal_levels(highs, lows, self.fractal_period)
-        rwi_high, rwi_low = rwi(highs, lows, closes, self.rwi_period)
-        fi_vals = force_index(closes, volumes, self.fi_period)
-        atr_vals = atr(highs, lows, closes, period=self.atr_period)
-
-        # Current values
-        cur_frac_high = frac_high[-1]
-        cur_frac_low = frac_low[-1]
-        cur_rwi_high = rwi_high[-1]
-        cur_fi = fi_vals[-1]
-        cur_atr = atr_vals[-1]
-        price = context.current_bar.close_raw
+        # ----- Lookup pre-computed indicators -----
+        cur_frac_high = self._frac_high[i]
+        cur_frac_low = self._frac_low[i]
+        cur_rwi_high = self._rwi_high[i]
+        cur_fi = self._fi[i]
+        cur_atr = self._atr[i]
+        price = context.close_raw
 
         # Guard: skip if indicators aren't ready
         if (np.isnan(cur_frac_high) or np.isnan(cur_frac_low)

@@ -50,6 +50,16 @@ class StrongTrendV22(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        self._hma = None
+        self._aroon_up = None
+        self._aroon_down = None
+        self._aroon_osc = None
+        self._cmf = None
+        self._atr = None
+        self._closes = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0
@@ -57,36 +67,39 @@ class StrongTrendV22(TimeSeriesStrategy):
         self.trail_stop = 0.0
         self.bars_since_last_scale = 999  # large initial value
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        self._closes = closes
+        self._hma = hma(closes, self.hma_period)
+        self._aroon_up, self._aroon_down, self._aroon_osc = aroon(highs, lows, self.aroon_period)
+        self._cmf = cmf(highs, lows, closes, volumes, self.cmf_period)
+        self._atr = atr(highs, lows, closes, self.atr_period)
+
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.hma_period + 10, self.aroon_period + 5, self.cmf_period + 5)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
+        i = context.bar_index
 
-        if len(closes) < lookback:
+        if i < 1:
             return
 
         self.bars_since_last_scale += 1
 
-        # ----- Compute indicators -----
-        hma_vals = hma(closes, self.hma_period)
-        aroon_up, aroon_down, aroon_osc = aroon(highs, lows, self.aroon_period)
-        cmf_vals = cmf(highs, lows, closes, volumes, self.cmf_period)
-        atr_vals = atr(highs, lows, closes, self.atr_period)
-
-        # Current values
-        price = context.current_bar.close_raw
-        cur_hma = hma_vals[-1]
-        prev_hma = hma_vals[-2]
-        cur_aroon_osc = aroon_osc[-1]
-        cur_aroon_up = aroon_up[-1]
-        cur_cmf = cmf_vals[-1]
-        cur_atr = atr_vals[-1]
+        # ----- Look up pre-computed indicators -----
+        price = context.close_raw
+        cur_hma = self._hma[i]
+        prev_hma = self._hma[i - 1]
+        cur_aroon_osc = self._aroon_osc[i]
+        cur_aroon_up = self._aroon_up[i]
+        cur_cmf = self._cmf[i]
+        cur_atr = self._atr[i]
 
         # Guard: skip if indicators aren't ready
         if (np.isnan(cur_hma) or np.isnan(prev_hma) or np.isnan(cur_aroon_osc)
@@ -95,7 +108,7 @@ class StrongTrendV22(TimeSeriesStrategy):
 
         # Derived signals
         hma_rising = cur_hma > prev_hma
-        price_above_hma = closes[-1] > cur_hma
+        price_above_hma = self._closes[i] > cur_hma
 
         side, lots = context.position
 

@@ -44,39 +44,47 @@ class StrongTrendV19(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0  # Default for most commodities
 
+    def __init__(self):
+        super().__init__()
+        self._mcg = None
+        self._cop = None
+        self._ad = None
+        self._atr = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0         # 0 = flat, 1-3 = position tiers
         self.trailing_stop = 0.0        # Trailing stop price
         self.prev_coppock = np.nan      # Previous bar's Coppock for acceleration check
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        self._mcg = mcginley_dynamic(closes, self.mcg_period)
+        self._cop = coppock(closes, self.cop_wma, self.cop_roc_long, self.cop_roc_short)
+        self._ad = ad_line(highs, lows, closes, volumes)
+        self._atr = atr(highs, lows, closes, period=14)
+
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.cop_roc_long + self.cop_wma + 10)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
-
-        if len(closes) < lookback:
+        i = context.bar_index
+        if i < 4:
             return
 
-        # ----- Compute indicators -----
-        mcg = mcginley_dynamic(closes, self.mcg_period)
-        cop = coppock(closes, self.cop_wma, self.cop_roc_long, self.cop_roc_short)
-        ad = ad_line(highs, lows, closes, volumes)
-        atr_vals = atr(highs, lows, closes, period=14)
-
         # Current values
-        price = context.current_bar.close_raw
-        cur_mcg = mcg[-1]
-        prev_mcg = mcg[-2]
-        cur_cop = cop[-1]
-        prev_cop = cop[-2] if len(cop) >= 2 else np.nan
-        cur_atr = atr_vals[-1]
+        price = context.close_raw
+        cur_mcg = self._mcg[i]
+        prev_mcg = self._mcg[i - 1]
+        cur_cop = self._cop[i]
+        prev_cop = self._cop[i - 1]
+        cur_atr = self._atr[i]
 
         # Guard: skip if indicators aren't ready
         if np.isnan(cur_mcg) or np.isnan(cur_cop) or np.isnan(cur_atr):
@@ -92,7 +100,7 @@ class StrongTrendV19(TimeSeriesStrategy):
             and cur_cop > self.prev_coppock
             and cur_cop > 0
         )
-        ad_rising = ad[-1] > ad[-5] if len(ad) >= 5 else False
+        ad_rising = self._ad[i] > self._ad[i - 4]
         ad_falling = not ad_rising
 
         side, lots = context.position

@@ -50,6 +50,14 @@ class StrongTrendV24(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        self._psar_vals = None
+        self._psar_dir = None
+        self._cci = None
+        self._oi_div = None
+        self._atr = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0
@@ -57,43 +65,42 @@ class StrongTrendV24(TimeSeriesStrategy):
         self.trail_stop = 0.0
         self.bars_since_last_scale = 999  # large initial value
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        self._psar_vals, self._psar_dir = psar(
+            highs, lows,
+            af_step=self.psar_af_step, af_max=self.psar_af_max,
+        )
+        self._cci = cci(highs, lows, closes, period=self.cci_period)
+        self._atr = atr(highs, lows, closes, period=14)
+
+        # OI divergence — use actual OI if available, else volume as proxy
+        try:
+            oi_data = context.get_full_oi_array()
+        except (AttributeError, Exception):
+            oi_data = volumes  # Fallback: use volume as proxy
+        self._oi_div = oi_divergence(closes, oi_data, period=self.oi_period)
+
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.cci_period + 5, self.oi_period + 10)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
-
-        if len(closes) < lookback:
-            return
+        i = context.bar_index
 
         self.bars_since_last_scale += 1
 
-        # ----- Compute indicators -----
-        psar_vals, psar_dir = psar(
-            highs, lows,
-            af_step=self.psar_af_step, af_max=self.psar_af_max,
-        )
-        cci_vals = cci(highs, lows, closes, period=self.cci_period)
-        atr_vals = atr(highs, lows, closes, period=14)
-
-        # OI divergence — use actual OI if available, else volume as proxy
-        try:
-            oi_data = context.get_oi_array(lookback)
-        except (AttributeError, Exception):
-            oi_data = volumes  # Fallback: use volume as proxy
-        oi_div = oi_divergence(closes, oi_data, period=self.oi_period)
-
-        # Current values
-        price = context.current_bar.close_raw
-        cur_psar_dir = psar_dir[-1]
-        cur_cci = cci_vals[-1]
-        cur_oi_div = oi_div[-1]
-        cur_atr = atr_vals[-1]
+        # ----- Look up pre-computed indicators -----
+        price = context.close_raw
+        cur_psar_dir = self._psar_dir[i]
+        cur_cci = self._cci[i]
+        cur_oi_div = self._oi_div[i]
+        cur_atr = self._atr[i]
 
         # Guard: skip if indicators aren't ready
         if (np.isnan(cur_psar_dir) or np.isnan(cur_cci)

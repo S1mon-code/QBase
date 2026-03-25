@@ -47,6 +47,18 @@ class StrongTrendV43(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        # Small TF indicators (5min)
+        self._stoch_k = None
+        self._atr = None
+        # Large TF indicators (4h, pre-mapped to 5min indices)
+        self._senkou_a_4h = None
+        self._senkou_b_4h = None
+        self._closes_4h = None
+        self._4h_map = None  # 5min index → 4h index mapping
+        self._n_4h = 0       # number of 4h bars
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0
@@ -54,88 +66,77 @@ class StrongTrendV43(TimeSeriesStrategy):
         self.trail_stop = 0.0
         self.bars_since_last_scale = 999  # large initial value
 
-    # ------------------------------------------------------------------
-    # Aggregate 5min bars → 4h bars (48 bars per group)
-    # ------------------------------------------------------------------
-    @staticmethod
-    def _aggregate_4h(highs_5m, lows_5m, closes_5m, step=48):
-        """Aggregate 5min OHLC arrays into 4h OHLC arrays."""
-        n_groups = len(closes_5m) // step
-        if n_groups < 1:
-            return None, None, None
-        trim = n_groups * step
-        groups_c = closes_5m[:trim].reshape(n_groups, step)
-        groups_h = highs_5m[:trim].reshape(n_groups, step)
-        groups_l = lows_5m[:trim].reshape(n_groups, step)
-        closes_4h = groups_c[:, -1]
-        highs_4h = groups_h.max(axis=1)
-        lows_4h = groups_l.min(axis=1)
-        return highs_4h, lows_4h, closes_4h
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators once. Aggregate 5min → 4h."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        n = len(closes)
+
+        # Small TF indicators (5min)
+        k_vals, _ = stochastic(highs, lows, closes,
+                               k_period=self.stoch_k, d_period=self.stoch_d)
+        self._stoch_k = k_vals
+        self._atr = atr(highs, lows, closes, period=14)
+
+        # Aggregate to 4h (step = 48: 48 × 5min = 4h)
+        step = 48
+        n_4h = n // step
+        trim = n_4h * step
+        closes_4h = closes[:trim].reshape(n_4h, step)[:, -1]
+        highs_4h = highs[:trim].reshape(n_4h, step).max(axis=1)
+        lows_4h = lows[:trim].reshape(n_4h, step).min(axis=1)
+
+        self._closes_4h = closes_4h
+        self._n_4h = n_4h
+
+        # Large TF indicators (4h Ichimoku)
+        _, _, senkou_a, senkou_b_line, _ = ichimoku(
+            highs_4h, lows_4h, closes_4h,
+            tenkan=self.tenkan, kijun=self.kijun, senkou_b=52, displacement=26,
+        )
+        self._senkou_a_4h = senkou_a
+        self._senkou_b_4h = senkou_b_line
+
+        # Index mapping: for 5min bar i, the latest COMPLETED 4h bar
+        self._4h_map = np.maximum(0, (np.arange(n) + 1) // step - 1)
 
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every 5min bar."""
-        lookback = self.warmup
-        closes_5m = context.get_close_array(lookback)
-        highs_5m = context.get_high_array(lookback)
-        lows_5m = context.get_low_array(lookback)
-
-        if len(closes_5m) < lookback:
-            return
+        i = context.bar_index
+        j = self._4h_map[i]  # corresponding 4h bar
 
         self.bars_since_last_scale += 1
 
-        # ----- Aggregate to 4h -----
-        highs_4h, lows_4h, closes_4h = self._aggregate_4h(
-            highs_5m, lows_5m, closes_5m, step=48
-        )
-        if highs_4h is None or len(closes_4h) < 60:
+        # ----- Lookup pre-computed values -----
+        cur_k = self._stoch_k[i]
+        cur_atr = self._atr[i]
+
+        # NaN guard for small TF
+        if np.isnan(cur_k) or np.isnan(cur_atr) or cur_atr <= 0:
             return
 
-        # ----- Compute 4h Ichimoku cloud -----
-        tenkan_sen, kijun_sen, senkou_a, senkou_b_line, _ = ichimoku(
-            highs_4h, lows_4h, closes_4h,
-            tenkan=self.tenkan, kijun=self.kijun, senkou_b=52, displacement=26,
-        )
-        # Cloud top and bottom at the current 4h bar position
-        # senkou_a/b are shifted forward by displacement, so current cloud
-        # value for bar i is at index i in the extended array.
-        n4h = len(closes_4h)
-        cloud_idx = n4h - 1  # current 4h bar index in the extended arrays
-        if cloud_idx >= len(senkou_a) or cloud_idx >= len(senkou_b_line):
+        # ----- 4h Ichimoku cloud at current 4h bar -----
+        cloud_idx = j  # current 4h bar index in the extended arrays
+        if cloud_idx >= len(self._senkou_a_4h) or cloud_idx >= len(self._senkou_b_4h):
             return
-        sa = senkou_a[cloud_idx]
-        sb = senkou_b_line[cloud_idx]
+        sa = self._senkou_a_4h[cloud_idx]
+        sb = self._senkou_b_4h[cloud_idx]
         if np.isnan(sa) or np.isnan(sb):
             return
         cloud_top = max(sa, sb)
         cloud_bottom = min(sa, sb)
-        price_4h = closes_4h[-1]
-
-        # ----- Compute 5min Stochastic -----
-        stoch_len = min(len(closes_5m), 200)
-        k_vals, d_vals = stochastic(
-            highs_5m[-stoch_len:], lows_5m[-stoch_len:], closes_5m[-stoch_len:],
-            k_period=self.stoch_k, d_period=self.stoch_d,
-        )
-        if len(k_vals) == 0 or np.isnan(k_vals[-1]):
-            return
-        cur_k = k_vals[-1]
-
-        # ----- Compute 5min ATR -----
-        atr_vals = atr(highs_5m[-60:], lows_5m[-60:], closes_5m[-60:], period=14)
-        if len(atr_vals) == 0 or np.isnan(atr_vals[-1]):
-            return
-        cur_atr = atr_vals[-1]
-
-        price = context.current_bar.close_raw
-        side, lots = context.position
+        price_4h = self._closes_4h[j]
 
         # ----- Derived conditions -----
         above_cloud = price_4h > cloud_top
         below_cloud = price_4h < cloud_bottom
+
+        price = context.close_raw
+        side, lots = context.position
 
         # Update trailing stop
         if lots > 0 and cur_atr > 0:

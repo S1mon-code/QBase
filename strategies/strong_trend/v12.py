@@ -44,40 +44,51 @@ class StrongTrendV12(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0  # Default for most commodities
 
+    def __init__(self):
+        super().__init__()
+        self._aroon_up = None
+        self._aroon_down = None
+        self._aroon_osc = None
+        self._ppo_line = None
+        self._ppo_signal = None
+        self._ppo_hist = None
+        self._vol_mom = None
+        self._atr = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0       # 0 = flat, 1-3 = position tiers
         self.prev_ppo_hist = np.nan   # Previous bar's PPO histogram for acceleration
         self.trail_stop = 0.0         # Trailing stop level
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        self._aroon_up, self._aroon_down, self._aroon_osc = aroon(highs, lows, self.aroon_period)
+        self._ppo_line, self._ppo_signal, self._ppo_hist = ppo(closes, self.ppo_fast, self.ppo_slow)
+        self._vol_mom = volume_momentum(volumes, self.vol_mom_period)
+        self._atr = atr(highs, lows, closes, period=14)
+
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.aroon_period + 10, self.ppo_slow + 20,
-                       self.vol_mom_period * 2 + 10)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
-
-        if len(closes) < lookback:
+        i = context.bar_index
+        if i < 1:
             return
 
-        # ----- Compute indicators -----
-        aroon_up, aroon_down, aroon_osc = aroon(highs, lows, self.aroon_period)
-        ppo_line, ppo_signal, ppo_hist = ppo(closes, self.ppo_fast, self.ppo_slow)
-        vol_mom = volume_momentum(volumes, self.vol_mom_period)
-        atr_vals = atr(highs, lows, closes, period=14)
-
         # Current values
-        cur_aroon_up = aroon_up[-1]
-        cur_aroon_osc = aroon_osc[-1]
-        cur_ppo_hist = ppo_hist[-1]
-        cur_vol_mom = vol_mom[-1]
-        cur_atr = atr_vals[-1]
-        price = context.current_bar.close_raw
+        cur_aroon_up = self._aroon_up[i]
+        cur_aroon_osc = self._aroon_osc[i]
+        cur_ppo_hist = self._ppo_hist[i]
+        cur_vol_mom = self._vol_mom[i]
+        cur_atr = self._atr[i]
+        price = context.close_raw
 
         # Guard: skip if indicators aren't ready
         if (np.isnan(cur_aroon_osc) or np.isnan(cur_ppo_hist)
@@ -118,10 +129,11 @@ class StrongTrendV12(TimeSeriesStrategy):
         # ADD — Aroon up = 100 (new high) + PPO accelerating + scale < 3
         # ==================================================================
         if lots > 0 and self.position_scale < 3:
+            prev_ppo_hist = self._ppo_hist[i - 1]
             ppo_accelerating = (
-                not np.isnan(self.prev_ppo_hist)
+                not np.isnan(prev_ppo_hist)
                 and cur_ppo_hist > 0
-                and cur_ppo_hist > self.prev_ppo_hist
+                and cur_ppo_hist > prev_ppo_hist
             )
             if cur_aroon_up >= 100 and ppo_accelerating:
                 add_lots = self._calc_lots(context, cur_atr)

@@ -50,6 +50,15 @@ class StrongTrendV34(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        self._mcg = None
+        self._ppo_line = None
+        self._ppo_signal = None
+        self._ppo_hist = None
+        self._oi_mom = None
+        self._atr = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0
@@ -57,36 +66,37 @@ class StrongTrendV34(TimeSeriesStrategy):
         self.trail_stop = 0.0
         self.bars_since_last_scale = 999  # large initial value
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        oi_arr = context.get_full_volume_array()  # OI via volume array
+
+        self._mcg = mcginley_dynamic(closes, self.mcg_period)
+        self._ppo_line, self._ppo_signal, self._ppo_hist = ppo(closes, self.ppo_fast, self.ppo_slow)
+        self._oi_mom = oi_momentum(oi_arr, self.oi_period)
+        self._atr = atr(highs, lows, closes, period=14)
+
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.ppo_slow + 20, self.oi_period + 10)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        oi_arr = context.get_volume_array(lookback)  # OI via volume array
-
-        if len(closes) < lookback:
+        i = context.bar_index
+        if i < 1:
             return
 
         self.bars_since_last_scale += 1
 
-        # ----- Compute indicators -----
-        mcg_vals = mcginley_dynamic(closes, self.mcg_period)
-        ppo_line, ppo_signal, ppo_hist = ppo(closes, self.ppo_fast, self.ppo_slow)
-        oi_mom_vals = oi_momentum(oi_arr, self.oi_period)
-        atr_vals = atr(highs, lows, closes, period=14)
-
-        # Current values
-        cur_mcg = mcg_vals[-1]
-        prev_mcg = mcg_vals[-2] if len(mcg_vals) >= 2 else np.nan
-        cur_ppo_hist = ppo_hist[-1]
-        prev_ppo_hist = ppo_hist[-2] if len(ppo_hist) >= 2 else np.nan
-        cur_oi_mom = oi_mom_vals[-1]
-        cur_atr = atr_vals[-1]
-        price = context.current_bar.close_raw
+        # ----- Lookup pre-computed indicators -----
+        cur_mcg = self._mcg[i]
+        prev_mcg = self._mcg[i - 1]
+        cur_ppo_hist = self._ppo_hist[i]
+        prev_ppo_hist = self._ppo_hist[i - 1]
+        cur_oi_mom = self._oi_mom[i]
+        cur_atr = self._atr[i]
+        price = context.close_raw
 
         # McGinley rising: current > previous
         mcg_rising = (

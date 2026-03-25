@@ -42,6 +42,14 @@ class StrongTrendV20(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0  # Default for most commodities
 
+    def __init__(self):
+        super().__init__()
+        self._frac_high = None
+        self._frac_low = None
+        self._mi = None
+        self._vroc = None
+        self._atr = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0         # 0 = flat, 1-3 = position tiers
@@ -49,33 +57,32 @@ class StrongTrendV20(TimeSeriesStrategy):
         self.prev_fractal_high = np.nan # Track previous fractal high for add logic
         self.mass_was_above_27 = False  # Track reversal bulge state
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        self._frac_high, self._frac_low = fractal_levels(highs, lows, self.fractal_period)
+        self._mi = mass_index(highs, lows, self.mass_ema, self.mass_sum)
+        self._vroc = vroc(volumes, self.vroc_period)
+        self._atr = atr(highs, lows, closes, period=14)
+
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.mass_sum + 10, self.vroc_period + 5)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
-
-        if len(closes) < lookback:
-            return
-
-        # ----- Compute indicators -----
-        frac_high, frac_low = fractal_levels(highs, lows, self.fractal_period)
-        mi = mass_index(highs, lows, self.mass_ema, self.mass_sum)
-        vroc_arr = vroc(volumes, self.vroc_period)
-        atr_arr = atr(highs, lows, closes, period=14)
+        i = context.bar_index
 
         # Current values
-        price = context.current_bar.close_raw
-        cur_frac_high = frac_high[-1]
-        cur_frac_low = frac_low[-1]
-        cur_mi = mi[-1]
-        cur_vroc = vroc_arr[-1]
-        cur_atr = atr_arr[-1]
+        price = context.close_raw
+        cur_frac_high = self._frac_high[i]
+        cur_frac_low = self._frac_low[i]
+        cur_mi = self._mi[i]
+        cur_vroc = self._vroc[i]
+        cur_atr = self._atr[i]
 
         # Guard: skip if indicators aren't ready
         if (np.isnan(cur_frac_high) or np.isnan(cur_frac_low)

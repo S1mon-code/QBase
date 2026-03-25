@@ -43,45 +43,52 @@ class StrongTrendV1(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0  # Default for most commodities
 
+    def __init__(self):
+        super().__init__()
+        self._st_line = None
+        self._st_dir = None
+        self._roc = None
+        self._vol_spikes = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0     # 0 = flat, 1-3 = position tiers
-        self.prev_roc = np.nan      # Previous bar's ROC for acceleration check
+
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        self._st_line, self._st_dir = supertrend(highs, lows, closes, self.st_period, self.st_mult)
+        self._roc = rate_of_change(closes, self.roc_period)
+        self._vol_spikes = volume_spike(volumes, period=20, threshold=self.vol_threshold)
 
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        # Need enough bars for all indicators
-        lookback = max(self.warmup, self.st_period + 10, self.roc_period + 5)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
+        i = context.bar_index
 
-        if len(closes) < lookback:
+        if i < 1:
             return
 
-        # ----- Compute indicators -----
-        st_line, st_dir = supertrend(highs, lows, closes, self.st_period, self.st_mult)
-        roc = rate_of_change(closes, self.roc_period)
-        vol_spikes = volume_spike(volumes, period=20, threshold=self.vol_threshold)
-
-        # Current values
-        cur_dir = st_dir[-1]
-        prev_dir = st_dir[-2]
-        cur_roc = roc[-1]
-        cur_st_line = st_line[-1]
-        price = context.current_bar.close_raw
+        # ----- Look up pre-computed indicators -----
+        cur_dir = self._st_dir[i]
+        prev_dir = self._st_dir[i - 1]
+        cur_roc = self._roc[i]
+        prev_roc = self._roc[i - 1]
+        cur_st_line = self._st_line[i]
+        price = context.close_raw
 
         # Guard: skip if indicators aren't ready
         if np.isnan(cur_dir) or np.isnan(cur_roc) or np.isnan(cur_st_line):
-            self.prev_roc = cur_roc
             return
 
         # Volume spike in last 3 bars
-        recent_vol_spike = np.any(vol_spikes[-3:])
+        recent_vol_spike = np.any(self._vol_spikes[max(0, i - 2):i + 1])
 
         side, lots = context.position
 
@@ -91,7 +98,6 @@ class StrongTrendV1(TimeSeriesStrategy):
         if cur_dir == -1 and lots > 0:
             context.close_long()
             self.position_scale = 0
-            self.prev_roc = cur_roc
             return
 
         # ==================================================================
@@ -103,7 +109,6 @@ class StrongTrendV1(TimeSeriesStrategy):
                 half_lots = max(1, lots // 2)
                 context.close_long(lots=half_lots)
                 self.position_scale = max(0, self.position_scale - 1)
-                self.prev_roc = cur_roc
                 return
 
         # ==================================================================
@@ -111,18 +116,17 @@ class StrongTrendV1(TimeSeriesStrategy):
         # ==================================================================
         if lots > 0 and self.position_scale < 3:
             roc_accelerating = (
-                not np.isnan(self.prev_roc)
-                and self.prev_roc > 0
-                and cur_roc > 1.5 * self.prev_roc
+                not np.isnan(prev_roc)
+                and prev_roc > 0
+                and cur_roc > 1.5 * prev_roc
             )
-            new_spike = vol_spikes[-1]  # Spike on this bar specifically
+            new_spike = self._vol_spikes[i]  # Spike on this bar specifically
 
             if roc_accelerating and new_spike and cur_dir == 1:
                 add_lots = self._calc_lots(context, price, cur_st_line)
                 if add_lots > 0:
                     context.buy(add_lots)
                     self.position_scale += 1
-                self.prev_roc = cur_roc
                 return
 
         # ==================================================================
@@ -139,9 +143,6 @@ class StrongTrendV1(TimeSeriesStrategy):
                 if entry_lots > 0:
                     context.buy(entry_lots)
                     self.position_scale = 1
-
-        # Save ROC for next bar's acceleration check
-        self.prev_roc = cur_roc
 
     # ------------------------------------------------------------------
     # Position sizing: risk 2% of equity per unit of risk

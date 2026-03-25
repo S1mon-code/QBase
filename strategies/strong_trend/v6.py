@@ -44,45 +44,53 @@ class StrongTrendV6(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0  # Default for most commodities
 
+    def __init__(self):
+        super().__init__()
+        self._tenkan_sen = None
+        self._kijun_sen = None
+        self._senkou_a = None
+        self._senkou_b = None
+        self._rsi = None
+        self._obv = None
+        self._atr = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0       # 0 = flat, 1-3 = position tiers
         self.highest_since_entry = 0.0  # Track highest price for trailing stop
+
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        self._tenkan_sen, self._kijun_sen, self._senkou_a, self._senkou_b, _ = ichimoku(
+            highs, lows, closes, self.tenkan, self.kijun
+        )
+        self._rsi = rsi(closes, self.rsi_period)
+        self._obv = obv(closes, volumes)
+        self._atr = atr(highs, lows, closes, period=14)
 
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, 80)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
+        i = context.bar_index
 
-        if len(closes) < lookback:
+        if i < 5:
             return
 
-        n = len(closes)
-
-        # ----- Compute indicators -----
-        tenkan_sen, kijun_sen, senkou_a, senkou_b_line, _ = ichimoku(
-            highs, lows, closes, self.tenkan, self.kijun
-        )
-
-        rsi_arr = rsi(closes, self.rsi_period)
-        obv_arr = obv(closes, volumes)
-        atr_arr = atr(highs, lows, closes, period=14)
-
-        # Current values — use index n-1 for Ichimoku (senkou arrays are longer)
-        idx = n - 1
-        cur_tenkan = tenkan_sen[idx]
-        cur_kijun = kijun_sen[idx]
-        cur_senkou_a = senkou_a[idx]
-        cur_senkou_b = senkou_b_line[idx]
-        cur_rsi = rsi_arr[-1]
-        cur_atr = atr_arr[-1]
-        price = context.current_bar.close_raw
+        # ----- Look up pre-computed indicators -----
+        cur_tenkan = self._tenkan_sen[i]
+        cur_kijun = self._kijun_sen[i]
+        cur_senkou_a = self._senkou_a[i]
+        cur_senkou_b = self._senkou_b[i]
+        cur_rsi = self._rsi[i]
+        cur_atr = self._atr[i]
+        price = context.close_raw
 
         # Guard: skip if indicators aren't ready
         if (np.isnan(cur_tenkan) or np.isnan(cur_kijun) or np.isnan(cur_senkou_a)
@@ -93,7 +101,7 @@ class StrongTrendV6(TimeSeriesStrategy):
         above_cloud = price > cur_senkou_a and price > cur_senkou_b
         below_cloud = price < cur_senkou_a and price < cur_senkou_b
         tenkan_above_kijun = cur_tenkan > cur_kijun
-        obv_rising = obv_arr[-1] > obv_arr[-5] if len(obv_arr) >= 5 else False
+        obv_rising = self._obv[i] > self._obv[i - 5]
 
         # Trailing stop level
         trailing_stop = self.highest_since_entry - self.atr_trail_mult * cur_atr
@@ -130,7 +138,9 @@ class StrongTrendV6(TimeSeriesStrategy):
         # ==================================================================
         if lots > 0 and self.position_scale < 3:
             # Price making new highs: current close is highest in last 20 bars
-            recent_high = np.max(closes[-20:])
+            closes_arr = context.get_full_close_array()
+            recent_start = max(0, i - 19)
+            recent_high = np.max(closes_arr[recent_start:i + 1])
             new_highs = price >= recent_high
 
             if cur_rsi > 60 and new_highs and above_cloud:

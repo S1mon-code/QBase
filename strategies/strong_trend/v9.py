@@ -44,47 +44,57 @@ class StrongTrendV9(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0  # Default for most commodities
 
+    def __init__(self):
+        super().__init__()
+        self._st_line = None
+        self._st_dir = None
+        self._k_line = None
+        self._fi = None
+        self._atr = None
+        self._fi_avg_abs = 1.0  # Pre-computed mean of abs(force_index)
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0        # 0 = flat, 1-3 = position tiers
         self.trail_stop = 0.0          # Trailing stop price
+
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        self._st_line, self._st_dir = supertrend(highs, lows, closes, self.st_period, self.st_mult)
+        self._k_line, _ = stoch_rsi(closes, rsi_period=self.stochrsi_period,
+                                    stoch_period=self.stochrsi_period)
+        self._fi = force_index(closes, volumes, period=self.fi_period)
+        self._atr = atr(highs, lows, closes, period=self.st_period)
+
+        # Pre-compute Force Index average (for "strongly positive" check)
+        fi_valid = self._fi[~np.isnan(self._fi)]
+        self._fi_avg_abs = np.mean(np.abs(fi_valid)) if len(fi_valid) > 0 else 1.0
 
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.st_period + 10, self.stochrsi_period * 3)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
+        i = context.bar_index
 
-        if len(closes) < lookback:
-            return
-
-        # ----- Compute indicators -----
-        st_line, st_dir = supertrend(highs, lows, closes, self.st_period, self.st_mult)
-        k_line, d_line = stoch_rsi(closes, rsi_period=self.stochrsi_period,
-                                   stoch_period=self.stochrsi_period)
-        fi = force_index(closes, volumes, period=self.fi_period)
-        atr_vals = atr(highs, lows, closes, period=self.st_period)
-
-        # Current values
-        cur_dir = st_dir[-1]
-        cur_st_line = st_line[-1]
-        cur_k = k_line[-1]
-        cur_fi = fi[-1]
-        cur_atr = atr_vals[-1]
-        price = context.current_bar.close_raw
+        # ----- Look up pre-computed indicators -----
+        cur_dir = self._st_dir[i]
+        cur_st_line = self._st_line[i]
+        cur_k = self._k_line[i]
+        cur_fi = self._fi[i]
+        cur_atr = self._atr[i]
+        price = context.close_raw
 
         # Guard: skip if indicators aren't ready
         if np.isnan(cur_dir) or np.isnan(cur_k) or np.isnan(cur_fi) or np.isnan(cur_atr):
             return
 
-        # Force Index average (for "strongly positive" check)
-        fi_valid = fi[~np.isnan(fi)]
-        fi_avg = np.mean(np.abs(fi_valid)) if len(fi_valid) > 0 else 1.0
+        fi_avg = self._fi_avg_abs
 
         side, lots = context.position
 

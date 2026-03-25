@@ -49,6 +49,14 @@ class StrongTrendV26(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        self._squeeze_on = None
+        self._momentum = None
+        self._adx = None
+        self._fi = None
+        self._atr = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0          # 0 = flat, 1-3 = position tiers
@@ -58,38 +66,39 @@ class StrongTrendV26(TimeSeriesStrategy):
         self.prev_squeeze_on = False     # Previous bar squeeze state
         self.fi_median = 0.0             # Running median for "strongly positive"
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        self._squeeze_on, self._momentum = ttm_squeeze(
+            highs, lows, closes,
+            bb_period=self.squeeze_bb, kc_period=self.squeeze_kc,
+        )
+        self._adx = adx(highs, lows, closes, period=self.adx_period)
+        self._fi = force_index(closes, volumes, period=self.fi_period)
+        self._atr = atr(highs, lows, closes, period=14)
+
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.squeeze_bb + 10,
-                       self.adx_period * 3, self.fi_period + 10)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
+        i = context.bar_index
 
-        if len(closes) < lookback:
+        if i < 1:
             return
 
-        # ----- Compute indicators -----
-        squeeze_on, momentum = ttm_squeeze(
-            highs, lows, closes,
-            bb_period=self.squeeze_bb, kc_period=self.squeeze_kc,
-        )
-        adx_vals = adx(highs, lows, closes, period=self.adx_period)
-        fi_vals = force_index(closes, volumes, period=self.fi_period)
-        atr_vals = atr(highs, lows, closes, period=14)
-
-        # Current values
-        cur_squeeze = squeeze_on[-1]
-        prev_squeeze = squeeze_on[-2]
-        cur_momentum = momentum[-1]
-        cur_adx = adx_vals[-1]
-        cur_fi = fi_vals[-1]
-        cur_atr = atr_vals[-1]
-        price = context.current_bar.close_raw
+        # ----- Look up pre-computed indicators -----
+        cur_squeeze = self._squeeze_on[i]
+        prev_squeeze = self._squeeze_on[i - 1]
+        cur_momentum = self._momentum[i]
+        cur_adx = self._adx[i]
+        cur_fi = self._fi[i]
+        cur_atr = self._atr[i]
+        price = context.close_raw
 
         # Guard: skip if indicators aren't ready
         if (np.isnan(cur_momentum) or np.isnan(cur_adx)
@@ -99,7 +108,8 @@ class StrongTrendV26(TimeSeriesStrategy):
 
         # Compute Force Index "strongly positive" threshold (rolling)
         # Use recent positive FI values as reference
-        fi_recent = fi_vals[-20:]
+        start_idx = max(0, i - 19)
+        fi_recent = self._fi[start_idx:i + 1]
         fi_positive = fi_recent[~np.isnan(fi_recent) & (fi_recent > 0)]
         if len(fi_positive) > 0:
             self.fi_median = np.median(fi_positive)

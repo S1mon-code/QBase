@@ -50,6 +50,14 @@ class StrongTrendV31(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        self._tema = None
+        self._fisher_line = None
+        self._trigger_line = None
+        self._obv = None
+        self._atr = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0
@@ -57,53 +65,54 @@ class StrongTrendV31(TimeSeriesStrategy):
         self.trail_stop = 0.0
         self.bars_since_last_scale = 999  # large initial value
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        self._tema = tema(closes, self.tema_period)
+        self._fisher_line, self._trigger_line = fisher_transform(highs, lows, self.fisher_period)
+        self._obv = obv(closes, volumes)
+        self._atr = atr(highs, lows, closes, period=self.atr_period)
+
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.tema_period * 3, self.fisher_period * 3)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
-
-        if len(closes) < lookback:
+        i = context.bar_index
+        if i < 1:
             return
 
         self.bars_since_last_scale += 1
 
-        # ----- Compute indicators -----
-        tema_vals = tema(closes, self.tema_period)
-        fisher_line, trigger_line = fisher_transform(highs, lows, self.fisher_period)
-        obv_vals = obv(closes, volumes)
-        atr_vals = atr(highs, lows, closes, period=self.atr_period)
-
-        # Current values
-        cur_tema = tema_vals[-1]
-        prev_tema = tema_vals[-2]
-        cur_fisher = fisher_line[-1]
-        cur_trigger = trigger_line[-1]
-        cur_atr = atr_vals[-1]
-        price = context.current_bar.close_raw
+        # ----- Lookup pre-computed indicators -----
+        cur_tema = self._tema[i]
+        prev_tema = self._tema[i - 1]
+        cur_fisher = self._fisher_line[i]
+        cur_trigger = self._trigger_line[i]
+        cur_atr = self._atr[i]
+        price = context.close_raw
 
         # TEMA rising: current > previous
         tema_rising = cur_tema > prev_tema
 
         # OBV rising: current OBV > OBV N bars ago
         obv_rising = (
-            len(obv_vals) >= self.obv_lookback + 1
-            and not np.isnan(obv_vals[-1])
-            and not np.isnan(obv_vals[-(self.obv_lookback + 1)])
-            and obv_vals[-1] > obv_vals[-(self.obv_lookback + 1)]
+            i >= self.obv_lookback
+            and not np.isnan(self._obv[i])
+            and not np.isnan(self._obv[i - self.obv_lookback])
+            and self._obv[i] > self._obv[i - self.obv_lookback]
         )
 
         # OBV falling
         obv_falling = (
-            len(obv_vals) >= self.obv_lookback + 1
-            and not np.isnan(obv_vals[-1])
-            and not np.isnan(obv_vals[-(self.obv_lookback + 1)])
-            and obv_vals[-1] < obv_vals[-(self.obv_lookback + 1)]
+            i >= self.obv_lookback
+            and not np.isnan(self._obv[i])
+            and not np.isnan(self._obv[i - self.obv_lookback])
+            and self._obv[i] < self._obv[i - self.obv_lookback]
         )
 
         # Guard: skip if indicators aren't ready

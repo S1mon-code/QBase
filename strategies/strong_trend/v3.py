@@ -48,37 +48,41 @@ class DonchianADXChandelierStrategy(TimeSeriesStrategy):
     _ADX_WEAK_LOW = 20   # Lower bound of "weakening trend" zone
     _MAX_SCALE = 3       # Maximum position scale level
 
+    def __init__(self):
+        super().__init__()
+        self._don_upper = None
+        self._adx = None
+        self._chand_long_exit = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0        # Current scale level (0 = flat, 1-3 = sized)
         self.last_breakout_high = 0.0  # Track the Donchian upper at last entry/add
 
-    def on_bar(self, context):
-        """Core strategy logic — called on every bar after warmup."""
-        # Need enough bars for the longest lookback indicator
-        lookback = max(self.don_period, self.chand_period) + self.adx_period + 10
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
 
-        if len(closes) < lookback:
-            return
-
-        price = context.current_bar.close_raw
-
-        # ── Compute indicators ────────────────────────────────────────
-        don_upper, _, _ = donchian(highs, lows, period=self.don_period)
-        adx_vals = adx(highs, lows, closes, period=self.adx_period)
-        chand_long_exit, _ = chandelier_exit(
+        self._don_upper, _, _ = donchian(highs, lows, period=self.don_period)
+        self._adx = adx(highs, lows, closes, period=self.adx_period)
+        self._chand_long_exit, _ = chandelier_exit(
             highs, lows, closes,
             period=self.chand_period,
             multiplier=self.chand_mult,
         )
 
-        # Current values (latest bar)
-        don_upper_now = don_upper[-1]
-        adx_now = adx_vals[-1]
-        chand_long_now = chand_long_exit[-1]
+    def on_bar(self, context):
+        """Core strategy logic — called on every bar after warmup."""
+        i = context.bar_index
+
+        price = context.close_raw
+
+        # ── Look up pre-computed indicators ────────────────────────────
+        don_upper_now = self._don_upper[i]
+        adx_now = self._adx[i]
+        chand_long_now = self._chand_long_exit[i]
 
         # Skip if any indicator is not yet valid
         if np.isnan(don_upper_now) or np.isnan(adx_now) or np.isnan(chand_long_now):
@@ -104,7 +108,7 @@ class DonchianADXChandelierStrategy(TimeSeriesStrategy):
 
         # ── ENTRY: Donchian breakout + strong ADX ─────────────────────
         if side == 0 and price > don_upper_now and adx_now > self.adx_threshold:
-            lot_size = self._calc_lots(context, highs, chand_long_now)
+            lot_size = self._calc_lots(context, highs=None, chand_long_now=chand_long_now, bar_index=i)
             if lot_size > 0:
                 context.buy(lot_size)
                 self.position_scale = 1
@@ -120,14 +124,14 @@ class DonchianADXChandelierStrategy(TimeSeriesStrategy):
             and price > don_upper_now
             and adx_now > self.adx_threshold
         ):
-            lot_size = self._calc_lots(context, highs, chand_long_now)
+            lot_size = self._calc_lots(context, highs=None, chand_long_now=chand_long_now, bar_index=i)
             if lot_size > 0:
                 context.buy(lot_size)
                 self.position_scale += 1
                 self.last_breakout_high = don_upper_now
 
     # ── Position sizing ───────────────────────────────────────────────
-    def _calc_lots(self, context, highs, chand_long_now):
+    def _calc_lots(self, context, highs, chand_long_now, bar_index=None):
         """Size position so that 2% of equity is at risk per unit.
 
         Risk per lot = distance from highest high to chandelier long exit,
@@ -136,8 +140,9 @@ class DonchianADXChandelierStrategy(TimeSeriesStrategy):
         """
         # The chandelier long exit = highest_high - mult * ATR
         # So risk distance = highest_high - chand_long_now = mult * ATR
-        highest_high = np.max(highs[-self.chand_period:])
-        risk_distance = highest_high - chand_long_now  # = chand_mult * ATR
+        # Use price as proxy for highest high in recent window
+        price = context.close_raw
+        risk_distance = price - chand_long_now  # approximate chand_mult * ATR
 
         if risk_distance <= 0:
             return 0

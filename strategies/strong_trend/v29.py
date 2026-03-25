@@ -49,6 +49,15 @@ class StrongTrendV29(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        self._zlema = None
+        self._rsi = None
+        self._kvo = None
+        self._kvo_sig = None
+        self._atr = None
+        self._closes = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0        # 0 = flat, 1-3 = position tiers
@@ -57,37 +66,40 @@ class StrongTrendV29(TimeSeriesStrategy):
         self.bars_since_last_scale = 0 # Min gap between adds
         self.base_lots = 0             # First entry lot size
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        self._closes = closes
+        self._zlema = zlema(closes, self.zlema_period)
+        self._rsi = rsi(closes, self.rsi_period)
+        self._kvo, self._kvo_sig = klinger(highs, lows, closes, volumes,
+                                           fast=self.klinger_fast, slow=self.klinger_slow)
+        self._atr = atr(highs, lows, closes, period=14)
+
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.klinger_slow + 20, self.zlema_period + 10)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
+        i = context.bar_index
 
-        if len(closes) < lookback:
+        if i < 1:
             return
 
-        # ----- Compute indicators -----
-        zl = zlema(closes, self.zlema_period)
-        rsi_arr = rsi(closes, self.rsi_period)
-        kvo, kvo_sig = klinger(highs, lows, closes, volumes,
-                               fast=self.klinger_fast, slow=self.klinger_slow)
-        atr_arr = atr(highs, lows, closes, period=14)
-
-        # Current values
-        price = context.current_bar.close_raw
-        cur_zlema = zl[-1]
-        prev_zlema = zl[-2]
-        cur_rsi = rsi_arr[-1]
-        cur_kvo = kvo[-1]
-        cur_kvo_sig = kvo_sig[-1]
-        prev_kvo = kvo[-2]
-        prev_kvo_sig = kvo_sig[-2]
-        cur_atr = atr_arr[-1]
+        # ----- Look up pre-computed indicators -----
+        price = context.close_raw
+        cur_zlema = self._zlema[i]
+        prev_zlema = self._zlema[i - 1]
+        cur_rsi = self._rsi[i]
+        cur_kvo = self._kvo[i]
+        cur_kvo_sig = self._kvo_sig[i]
+        prev_kvo = self._kvo[i - 1]
+        prev_kvo_sig = self._kvo_sig[i - 1]
+        cur_atr = self._atr[i]
 
         # Guard: skip if indicators aren't ready
         if (np.isnan(cur_zlema) or np.isnan(prev_zlema) or np.isnan(cur_rsi)
@@ -97,7 +109,7 @@ class StrongTrendV29(TimeSeriesStrategy):
 
         # Derived signals
         zlema_rising = cur_zlema > prev_zlema
-        close_above_zlema = closes[-1] > cur_zlema
+        close_above_zlema = self._closes[i] > cur_zlema
         kvo_bullish = cur_kvo > cur_kvo_sig
         kvo_strongly_bullish = cur_kvo > cur_kvo_sig + abs(cur_kvo_sig) * 0.3
         kvo_cross_below = prev_kvo > prev_kvo_sig and cur_kvo <= cur_kvo_sig

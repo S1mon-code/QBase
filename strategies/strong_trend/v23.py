@@ -50,6 +50,15 @@ class StrongTrendV23(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        self._kc_upper = None
+        self._kc_mid = None
+        self._kc_lower = None
+        self._roc = None
+        self._tmf = None
+        self._atr = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0
@@ -58,37 +67,36 @@ class StrongTrendV23(TimeSeriesStrategy):
         self.bars_since_last_scale = 999  # large initial value
         self.prev_roc = np.nan            # previous bar ROC for acceleration
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        self._kc_upper, self._kc_mid, self._kc_lower = keltner(
+            highs, lows, closes, ema_period=self.kc_ema, multiplier=self.kc_mult,
+        )
+        self._roc = rate_of_change(closes, self.roc_period)
+        self._tmf = twiggs_money_flow(highs, lows, closes, volumes, period=21)
+        self._atr = atr(highs, lows, closes, period=14)
+
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.kc_ema + 10, self.roc_period + 5)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
-
-        if len(closes) < lookback:
-            return
+        i = context.bar_index
 
         self.bars_since_last_scale += 1
 
-        # ----- Compute indicators -----
-        kc_upper, kc_mid, kc_lower = keltner(
-            highs, lows, closes, ema_period=self.kc_ema, multiplier=self.kc_mult,
-        )
-        roc = rate_of_change(closes, self.roc_period)
-        tmf = twiggs_money_flow(highs, lows, closes, volumes, period=21)
-        atr_vals = atr(highs, lows, closes, period=14)
-
-        # Current values
-        price = context.current_bar.close_raw
-        cur_kc_upper = kc_upper[-1]
-        cur_kc_mid = kc_mid[-1]
-        cur_roc = roc[-1]
-        cur_tmf = tmf[-1]
-        cur_atr = atr_vals[-1]
+        # ----- Look up pre-computed indicators -----
+        price = context.close_raw
+        cur_kc_upper = self._kc_upper[i]
+        cur_kc_mid = self._kc_mid[i]
+        cur_roc = self._roc[i]
+        cur_tmf = self._tmf[i]
+        cur_atr = self._atr[i]
 
         # Guard: skip if indicators aren't ready
         if (np.isnan(cur_kc_upper) or np.isnan(cur_kc_mid)

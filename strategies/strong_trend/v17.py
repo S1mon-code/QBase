@@ -47,39 +47,49 @@ class StrongTrendV17(TimeSeriesStrategy):
     _alma_sigma: float = 6.0       # ALMA Gaussian width (default)
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        self._alma = None
+        self._uo = None
+        self._emv = None
+        self._atr = None
+        self._closes = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0       # 0 = flat, 1-3 = position tiers
         self.trailing_stop = 0.0      # Trailing stop price
         self.highest_since_entry = 0.0
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        self._closes = closes
+        self._alma = alma(closes, self.alma_period, self.alma_offset, self._alma_sigma)
+        self._uo = ultimate_oscillator(highs, lows, closes, self.uo_p1, self.uo_p2, self._uo_p3)
+        self._emv = emv(highs, lows, volumes, period=14)
+        self._atr = atr(highs, lows, closes, self._atr_period)
+
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self._uo_p3 + 5, self._atr_period + 5)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
-
-        if len(closes) < lookback:
+        i = context.bar_index
+        if i < 1:
             return
 
-        # ----- Compute indicators -----
-        alma_arr = alma(closes, self.alma_period, self.alma_offset, self._alma_sigma)
-        uo_arr = ultimate_oscillator(highs, lows, closes, self.uo_p1, self.uo_p2, self._uo_p3)
-        emv_arr = emv(highs, lows, volumes, period=14)
-        atr_arr = atr(highs, lows, closes, self._atr_period)
-
         # Current values
-        cur_alma = alma_arr[-1]
-        prev_alma = alma_arr[-2]
-        cur_uo = uo_arr[-1]
-        cur_emv = emv_arr[-1]
-        cur_atr = atr_arr[-1]
-        price = context.current_bar.close_raw
+        cur_alma = self._alma[i]
+        prev_alma = self._alma[i - 1]
+        cur_uo = self._uo[i]
+        cur_emv = self._emv[i]
+        cur_atr = self._atr[i]
+        price = context.close_raw
 
         # Guard: skip if indicators aren't ready
         if np.isnan(cur_alma) or np.isnan(prev_alma) or np.isnan(cur_uo) \
@@ -88,7 +98,7 @@ class StrongTrendV17(TimeSeriesStrategy):
 
         # Derived signals
         alma_rising = cur_alma > prev_alma
-        above_alma = closes[-1] > cur_alma
+        above_alma = self._closes[i] > cur_alma
 
         side, lots = context.position
 

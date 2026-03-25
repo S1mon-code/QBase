@@ -44,49 +44,59 @@ class StrongTrendV7(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0  # Default for most commodities
 
+    def __init__(self):
+        super().__init__()
+        self._psar_values = None
+        self._psar_dir = None
+        self._tsi_line = None
+        self._tsi_signal = None
+        self._cmf = None
+        self._atr = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0        # 0 = flat, 1-3 = position tiers
         self.trailing_stop = 0.0       # Trailing stop price
-        self.prev_psar_dir = 0.0       # Previous bar's PSAR direction
+
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        self._psar_values, self._psar_dir = psar(
+            highs, lows,
+            af_start=self.psar_af_step,
+            af_step=self.psar_af_step,
+            af_max=self.psar_af_max,
+        )
+        self._tsi_line, self._tsi_signal = tsi(
+            closes,
+            long_period=self.tsi_long,
+            short_period=self.tsi_short,
+        )
+        self._cmf = cmf(highs, lows, closes, volumes)
+        self._atr = atr(highs, lows, closes)
 
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.tsi_long + self.tsi_short + 20)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
+        i = context.bar_index
 
-        if len(closes) < lookback:
+        if i < 1:
             return
 
-        # ----- Compute indicators -----
-        psar_values, psar_dir = psar(
-            highs, lows,
-            af_start=self.psar_af_step,
-            af_step=self.psar_af_step,
-            af_max=self.psar_af_max,
-        )
-        tsi_line, tsi_signal = tsi(
-            closes,
-            long_period=self.tsi_long,
-            short_period=self.tsi_short,
-        )
-        cmf_values = cmf(highs, lows, closes, volumes)
-        atr_values = atr(highs, lows, closes)
-
-        # Current values
-        cur_psar_dir = psar_dir[-1]
-        prev_psar_dir = psar_dir[-2]
-        cur_tsi = tsi_line[-1]
-        cur_tsi_sig = tsi_signal[-1]
-        cur_cmf = cmf_values[-1]
-        cur_atr = atr_values[-1]
-        price = context.current_bar.close_raw
+        # ----- Look up pre-computed indicators -----
+        cur_psar_dir = self._psar_dir[i]
+        prev_psar_dir = self._psar_dir[i - 1]
+        cur_tsi = self._tsi_line[i]
+        cur_tsi_sig = self._tsi_signal[i]
+        cur_cmf = self._cmf[i]
+        cur_atr = self._atr[i]
+        price = context.close_raw
 
         # Guard: skip if indicators aren't ready
         if (
@@ -96,7 +106,6 @@ class StrongTrendV7(TimeSeriesStrategy):
             or np.isnan(cur_cmf)
             or np.isnan(cur_atr)
         ):
-            self.prev_psar_dir = cur_psar_dir
             return
 
         side, lots = context.position
@@ -117,7 +126,6 @@ class StrongTrendV7(TimeSeriesStrategy):
                 context.close_long()
                 self.position_scale = 0
                 self.trailing_stop = 0.0
-                self.prev_psar_dir = cur_psar_dir
                 return
 
         # ==================================================================
@@ -128,7 +136,6 @@ class StrongTrendV7(TimeSeriesStrategy):
                 half_lots = max(1, lots // 2)
                 context.close_long(lots=half_lots)
                 self.position_scale = max(0, self.position_scale - 1)
-                self.prev_psar_dir = cur_psar_dir
                 return
 
         # ==================================================================
@@ -140,7 +147,6 @@ class StrongTrendV7(TimeSeriesStrategy):
                 if add_lots > 0:
                     context.buy(add_lots)
                     self.position_scale += 1
-                self.prev_psar_dir = cur_psar_dir
                 return
 
         # ==================================================================
@@ -157,8 +163,6 @@ class StrongTrendV7(TimeSeriesStrategy):
                     context.buy(entry_lots)
                     self.position_scale = 1
                     self.trailing_stop = price - self.atr_trail_mult * cur_atr
-
-        self.prev_psar_dir = cur_psar_dir
 
     # ------------------------------------------------------------------
     # Position sizing: risk 2% of equity per unit of ATR-based risk

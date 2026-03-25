@@ -44,6 +44,14 @@ class StrongTrendV11(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0  # Default for most commodities
 
+    def __init__(self):
+        super().__init__()
+        self._vi_plus = None
+        self._vi_minus = None
+        self._roc = None
+        self._oi_mom = None
+        self._atr = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0     # 0 = flat, 1-3 = position tiers
@@ -52,40 +60,37 @@ class StrongTrendV11(TimeSeriesStrategy):
         self.trail_stop = 0.0       # Trailing stop price
         self.highest_since_entry = 0.0  # Track highest price for trailing stop
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        self._vi_plus, self._vi_minus = vortex(highs, lows, closes, self.vortex_period)
+        self._roc = rate_of_change(closes, self.roc_period)
+        self._atr = atr(highs, lows, closes, period=14)
+
+        # OI momentum — use volume as OI proxy if OI not available
+        try:
+            oi_arr = context.get_full_oi_array()
+        except (AttributeError, Exception):
+            oi_arr = volumes  # Fallback: use volume as proxy
+        self._oi_mom = oi_momentum(oi_arr, self.oi_period)
+
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.vortex_period + 10, self.roc_period + 5,
-                       self.oi_period + 5)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
+        i = context.bar_index
 
-        if len(closes) < lookback:
-            return
-
-        # ----- Compute indicators -----
-        vi_plus, vi_minus = vortex(highs, lows, closes, self.vortex_period)
-        roc = rate_of_change(closes, self.roc_period)
-        atr_vals = atr(highs, lows, closes, period=14)
-
-        # OI momentum — use volume as OI proxy if OI not available
-        try:
-            oi_arr = context.get_oi_array(lookback)
-        except (AttributeError, Exception):
-            oi_arr = volumes  # Fallback: use volume as proxy
-        oi_mom = oi_momentum(oi_arr, self.oi_period)
-
-        # Current values
-        cur_vi_plus = vi_plus[-1]
-        cur_vi_minus = vi_minus[-1]
-        cur_roc = roc[-1]
-        cur_oi_mom = oi_mom[-1]
-        cur_atr = atr_vals[-1]
-        price = context.current_bar.close_raw
+        cur_vi_plus = self._vi_plus[i]
+        cur_vi_minus = self._vi_minus[i]
+        cur_roc = self._roc[i]
+        cur_oi_mom = self._oi_mom[i]
+        cur_atr = self._atr[i]
+        price = context.close_raw
 
         # Guard: skip if indicators aren't ready
         if (np.isnan(cur_vi_plus) or np.isnan(cur_vi_minus) or

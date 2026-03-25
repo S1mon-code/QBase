@@ -38,6 +38,12 @@ class StrongTrendV2(TimeSeriesStrategy):
     atr_period = 14         # ATR lookback
     trail_mult = 3.5        # Trailing stop multiplier
 
+    def __init__(self):
+        super().__init__()
+        self._kama = None
+        self._rsq = None
+        self._atr = None
+
     # ── Internal state ────────────────────────────────────────────────
 
     def on_init(self, context):
@@ -46,30 +52,35 @@ class StrongTrendV2(TimeSeriesStrategy):
         self.highest_since_entry = 0.0  # Highest price since initial entry
         self.entry_price = 0.0        # Price at initial entry
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+
+        self._kama = kama(closes, period=self.kama_period)
+        self._rsq = r_squared(closes, period=self.rsq_period)
+        self._atr = atr(highs, lows, closes, period=self.atr_period)
+
     def on_bar(self, context):
         """Core strategy logic — called every bar after warmup."""
-        # -- Fetch price arrays (enough history for all indicators) --
-        lookback = max(self.warmup, self.rsq_period + 10, self.atr_period * 2 + 10)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
+        i = context.bar_index
 
-        price = context.current_bar.close_raw
+        if i < 1:
+            return
+
+        price = context.close_raw
         side, lots = context.position
 
-        # -- Compute indicators --
-        kama_arr = kama(closes, period=self.kama_period)
-        rsq_arr = r_squared(closes, period=self.rsq_period)
-        atr_arr = atr(highs, lows, closes, period=self.atr_period)
-
-        # Current values
-        kama_now = kama_arr[-1]
-        kama_prev = kama_arr[-2]
-        rsq_now = rsq_arr[-1]
-        atr_now = atr_arr[-1]
+        # -- Look up pre-computed indicators --
+        kama_now = self._kama[i]
+        kama_prev = self._kama[i - 1]
+        rsq_now = self._rsq[i]
+        atr_now = self._atr[i]
 
         # Mean ATR over 2x period for volatility filter
-        atr_window = atr_arr[-(self.atr_period * 2):]
+        atr_start = max(0, i - self.atr_period * 2 + 1)
+        atr_window = self._atr[atr_start:i + 1]
         atr_mean = np.nanmean(atr_window)
 
         # -- Guard: skip if any indicator not ready --
@@ -86,7 +97,7 @@ class StrongTrendV2(TimeSeriesStrategy):
         # ═══════════════════════════════════════════════════════════════
         if lots == 0:
             kama_rising = kama_now > kama_prev
-            above_kama = closes[-1] > kama_now
+            above_kama = context.close_raw > kama_now
             trend_quality = rsq_now > self.rsq_threshold
             vol_expanding = atr_now >= atr_mean
 

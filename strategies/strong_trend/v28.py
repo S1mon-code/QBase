@@ -50,6 +50,16 @@ class StrongTrendV28(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        self._don_upper = None
+        self._don_lower = None
+        self._don_middle = None
+        self._chop = None
+        self._ad = None
+        self._atr = None
+        self._closes = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0
@@ -57,50 +67,51 @@ class StrongTrendV28(TimeSeriesStrategy):
         self.trail_stop = 0.0
         self.bars_since_last_scale = 999  # large initial value
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        self._closes = closes
+        self._don_upper, self._don_lower, self._don_middle = donchian(highs, lows, self.don_period)
+        self._chop = choppiness_index(highs, lows, closes, self.chop_period)
+        self._ad = ad_line(highs, lows, closes, volumes)
+        self._atr = atr(highs, lows, closes, period=14)
+
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.don_period + 10, self.chop_period + 10,
-                       self.ad_lookback + 10)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
-
-        if len(closes) < lookback:
-            return
+        i = context.bar_index
 
         self.bars_since_last_scale += 1
 
-        # ----- Compute indicators -----
-        don_upper, don_lower, don_middle = donchian(highs, lows, self.don_period)
-        chop = choppiness_index(highs, lows, closes, self.chop_period)
-        ad = ad_line(highs, lows, closes, volumes)
-        atr_vals = atr(highs, lows, closes, period=14)
-
-        # Current values
-        cur_don_upper = don_upper[-1]
-        cur_don_middle = don_middle[-1]
-        cur_chop = chop[-1]
-        cur_atr = atr_vals[-1]
-        price = context.current_bar.close_raw
-        cur_close = closes[-1]
+        # ----- Look up pre-computed indicators -----
+        cur_don_upper = self._don_upper[i]
+        cur_don_middle = self._don_middle[i]
+        cur_chop = self._chop[i]
+        cur_atr = self._atr[i]
+        price = context.close_raw
+        cur_close = self._closes[i]
 
         # A/D Line direction: compare current vs N bars ago
-        ad_rising = (
-            len(ad) >= self.ad_lookback + 1
-            and not np.isnan(ad[-1])
-            and not np.isnan(ad[-(self.ad_lookback + 1)])
-            and ad[-1] > ad[-(self.ad_lookback + 1)]
-        )
-        ad_falling = (
-            len(ad) >= self.ad_lookback + 1
-            and not np.isnan(ad[-1])
-            and not np.isnan(ad[-(self.ad_lookback + 1)])
-            and ad[-1] < ad[-(self.ad_lookback + 1)]
-        )
+        if i >= self.ad_lookback:
+            ad_rising = (
+                not np.isnan(self._ad[i])
+                and not np.isnan(self._ad[i - self.ad_lookback])
+                and self._ad[i] > self._ad[i - self.ad_lookback]
+            )
+            ad_falling = (
+                not np.isnan(self._ad[i])
+                and not np.isnan(self._ad[i - self.ad_lookback])
+                and self._ad[i] < self._ad[i - self.ad_lookback]
+            )
+        else:
+            ad_rising = False
+            ad_falling = False
 
         # Guard: skip if indicators aren't ready
         if (np.isnan(cur_don_upper) or np.isnan(cur_don_middle)

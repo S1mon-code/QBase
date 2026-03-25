@@ -50,6 +50,16 @@ class StrongTrendV40(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        self._psar_vals = None
+        self._psar_dir = None
+        self._kst_line = None
+        self._kst_sig = None
+        self._kvo_vals = None
+        self._kvo_sig = None
+        self._atr = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0
@@ -57,51 +67,52 @@ class StrongTrendV40(TimeSeriesStrategy):
         self.trail_stop = 0.0
         self.bars_since_last_scale = 999  # large initial value
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        self._psar_vals, self._psar_dir = psar(
+            highs, lows,
+            af_start=self.psar_af_step, af_step=self.psar_af_step,
+            af_max=self.psar_af_max,
+        )
+        self._kst_line, self._kst_sig = kst(closes, signal_period=self.kst_signal)
+        self._kvo_vals, self._kvo_sig = klinger(
+            highs, lows, closes, volumes, fast=self.klinger_fast,
+        )
+        self._atr = atr(highs, lows, closes, period=14)
+
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, 55 + 15, 30 + 15 + self.kst_signal)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
-
-        if len(closes) < lookback:
+        i = context.bar_index
+        if i < 1:
             return
 
         self.bars_since_last_scale += 1
 
-        # ----- Compute indicators -----
-        psar_vals, psar_dir = psar(
-            highs, lows,
-            af_start=self.psar_af_step, af_step=self.psar_af_step,
-            af_max=self.psar_af_max,
-        )
-        kst_line, kst_sig = kst(closes, signal_period=self.kst_signal)
-        kvo_vals, kvo_sig = klinger(
-            highs, lows, closes, volumes, fast=self.klinger_fast,
-        )
-        atr_vals = atr(highs, lows, closes, period=14)
-
-        # Current values
-        cur_psar_dir = psar_dir[-1]
-        cur_psar_val = psar_vals[-1]
-        cur_kst = kst_line[-1]
-        cur_kst_sig = kst_sig[-1]
-        cur_kvo = kvo_vals[-1]
-        cur_kvo_sig = kvo_sig[-1]
-        cur_atr = atr_vals[-1]
-        price = context.current_bar.close_raw
+        # ----- Lookup pre-computed indicators -----
+        cur_psar_dir = self._psar_dir[i]
+        cur_psar_val = self._psar_vals[i]
+        cur_kst = self._kst_line[i]
+        cur_kst_sig = self._kst_sig[i]
+        cur_kvo = self._kvo_vals[i]
+        cur_kvo_sig = self._kvo_sig[i]
+        cur_atr = self._atr[i]
+        price = context.close_raw
 
         # Previous KST for acceleration check
-        prev_kst = kst_line[-2] if len(kst_line) >= 2 else np.nan
-        prev_kst_sig = kst_sig[-2] if len(kst_sig) >= 2 else np.nan
+        prev_kst = self._kst_line[i - 1]
+        prev_kst_sig = self._kst_sig[i - 1]
 
         # Previous KVO signal for crossover detection
-        prev_kvo = kvo_vals[-2] if len(kvo_vals) >= 2 else np.nan
-        prev_kvo_sig = kvo_sig[-2] if len(kvo_sig) >= 2 else np.nan
+        prev_kvo = self._kvo_vals[i - 1]
+        prev_kvo_sig = self._kvo_sig[i - 1]
 
         # Guard: skip if indicators aren't ready
         if (

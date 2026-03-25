@@ -43,6 +43,14 @@ class StrongTrendV15(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0  # Default for most commodities
 
+    def __init__(self):
+        super().__init__()
+        self._ribbon_sig = None
+        self._ribbons = None      # list of arrays, one per period
+        self._cmo = None
+        self._atr = None
+        self._closes = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0       # 0 = flat, 1-3 = position tiers
@@ -68,43 +76,43 @@ class StrongTrendV15(TimeSeriesStrategy):
         if new_stop > self.trail_stop:
             self.trail_stop = new_stop
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+
+        self._closes = closes
+        periods = self._ribbon_periods()
+        self._ribbon_sig = ema_ribbon_signal(closes, periods)
+        self._ribbons = ema_ribbon(closes, periods)
+        self._cmo = cmo(closes, self.cmo_period)
+        self._atr = atr(highs, lows, closes, self.atr_period)
+
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        periods = self._ribbon_periods()
-        longest = max(periods)
-        lookback = max(self.warmup, longest + 10, self.cmo_period + 5, self.atr_period + 5)
-
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-
-        if len(closes) < lookback:
-            return
-
-        # ----- Compute indicators -----
-        ribbon_sig = ema_ribbon_signal(closes, periods)
-        ribbons = ema_ribbon(closes, periods)
-        cmo_vals = cmo(closes, self.cmo_period)
-        atr_vals = atr(highs, lows, closes, self.atr_period)
+        i = context.bar_index
 
         # Current values
-        cur_ribbon = ribbon_sig[-1]
-        cur_cmo = cmo_vals[-1]
-        cur_atr = atr_vals[-1]
-        price = context.current_bar.close_raw
+        cur_ribbon = self._ribbon_sig[i]
+        cur_cmo = self._cmo[i]
+        cur_atr = self._atr[i]
+        price = context.close_raw
 
         # Guard: skip if indicators aren't ready
         if np.isnan(cur_cmo) or np.isnan(cur_atr) or np.isnan(cur_ribbon):
             return
 
+        periods = self._ribbon_periods()
+
         # Check if close is above all ribbon EMAs
-        close_above_all = all(closes[-1] > ribbons[j][-1] for j in range(len(periods)))
+        close_above_all = all(self._closes[i] > self._ribbons[j][i] for j in range(len(periods)))
 
         # Longest EMA value (for exit check)
-        longest_ema = ribbons[-1][-1]
+        longest_ema = self._ribbons[-1][i]
 
         side, lots = context.position
 
@@ -118,7 +126,7 @@ class StrongTrendV15(TimeSeriesStrategy):
         if lots > 0:
             trail_hit = price < self.trail_stop
             ribbon_bearish = cur_ribbon == -1
-            below_longest = closes[-1] < longest_ema
+            below_longest = self._closes[i] < longest_ema
 
             if ribbon_bearish or below_longest or trail_hit:
                 context.close_long()

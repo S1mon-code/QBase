@@ -50,6 +50,14 @@ class StrongTrendV38(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        self._hma = None
+        self._ergo_line = None
+        self._ergo_signal = None
+        self._ad = None
+        self._atr = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0
@@ -57,50 +65,51 @@ class StrongTrendV38(TimeSeriesStrategy):
         self.trail_stop = 0.0
         self.bars_since_last_scale = 999  # large initial value
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        self._hma = hma(closes, self.hma_period)
+        self._ergo_line, self._ergo_signal = ergodic(closes, self.ergo_short, self.ergo_long)
+        self._ad = ad_line(highs, lows, closes, volumes)
+        self._atr = atr(highs, lows, closes, period=14)
+
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.hma_period + 20, self.ergo_long + self.ergo_short + 10)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
-
-        if len(closes) < lookback:
+        i = context.bar_index
+        if i < 1:
             return
 
         self.bars_since_last_scale += 1
 
-        # ----- Compute indicators -----
-        hma_vals = hma(closes, self.hma_period)
-        ergo_line, ergo_signal = ergodic(closes, self.ergo_short, self.ergo_long)
-        ad_vals = ad_line(highs, lows, closes, volumes)
-        atr_vals = atr(highs, lows, closes, period=14)
-
-        # Current values
-        cur_hma = hma_vals[-1]
-        prev_hma = hma_vals[-2] if len(hma_vals) >= 2 else np.nan
-        cur_ergo = ergo_line[-1]
-        cur_ergo_sig = ergo_signal[-1]
-        prev_ergo = ergo_line[-2] if len(ergo_line) >= 2 else np.nan
-        prev_ergo_sig = ergo_signal[-2] if len(ergo_signal) >= 2 else np.nan
-        cur_atr = atr_vals[-1]
-        price = context.current_bar.close_raw
+        # ----- Lookup pre-computed indicators -----
+        cur_hma = self._hma[i]
+        prev_hma = self._hma[i - 1]
+        cur_ergo = self._ergo_line[i]
+        cur_ergo_sig = self._ergo_signal[i]
+        prev_ergo = self._ergo_line[i - 1]
+        prev_ergo_sig = self._ergo_signal[i - 1]
+        cur_atr = self._atr[i]
+        price = context.close_raw
 
         # A/D Line rising/falling
         ad_rising = (
-            len(ad_vals) > self.ad_lookback
-            and not np.isnan(ad_vals[-1])
-            and not np.isnan(ad_vals[-self.ad_lookback])
-            and ad_vals[-1] > ad_vals[-self.ad_lookback]
+            i >= self.ad_lookback
+            and not np.isnan(self._ad[i])
+            and not np.isnan(self._ad[i - self.ad_lookback])
+            and self._ad[i] > self._ad[i - self.ad_lookback]
         )
         ad_falling = (
-            len(ad_vals) > self.ad_lookback
-            and not np.isnan(ad_vals[-1])
-            and not np.isnan(ad_vals[-self.ad_lookback])
-            and ad_vals[-1] < ad_vals[-self.ad_lookback]
+            i >= self.ad_lookback
+            and not np.isnan(self._ad[i])
+            and not np.isnan(self._ad[i - self.ad_lookback])
+            and self._ad[i] < self._ad[i - self.ad_lookback]
         )
 
         # HMA rising

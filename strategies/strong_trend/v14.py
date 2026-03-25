@@ -44,42 +44,54 @@ class StrongTrendV14(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0  # Default for most commodities
 
+    def __init__(self):
+        super().__init__()
+        self._don_upper = None
+        self._don_lower = None
+        self._don_mid = None
+        self._rwi_high = None
+        self._rwi_low = None
+        self._kvo = None
+        self._kvo_signal = None
+        self._atr = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0     # 0 = flat, 1-3 = position tiers
         self.trail_stop = 0.0       # Trailing stop price
+
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        self._don_upper, self._don_lower, self._don_mid = donchian(highs, lows, self.don_period)
+        self._rwi_high, self._rwi_low = rwi(highs, lows, closes, self.rwi_period)
+        self._kvo, self._kvo_signal = klinger(highs, lows, closes, volumes,
+                                              fast=self.klinger_fast, slow=self.klinger_slow)
+        self._atr = atr(highs, lows, closes, period=14)
 
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.don_period + 10, self.klinger_slow + 20)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
-
-        if len(closes) < lookback:
+        i = context.bar_index
+        if i < 1:
             return
 
-        # ----- Compute indicators -----
-        don_upper, don_lower, don_mid = donchian(highs, lows, self.don_period)
-        rwi_high, rwi_low = rwi(highs, lows, closes, self.rwi_period)
-        kvo, kvo_signal = klinger(highs, lows, closes, volumes,
-                                  fast=self.klinger_fast, slow=self.klinger_slow)
-        atr_vals = atr(highs, lows, closes, period=14)
-
         # Current values
-        price = context.current_bar.close_raw
-        cur_don_upper = don_upper[-1]
-        cur_don_mid = don_mid[-1]
-        cur_rwi_high = rwi_high[-1]
-        cur_kvo = kvo[-1]
-        cur_kvo_sig = kvo_signal[-1]
-        cur_atr = atr_vals[-1]
-        prev_kvo = kvo[-2]
-        prev_kvo_sig = kvo_signal[-2]
+        price = context.close_raw
+        cur_don_upper = self._don_upper[i]
+        cur_don_mid = self._don_mid[i]
+        cur_rwi_high = self._rwi_high[i]
+        cur_kvo = self._kvo[i]
+        cur_kvo_sig = self._kvo_signal[i]
+        cur_atr = self._atr[i]
+        prev_kvo = self._kvo[i - 1]
+        prev_kvo_sig = self._kvo_signal[i - 1]
 
         # Guard: skip if indicators aren't ready
         if (np.isnan(cur_don_upper) or np.isnan(cur_rwi_high) or

@@ -53,6 +53,15 @@ class StrongTrendV50(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        self._yz = None
+        self._yz_avg_40 = None
+        self._don_upper = None
+        self._don_mid = None
+        self._obv = None
+        self._atr = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0
@@ -60,55 +69,60 @@ class StrongTrendV50(TimeSeriesStrategy):
         self.trail_stop = 0.0
         self.bars_since_last_scale = 999  # large initial value
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators once."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        opens = context.get_full_open_array()
+        volumes = context.get_full_volume_array()
+
+        self._yz = yang_zhang(opens, highs, lows, closes, period=self.yz_period)
+        self._don_upper, _, self._don_mid = donchian(highs, lows, period=self.don_period)
+        self._obv = obv(closes, volumes)
+        self._atr = atr(highs, lows, closes, period=self.atr_period)
+
+        # Pre-compute 40-bar rolling mean of YZ vol
+        n = len(closes)
+        self._yz_avg_40 = np.full(n, np.nan)
+        for k in range(39, n):
+            window = self._yz[k - 39:k + 1]
+            valid = window[~np.isnan(window)]
+            if len(valid) > 0:
+                self._yz_avg_40[k] = np.mean(valid)
+
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.don_period + 10, self.yz_period + 42)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        opens = context.get_open_array(lookback)
-        volumes = context.get_volume_array(lookback)
-
-        if len(closes) < lookback:
-            return
-
+        i = context.bar_index
         self.bars_since_last_scale += 1
 
-        # ----- Compute indicators -----
-        yz_vals = yang_zhang(opens, highs, lows, closes, period=self.yz_period)
-        don_upper, don_lower, don_mid = donchian(highs, lows, period=self.don_period)
-        obv_vals = obv(closes, volumes)
-        atr_vals = atr(highs, lows, closes, period=self.atr_period)
+        # ----- Lookup pre-computed indicators -----
+        cur_yz = self._yz[i]
+        cur_don_upper = self._don_upper[i]
+        cur_don_mid = self._don_mid[i]
+        cur_atr = self._atr[i]
+        price = context.close_raw
 
-        # Current values
-        cur_yz = yz_vals[-1]
-        cur_don_upper = don_upper[-1]
-        cur_don_mid = don_mid[-1]
-        cur_atr = atr_vals[-1]
-        price = context.current_bar.close_raw
-
-        # YZ vol average over last 40 bars for regime comparison
-        yz_recent = yz_vals[-40:]
-        yz_valid = yz_recent[~np.isnan(yz_recent)]
-        yz_avg = np.mean(yz_valid) if len(yz_valid) > 0 else np.nan
+        # YZ vol average over last 40 bars (pre-computed)
+        yz_avg = self._yz_avg_40[i]
 
         # OBV rising: current OBV > OBV N bars ago
         obv_rising = (
-            len(obv_vals) >= self.obv_lookback + 1
-            and not np.isnan(obv_vals[-1])
-            and not np.isnan(obv_vals[-(self.obv_lookback + 1)])
-            and obv_vals[-1] > obv_vals[-(self.obv_lookback + 1)]
+            i >= self.obv_lookback
+            and not np.isnan(self._obv[i])
+            and not np.isnan(self._obv[i - self.obv_lookback])
+            and self._obv[i] > self._obv[i - self.obv_lookback]
         )
 
         # OBV falling
         obv_falling = (
-            len(obv_vals) >= self.obv_lookback + 1
-            and not np.isnan(obv_vals[-1])
-            and not np.isnan(obv_vals[-(self.obv_lookback + 1)])
-            and obv_vals[-1] < obv_vals[-(self.obv_lookback + 1)]
+            i >= self.obv_lookback
+            and not np.isnan(self._obv[i])
+            and not np.isnan(self._obv[i - self.obv_lookback])
+            and self._obv[i] < self._obv[i - self.obv_lookback]
         )
 
         # Guard: skip if indicators aren't ready

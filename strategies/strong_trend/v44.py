@@ -47,6 +47,18 @@ class StrongTrendV44(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        # Small TF indicators (10min)
+        self._roc = None
+        self._atr = None
+        # Large TF indicators (daily, pre-mapped to 10min indices)
+        self._don_upper_daily = None
+        self._don_lower_daily = None
+        self._don_mid_daily = None
+        self._closes_daily = None
+        self._daily_map = None  # 10min index → daily index mapping
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0
@@ -55,54 +67,63 @@ class StrongTrendV44(TimeSeriesStrategy):
         self.bars_since_last_scale = 999  # large initial value
         self._prev_don_upper = np.nan     # track previous daily Donchian upper
 
-    # ------------------------------------------------------------------
-    # Aggregate 10min bars → daily bars (~24 bars per trading day)
-    # ------------------------------------------------------------------
-    @staticmethod
-    def _aggregate_daily(highs_10m, lows_10m, closes_10m, step=24):
-        """Aggregate 10min OHLC arrays into approximate daily OHLC arrays."""
-        n_groups = len(closes_10m) // step
-        if n_groups < 1:
-            return None, None, None
-        trim = n_groups * step
-        groups_c = closes_10m[:trim].reshape(n_groups, step)
-        groups_h = highs_10m[:trim].reshape(n_groups, step)
-        groups_l = lows_10m[:trim].reshape(n_groups, step)
-        closes_d = groups_c[:, -1]
-        highs_d = groups_h.max(axis=1)
-        lows_d = groups_l.min(axis=1)
-        return highs_d, lows_d, closes_d
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators once. Aggregate 10min → daily."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        n = len(closes)
+
+        # Small TF indicators (10min)
+        self._roc = rate_of_change(closes, period=self.roc_period)
+        self._atr = atr(highs, lows, closes, period=self.atr_period)
+
+        # Aggregate to daily (step = 24: 24 × 10min ≈ 1 session)
+        step = 24
+        n_daily = n // step
+        trim = n_daily * step
+        closes_d = closes[:trim].reshape(n_daily, step)[:, -1]
+        highs_d = highs[:trim].reshape(n_daily, step).max(axis=1)
+        lows_d = lows[:trim].reshape(n_daily, step).min(axis=1)
+
+        self._closes_daily = closes_d
+
+        # Large TF indicators (daily Donchian)
+        don_upper, don_lower, don_mid = donchian(
+            highs_d, lows_d, period=self.don_period
+        )
+        self._don_upper_daily = don_upper
+        self._don_lower_daily = don_lower
+        self._don_mid_daily = don_mid
+
+        # Index mapping: for 10min bar i, the latest COMPLETED daily bar
+        self._daily_map = np.maximum(0, (np.arange(n) + 1) // step - 1)
 
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every 10min bar."""
-        lookback = self.warmup
-        closes_10m = context.get_close_array(lookback)
-        highs_10m = context.get_high_array(lookback)
-        lows_10m = context.get_low_array(lookback)
-
-        if len(closes_10m) < lookback:
-            return
+        i = context.bar_index
+        j = self._daily_map[i]  # corresponding daily bar
 
         self.bars_since_last_scale += 1
 
-        # ----- Aggregate to daily -----
-        highs_d, lows_d, closes_d = self._aggregate_daily(
-            highs_10m, lows_10m, closes_10m, step=24
-        )
-        if highs_d is None or len(closes_d) < self.don_period + 5:
+        # ----- Lookup pre-computed values -----
+        cur_roc = self._roc[i]
+        cur_atr = self._atr[i]
+
+        # NaN guard for small TF
+        if np.isnan(cur_atr) or cur_atr <= 0:
             return
 
-        # ----- Compute daily Donchian channel -----
-        don_upper, don_lower, don_mid = donchian(
-            highs_d, lows_d, period=self.don_period
-        )
-        cur_don_upper = don_upper[-1]
-        cur_don_mid = don_mid[-1]
-        prev_don_upper = don_upper[-2] if len(don_upper) >= 2 else np.nan
-        daily_close = closes_d[-1]
+        # ----- Daily Donchian values -----
+        cur_don_upper = self._don_upper_daily[j]
+        cur_don_mid = self._don_mid_daily[j]
+        daily_close = self._closes_daily[j]
+
+        # Previous daily bar for Donchian high detection
+        prev_don_upper = self._don_upper_daily[j - 1] if j >= 1 else np.nan
 
         if np.isnan(cur_don_upper) or np.isnan(cur_don_mid) or np.isnan(prev_don_upper):
             return
@@ -110,29 +131,18 @@ class StrongTrendV44(TimeSeriesStrategy):
         # Detect new Donchian high: current daily close exceeds previous upper
         new_donchian_high = daily_close > prev_don_upper
 
-        # ----- Compute 10min ROC -----
-        roc_len = min(len(closes_10m), 200)
-        roc_vals = rate_of_change(closes_10m[-roc_len:], period=self.roc_period)
-        if len(roc_vals) == 0 or np.isnan(roc_vals[-1]):
+        # ----- 10min ROC values -----
+        if np.isnan(cur_roc):
             return
-        cur_roc = roc_vals[-1]
+
         # ROC accelerating: current ROC > ROC 5 bars ago
         roc_accel = (
-            len(roc_vals) >= 6
-            and not np.isnan(roc_vals[-6])
-            and cur_roc > roc_vals[-6]
+            i >= 5
+            and not np.isnan(self._roc[i - 5])
+            and cur_roc > self._roc[i - 5]
         )
 
-        # ----- Compute 10min ATR -----
-        atr_vals = atr(
-            highs_10m[-60:], lows_10m[-60:], closes_10m[-60:],
-            period=self.atr_period,
-        )
-        if len(atr_vals) == 0 or np.isnan(atr_vals[-1]):
-            return
-        cur_atr = atr_vals[-1]
-
-        price = context.current_bar.close_raw
+        price = context.close_raw
         side, lots = context.position
 
         # Update trailing stop

@@ -44,39 +44,47 @@ class StrongTrendV13(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0  # Default for most commodities
 
+    def __init__(self):
+        super().__init__()
+        self._zlema = None
+        self._fisher = None
+        self._trigger = None
+        self._re = None
+        self._atr = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0      # 0 = flat, 1-3 = position tiers
         self.trail_stop = 0.0        # Trailing stop price
+
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+
+        self._zlema = zlema(closes, self.zlema_period)
+        self._fisher, self._trigger = fisher_transform(highs, lows, self.fisher_period)
+        self._re = range_expansion(highs, lows, closes, self.re_period)
+        self._atr = atr(highs, lows, closes, period=14)
 
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.zlema_period + 10,
-                       self.fisher_period + 5, self.re_period + 5)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-
-        if len(closes) < lookback:
+        i = context.bar_index
+        if i < 1:
             return
 
-        # ----- Compute indicators -----
-        zl = zlema(closes, self.zlema_period)
-        fisher_line, trigger_line = fisher_transform(highs, lows, self.fisher_period)
-        re = range_expansion(highs, lows, closes, self.re_period)
-        atr_vals = atr(highs, lows, closes, period=14)
-
         # Current values
-        price = context.current_bar.close_raw
-        cur_zl = zl[-1]
-        prev_zl = zl[-2]
-        cur_fisher = fisher_line[-1]
-        cur_trigger = trigger_line[-1]
-        cur_re = re[-1]
-        cur_atr = atr_vals[-1]
+        price = context.close_raw
+        cur_zl = self._zlema[i]
+        prev_zl = self._zlema[i - 1]
+        cur_fisher = self._fisher[i]
+        cur_trigger = self._trigger[i]
+        cur_re = self._re[i]
+        cur_atr = self._atr[i]
 
         # Guard: skip if indicators aren't ready
         if (np.isnan(cur_zl) or np.isnan(prev_zl) or np.isnan(cur_fisher)

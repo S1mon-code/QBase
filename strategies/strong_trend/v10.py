@@ -47,36 +47,45 @@ class StrongTrendV10(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0  # Default for most commodities
 
+    def __init__(self):
+        super().__init__()
+        self._tema = None
+        self._adx = None
+        self._bb_width = None
+        self._atr = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0         # 0 = flat, 1-3 = position tiers
         self.trail_stop = 0.0           # Trailing stop price
+
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+
+        self._tema = tema(closes, self.tema_period)
+        self._adx = adx(highs, lows, closes, self.adx_period)
+        self._bb_width = bollinger_width(closes, self.bb_period)
+        self._atr = atr(highs, lows, closes, self.adx_period)
 
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.tema_period + 20, self.bb_period + 25)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
+        i = context.bar_index
 
-        if len(closes) < lookback:
+        if i < 1:
             return
 
-        # ----- Compute indicators -----
-        tema_arr = tema(closes, self.tema_period)
-        adx_arr = adx(highs, lows, closes, self.adx_period)
-        bb_width = bollinger_width(closes, self.bb_period)
-        atr_arr = atr(highs, lows, closes, self.adx_period)
-
-        # Current values
-        price = context.current_bar.close_raw
-        cur_tema = tema_arr[-1]
-        prev_tema = tema_arr[-2]
-        cur_adx = adx_arr[-1]
-        cur_atr = atr_arr[-1]
+        # ----- Look up pre-computed indicators -----
+        price = context.close_raw
+        cur_tema = self._tema[i]
+        prev_tema = self._tema[i - 1]
+        cur_adx = self._adx[i]
+        cur_atr = self._atr[i]
 
         # Guard: skip if indicators aren't ready
         if np.isnan(cur_tema) or np.isnan(cur_adx) or np.isnan(cur_atr):
@@ -86,11 +95,12 @@ class StrongTrendV10(TimeSeriesStrategy):
         tema_rising = cur_tema > prev_tema
 
         # Bollinger Width expanding = current > mean of last 20
-        bb_recent = bb_width[-20:]
+        bb_start = max(0, i - 19)
+        bb_recent = self._bb_width[bb_start:i + 1]
         bb_valid = bb_recent[~np.isnan(bb_recent)]
         if len(bb_valid) < 5:
             return
-        cur_bb_width = bb_width[-1]
+        cur_bb_width = self._bb_width[i]
         if np.isnan(cur_bb_width):
             return
         bb_width_expanding = cur_bb_width > np.mean(bb_valid)

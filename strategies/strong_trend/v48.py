@@ -45,6 +45,13 @@ class StrongTrendV48(TimeSeriesStrategy):
 
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        self._rsq = None
+        self._don_upper = None
+        self._don_lower = None
+        self._atr = None
+
     def on_init(self, context):
         self.position_scale = 0
         self.entry_price = 0.0
@@ -52,27 +59,26 @@ class StrongTrendV48(TimeSeriesStrategy):
         self.bars_since_last_scale = 999
         self.prev_don_upper = 0.0
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators once."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+
+        self._rsq = r_squared(closes, self.rsq_period)
+        self._don_upper, self._don_lower, _ = donchian(highs, lows, self.don_period)
+        self._atr = atr(highs, lows, closes, period=self.atr_period)
+
     def on_bar(self, context):
-        lookback = max(self.warmup, self.rsq_period + 5, self.don_period + 5)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-
-        if len(closes) < lookback:
-            return
-
+        i = context.bar_index
         self.bars_since_last_scale += 1
 
-        # Compute indicators
-        rsq_vals = r_squared(closes, self.rsq_period)
-        don_upper, don_lower, _ = donchian(highs, lows, self.don_period)
-        atr_vals = atr(highs, lows, closes, period=self.atr_period)
-
-        cur_rsq = rsq_vals[-1]
-        cur_don_upper = don_upper[-1]
-        cur_don_lower = don_lower[-1]
-        cur_atr = atr_vals[-1]
-        price = context.current_bar.close_raw
+        # Lookup pre-computed indicators
+        cur_rsq = self._rsq[i]
+        cur_don_upper = self._don_upper[i]
+        cur_don_lower = self._don_lower[i]
+        cur_atr = self._atr[i]
+        price = context.close_raw
 
         if np.isnan(cur_rsq) or np.isnan(cur_don_upper) or np.isnan(cur_don_lower) or np.isnan(cur_atr):
             return

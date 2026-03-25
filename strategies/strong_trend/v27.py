@@ -50,6 +50,15 @@ class StrongTrendV27(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        self._senkou_a = None
+        self._senkou_b = None
+        self._histogram = None
+        self._vol_mom = None
+        self._atr = None
+        self._closes = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0
@@ -57,41 +66,45 @@ class StrongTrendV27(TimeSeriesStrategy):
         self.trail_stop = 0.0
         self.bars_since_last_scale = 999  # large initial value
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        self._closes = closes
+        _, _, senkou_a, senkou_b_line, _ = ichimoku(
+            highs, lows, closes, self.tenkan, self.kijun,
+        )
+        self._senkou_a = senkou_a
+        self._senkou_b = senkou_b_line
+        _, _, histogram = macd(closes, self.macd_fast, self.macd_slow, signal=9)
+        self._histogram = histogram
+        self._vol_mom = volume_momentum(volumes, period=14)
+        self._atr = atr(highs, lows, closes, period=14)
+
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, 52 + self.kijun + 10, self.macd_slow + 20)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
+        i = context.bar_index
 
-        if len(closes) < lookback:
+        if i < 1:
             return
 
         self.bars_since_last_scale += 1
 
-        # ----- Compute indicators -----
-        tenkan_sen, kijun_sen, senkou_a, senkou_b_line, _ = ichimoku(
-            highs, lows, closes, self.tenkan, self.kijun,
-        )
-        _, _, histogram = macd(closes, self.macd_fast, self.macd_slow, signal=9)
-        vol_mom = volume_momentum(volumes, period=14)
-        atr_vals = atr(highs, lows, closes, period=14)
-
-        # Current values — Ichimoku senkou spans are extended by displacement,
-        # so the "current" cloud values at bar index n-1 are at senkou index n-1
-        n = len(closes)
-        cur_senkou_a = senkou_a[n - 1] if n - 1 < len(senkou_a) else np.nan
-        cur_senkou_b = senkou_b_line[n - 1] if n - 1 < len(senkou_b_line) else np.nan
-        cur_hist = histogram[-1]
-        prev_hist = histogram[-2]
-        cur_vol_mom = vol_mom[-1]
-        cur_atr = atr_vals[-1]
-        price = context.current_bar.close_raw
-        cur_close = closes[-1]
+        # ----- Look up pre-computed indicators -----
+        cur_senkou_a = self._senkou_a[i] if i < len(self._senkou_a) else np.nan
+        cur_senkou_b = self._senkou_b[i] if i < len(self._senkou_b) else np.nan
+        cur_hist = self._histogram[i]
+        prev_hist = self._histogram[i - 1]
+        cur_vol_mom = self._vol_mom[i]
+        cur_atr = self._atr[i]
+        price = context.close_raw
+        cur_close = self._closes[i]
 
         # Guard: skip if indicators aren't ready
         if (np.isnan(cur_senkou_a) or np.isnan(cur_senkou_b)

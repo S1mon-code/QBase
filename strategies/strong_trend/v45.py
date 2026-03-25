@@ -48,6 +48,16 @@ class StrongTrendV45(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        # Small TF indicators (30min)
+        self._cci = None
+        self._atr = None
+        # Large TF indicators (4h, pre-mapped to 30min indices)
+        self._vi_plus_4h = None
+        self._vi_minus_4h = None
+        self._4h_map = None  # 30min index → 4h index mapping
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0
@@ -57,67 +67,54 @@ class StrongTrendV45(TimeSeriesStrategy):
         self.prev_cci = np.nan            # previous bar CCI for crossover detection
         self.prev_vi_spread = np.nan      # previous 4h VI+ - VI- spread
 
-    # ------------------------------------------------------------------
-    # Helper: aggregate 30min bars to 4h (every 8 bars)
-    # ------------------------------------------------------------------
-    @staticmethod
-    def _aggregate_to_4h(highs_30m, lows_30m, closes_30m):
-        """Aggregate 30min OHLC arrays into 4h bars (8:1 ratio).
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators once. Aggregate 30min → 4h."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        n = len(closes)
 
-        Returns (highs_4h, lows_4h, closes_4h) trimmed to complete bars.
-        """
-        n = len(highs_30m)
-        n_bars = n // 8
-        if n_bars < 1:
-            return np.array([]), np.array([]), np.array([])
+        # Small TF indicators (30min)
+        self._cci = cci(highs, lows, closes, self.cci_period)
+        self._atr = atr(highs, lows, closes, period=self.atr_period)
 
-        # Trim to exact multiple of 8 (use most recent bars)
-        trim = n - n_bars * 8
-        h = highs_30m[trim:].reshape(n_bars, 8)
-        l = lows_30m[trim:].reshape(n_bars, 8)
-        c = closes_30m[trim:].reshape(n_bars, 8)
+        # Aggregate to 4h (step = 8: 8 × 30min = 4h)
+        step = 8
+        n_4h = n // step
+        trim = n_4h * step
+        closes_4h = closes[:trim].reshape(n_4h, step)[:, -1]
+        highs_4h = highs[:trim].reshape(n_4h, step).max(axis=1)
+        lows_4h = lows[:trim].reshape(n_4h, step).min(axis=1)
 
-        highs_4h = np.max(h, axis=1)
-        lows_4h = np.min(l, axis=1)
-        closes_4h = c[:, -1]  # last close in each 4h block
+        # Large TF indicators (4h Vortex)
+        self._vi_plus_4h, self._vi_minus_4h = vortex(
+            highs_4h, lows_4h, closes_4h, self.vortex_period
+        )
 
-        return highs_4h, lows_4h, closes_4h
+        # Index mapping: for 30min bar i, the latest COMPLETED 4h bar
+        self._4h_map = np.maximum(0, (np.arange(n) + 1) // step - 1)
 
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.vortex_period * 8 + 50, self.cci_period + 10)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-
-        if len(closes) < lookback:
-            return
+        i = context.bar_index
+        j = self._4h_map[i]  # corresponding 4h bar
 
         self.bars_since_last_scale += 1
 
-        # ----- Compute 30min indicators -----
-        cci_vals = cci(highs, lows, closes, self.cci_period)
-        atr_vals = atr(highs, lows, closes, period=self.atr_period)
+        # ----- Lookup pre-computed values -----
+        cur_cci = self._cci[i]
+        cur_atr = self._atr[i]
+        cur_vi_plus = self._vi_plus_4h[j]
+        cur_vi_minus = self._vi_minus_4h[j]
 
-        # ----- Aggregate to 4h and compute Vortex -----
-        h4h, l4h, c4h = self._aggregate_to_4h(highs, lows, closes)
-        if len(h4h) < self.vortex_period + 2:
-            return
-
-        vi_plus, vi_minus = vortex(h4h, l4h, c4h, self.vortex_period)
-
-        # Current values
-        cur_cci = cci_vals[-1]
-        prev_cci = cci_vals[-2] if len(cci_vals) >= 2 else np.nan
-        cur_atr = atr_vals[-1]
-        cur_vi_plus = vi_plus[-1]
-        cur_vi_minus = vi_minus[-1]
-        prev_vi_plus = vi_plus[-2] if len(vi_plus) >= 2 else np.nan
-        prev_vi_minus = vi_minus[-2] if len(vi_minus) >= 2 else np.nan
-        price = context.current_bar.close_raw
+        # Previous values for crossover / spread detection
+        prev_cci = self._cci[i - 1] if i >= 1 else np.nan
+        prev_vi_plus = self._vi_plus_4h[j - 1] if j >= 1 else np.nan
+        prev_vi_minus = self._vi_minus_4h[j - 1] if j >= 1 else np.nan
+        price = context.close_raw
 
         # Guard: skip if indicators aren't ready
         if (np.isnan(cur_cci) or np.isnan(prev_cci)

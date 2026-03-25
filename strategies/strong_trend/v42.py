@@ -47,6 +47,16 @@ class StrongTrendV42(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        # Small TF indicators (1h)
+        self._ema_fast = None
+        self._ema_slow = None
+        self._atr = None
+        # Large TF indicators (daily, pre-mapped to 1h indices)
+        self._adx_daily = None
+        self._daily_map = None  # 1h index → daily index mapping
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0
@@ -54,75 +64,64 @@ class StrongTrendV42(TimeSeriesStrategy):
         self.trail_stop = 0.0
         self.bars_since_last_scale = 999  # large initial value
 
-    # ------------------------------------------------------------------
-    # Daily bar aggregation from 60min bars
-    # ------------------------------------------------------------------
-    @staticmethod
-    def _aggregate_daily(closes_1h, highs_1h, lows_1h, agg_size=4):
-        """Aggregate 1h bars into daily bars (every agg_size bars).
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators once. Aggregate 60min → daily."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        n = len(closes)
 
-        Uses ~4 bars per day as approximation (Chinese futures have ~4h
-        of active trading per session). Returns (closes_d, highs_d, lows_d).
-        """
-        n = len(closes_1h)
-        n_daily = n // agg_size
+        # Small TF indicators (1h)
+        self._ema_fast = ema(closes, self.ema_fast)
+        self._ema_slow = ema(closes, self.ema_slow)
+        self._atr = atr(highs, lows, closes, period=14)
 
-        if n_daily < 2:
-            return None, None, None
+        # Aggregate to daily (step = 4: 4 × 60min ≈ 1 session)
+        step = 4
+        n_daily = n // step
+        trim = n_daily * step
+        closes_d = closes[:trim].reshape(n_daily, step)[:, -1]
+        highs_d = highs[:trim].reshape(n_daily, step).max(axis=1)
+        lows_d = lows[:trim].reshape(n_daily, step).min(axis=1)
 
-        trim = n_daily * agg_size
+        # Large TF indicators (daily)
+        self._adx_daily = adx(highs_d, lows_d, closes_d, self.adx_period)
 
-        groups_c = closes_1h[:trim].reshape(n_daily, agg_size)
-        groups_h = highs_1h[:trim].reshape(n_daily, agg_size)
-        groups_l = lows_1h[:trim].reshape(n_daily, agg_size)
-
-        closes_d = groups_c[:, -1]          # last close of each group
-        highs_d = np.max(groups_h, axis=1)  # highest high
-        lows_d = np.min(groups_l, axis=1)   # lowest low
-
-        return closes_d, highs_d, lows_d
+        # Index mapping: for 1h bar i, the latest COMPLETED daily bar
+        self._daily_map = np.maximum(0, (np.arange(n) + 1) // step - 1)
 
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every 1h bar."""
-        lookback = max(self.warmup, (self.adx_period * 3) * 4 + 20, self.ema_slow + 20)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-
-        if len(closes) < lookback:
-            return
+        i = context.bar_index
+        j = self._daily_map[i]  # corresponding daily bar
 
         self.bars_since_last_scale += 1
 
-        # ----- Aggregate to daily bars -----
-        closes_d, highs_d, lows_d = self._aggregate_daily(closes, highs, lows)
-        if closes_d is None or len(closes_d) < self.adx_period * 3:
+        # ----- Lookup pre-computed values -----
+        cur_adx = self._adx_daily[j]
+        cur_ema_fast = self._ema_fast[i]
+        cur_ema_slow = self._ema_slow[i]
+        cur_atr = self._atr[i]
+
+        # NaN guard
+        if np.isnan(cur_adx) or np.isnan(cur_ema_fast) or np.isnan(cur_ema_slow):
+            return
+        if np.isnan(cur_atr) or cur_atr <= 0:
             return
 
-        # ----- Compute daily ADX (large TF: trend strength) -----
-        adx_vals = adx(highs_d, lows_d, closes_d, self.adx_period)
-        cur_adx = adx_vals[-1]
-
-        if np.isnan(cur_adx):
+        # Previous bar EMA values (for cross detection)
+        if i < 1:
             return
-
-        # ----- Compute 1h EMA fast/slow (small TF: entry timing) -----
-        ema_fast_vals = ema(closes, self.ema_fast)
-        ema_slow_vals = ema(closes, self.ema_slow)
-        cur_ema_fast = ema_fast_vals[-1]
-        cur_ema_slow = ema_slow_vals[-1]
-        prev_ema_fast = ema_fast_vals[-2]
-        prev_ema_slow = ema_slow_vals[-2]
-
-        if np.isnan(cur_ema_fast) or np.isnan(cur_ema_slow):
+        prev_ema_fast = self._ema_fast[i - 1]
+        prev_ema_slow = self._ema_slow[i - 1]
+        if np.isnan(prev_ema_fast) or np.isnan(prev_ema_slow):
             return
 
         # EMA cross detection
         ema_golden_cross = (prev_ema_fast <= prev_ema_slow) and (cur_ema_fast > cur_ema_slow)
-        ema_fast_above = cur_ema_fast > cur_ema_slow
         ema_fast_below = cur_ema_fast < cur_ema_slow
 
         # EMA spread (for add condition — widening means trend accelerating)
@@ -130,14 +129,7 @@ class StrongTrendV42(TimeSeriesStrategy):
         prev_spread = prev_ema_fast - prev_ema_slow
         spread_widening = cur_spread > prev_spread and cur_spread > 0
 
-        # ----- Compute 1h ATR (for trailing stop + profit check) -----
-        atr_vals = atr(highs, lows, closes, period=14)
-        cur_atr = atr_vals[-1]
-
-        if np.isnan(cur_atr) or cur_atr <= 0:
-            return
-
-        price = context.current_bar.close_raw
+        price = context.close_raw
         side, lots = context.position
 
         # ----- Update trailing stop -----

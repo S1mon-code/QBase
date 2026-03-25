@@ -44,41 +44,50 @@ class StrongTrendV16(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0  # Default for most commodities
 
+    def __init__(self):
+        super().__init__()
+        self._t3 = None
+        self._ergo_line = None
+        self._ergo_signal = None
+        self._tmf = None
+        self._atr = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0     # 0 = flat, 1-3 = position tiers
         self.trail_stop = 0.0       # Trailing stop level
+
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        self._t3 = t3(closes, period=self.t3_period, volume_factor=self.t3_vfactor)
+        self._ergo_line, self._ergo_signal = ergodic(closes, short_period=self.ergo_short, long_period=self.ergo_long)
+        self._tmf = twiggs_money_flow(highs, lows, closes, volumes)
+        self._atr = atr(highs, lows, closes, period=14)
 
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.ergo_long + self.ergo_short + 10)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
-
-        if len(closes) < lookback:
+        i = context.bar_index
+        if i < 1:
             return
 
-        # ----- Compute indicators -----
-        t3_line = t3(closes, period=self.t3_period, volume_factor=self.t3_vfactor)
-        ergo_line, ergo_signal = ergodic(closes, short_period=self.ergo_short, long_period=self.ergo_long)
-        tmf = twiggs_money_flow(highs, lows, closes, volumes)
-        atr_vals = atr(highs, lows, closes, period=14)
-
         # Current values
-        price = context.current_bar.close_raw
-        cur_t3 = t3_line[-1]
-        prev_t3 = t3_line[-2]
-        cur_ergo = ergo_line[-1]
-        cur_ergo_sig = ergo_signal[-1]
-        prev_ergo = ergo_line[-2]
-        prev_ergo_sig = ergo_signal[-2]
-        cur_tmf = tmf[-1]
-        cur_atr = atr_vals[-1]
+        price = context.close_raw
+        cur_t3 = self._t3[i]
+        prev_t3 = self._t3[i - 1]
+        cur_ergo = self._ergo_line[i]
+        cur_ergo_sig = self._ergo_signal[i]
+        prev_ergo = self._ergo_line[i - 1]
+        prev_ergo_sig = self._ergo_signal[i - 1]
+        cur_tmf = self._tmf[i]
+        cur_atr = self._atr[i]
 
         # Guard: skip if indicators aren't ready
         if any(np.isnan(v) for v in [cur_t3, prev_t3, cur_ergo, cur_ergo_sig,

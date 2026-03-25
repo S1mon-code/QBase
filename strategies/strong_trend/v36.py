@@ -50,6 +50,13 @@ class StrongTrendV36(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        self._dema = None
+        self._uo = None
+        self._tmf = None
+        self._atr = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0
@@ -57,36 +64,37 @@ class StrongTrendV36(TimeSeriesStrategy):
         self.trail_stop = 0.0
         self.bars_since_last_scale = 999  # large initial value
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        self._dema = dema(closes, period=self.dema_period)
+        self._uo = ultimate_oscillator(highs, lows, closes,
+                                       p1=self.uo_p1, p2=self.uo_p2, p3=self.uo_p3)
+        self._tmf = twiggs_money_flow(highs, lows, closes, volumes)
+        self._atr = atr(highs, lows, closes, period=14)
+
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.uo_p3 + 10, self.dema_period * 3)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
-
-        if len(closes) < lookback:
+        i = context.bar_index
+        if i < 1:
             return
 
         self.bars_since_last_scale += 1
 
-        # ----- Compute indicators -----
-        dema_vals = dema(closes, period=self.dema_period)
-        uo_vals = ultimate_oscillator(highs, lows, closes,
-                                      p1=self.uo_p1, p2=self.uo_p2, p3=self.uo_p3)
-        tmf_vals = twiggs_money_flow(highs, lows, closes, volumes)
-        atr_vals = atr(highs, lows, closes, period=14)
-
-        # Current values
-        cur_dema = dema_vals[-1]
-        prev_dema = dema_vals[-2]
-        cur_uo = uo_vals[-1]
-        cur_tmf = tmf_vals[-1]
-        cur_atr = atr_vals[-1]
-        price = context.current_bar.close_raw
+        # ----- Lookup pre-computed indicators -----
+        cur_dema = self._dema[i]
+        prev_dema = self._dema[i - 1]
+        cur_uo = self._uo[i]
+        cur_tmf = self._tmf[i]
+        cur_atr = self._atr[i]
+        price = context.close_raw
 
         # Guard: skip if indicators aren't ready
         if (np.isnan(cur_dema) or np.isnan(prev_dema) or np.isnan(cur_uo)

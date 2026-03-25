@@ -47,6 +47,16 @@ class StrongTrendV41(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        # Small TF indicators (30min)
+        self._rsi = None
+        self._atr = None
+        # Large TF indicators (4h, pre-mapped to 30min indices)
+        self._st_line_4h = None
+        self._st_dir_4h = None
+        self._4h_map = None  # 30min index → 4h index mapping
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0
@@ -54,80 +64,54 @@ class StrongTrendV41(TimeSeriesStrategy):
         self.trail_stop = 0.0
         self.bars_since_last_scale = 999  # large initial value
 
-    # ------------------------------------------------------------------
-    # 4h bar aggregation from 30min bars
-    # ------------------------------------------------------------------
-    @staticmethod
-    def _aggregate_4h(closes_30m, highs_30m, lows_30m):
-        """Aggregate 30min bars into 4h bars (every 8 bars).
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators once. Aggregate 30min → 4h."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        n = len(closes)
 
-        Returns (closes_4h, highs_4h, lows_4h) numpy arrays.
-        """
-        n = len(closes_30m)
-        n_4h = n // 8
+        # Small TF indicators (30min)
+        self._rsi = rsi(closes, self.rsi_period)
+        self._atr = atr(highs, lows, closes, period=14)
 
-        if n_4h < 2:
-            return None, None, None
+        # Aggregate to 4h (step = 8: 8 × 30min = 4h)
+        step = 8
+        n_4h = n // step
+        trim = n_4h * step
+        closes_4h = closes[:trim].reshape(n_4h, step)[:, -1]
+        highs_4h = highs[:trim].reshape(n_4h, step).max(axis=1)
+        lows_4h = lows[:trim].reshape(n_4h, step).min(axis=1)
 
-        # Trim to exact multiple of 8
-        trim = n_4h * 8
+        # Large TF indicators (4h)
+        self._st_line_4h, self._st_dir_4h = supertrend(
+            highs_4h, lows_4h, closes_4h, self.st_period, self.st_mult
+        )
 
-        groups_c = closes_30m[:trim].reshape(n_4h, 8)
-        groups_h = highs_30m[:trim].reshape(n_4h, 8)
-        groups_l = lows_30m[:trim].reshape(n_4h, 8)
-
-        closes_4h = groups_c[:, -1]       # last close of each group
-        highs_4h = np.max(groups_h, axis=1)  # highest high
-        lows_4h = np.min(groups_l, axis=1)   # lowest low
-
-        return closes_4h, highs_4h, lows_4h
+        # Index mapping: for 30min bar i, the latest COMPLETED 4h bar
+        # This avoids look-ahead bias
+        self._4h_map = np.maximum(0, (np.arange(n) + 1) // step - 1)
 
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every 30min bar."""
-        # Need enough 30min bars for 4h aggregation + indicator warmup
-        # 8 bars per 4h candle * (st_period + 20) ~ 240 bars minimum
-        lookback = max(self.warmup, (self.st_period + 30) * 8, self.rsi_period * 3)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-
-        if len(closes) < lookback:
-            return
+        i = context.bar_index
+        j = self._4h_map[i]  # corresponding 4h bar
 
         self.bars_since_last_scale += 1
 
-        # ----- Aggregate to 4h bars -----
-        closes_4h, highs_4h, lows_4h = self._aggregate_4h(closes, highs, lows)
-        if closes_4h is None or len(closes_4h) < self.st_period + 5:
+        # ----- Lookup pre-computed values -----
+        cur_st_dir = self._st_dir_4h[j]
+        cur_rsi = self._rsi[i]
+        cur_atr = self._atr[i]
+
+        # NaN guard
+        if np.isnan(cur_st_dir) or np.isnan(cur_rsi) or np.isnan(cur_atr) or cur_atr <= 0:
             return
 
-        # ----- Compute 4h Supertrend (large TF: direction) -----
-        st_line_4h, st_dir_4h = supertrend(
-            highs_4h, lows_4h, closes_4h, self.st_period, self.st_mult
-        )
-        cur_st_dir = st_dir_4h[-1]
-
-        if np.isnan(cur_st_dir):
-            return
-
-        # ----- Compute 30min RSI (small TF: entry timing) -----
-        rsi_vals = rsi(closes, self.rsi_period)
-        cur_rsi = rsi_vals[-1]
-
-        if np.isnan(cur_rsi):
-            return
-
-        # ----- Compute 30min ATR (for trailing stop + profit check) -----
-        atr_vals = atr(highs, lows, closes, period=14)
-        cur_atr = atr_vals[-1]
-
-        if np.isnan(cur_atr) or cur_atr <= 0:
-            return
-
-        price = context.current_bar.close_raw
+        price = context.close_raw
         side, lots = context.position
 
         # ----- Update trailing stop -----

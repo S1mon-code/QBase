@@ -45,32 +45,39 @@ class StrongTrendV47(TimeSeriesStrategy):
 
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        self._adx = None
+        self._chand_long = None
+        self._atr = None
+        self._highs = None
+
     def on_init(self, context):
         self.position_scale = 0
         self.entry_price = 0.0
         self.trail_stop = 0.0
         self.bars_since_last_scale = 999
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators once."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+
+        self._adx = adx(highs, lows, closes, self.adx_period)
+        self._chand_long, _ = chandelier_exit(highs, lows, closes, self.chand_period, self.chand_mult)
+        self._atr = atr(highs, lows, closes, period=14)
+        self._highs = highs
+
     def on_bar(self, context):
-        lookback = max(self.warmup, self.adx_period * 3, self.chand_period + 10)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-
-        if len(closes) < lookback:
-            return
-
+        i = context.bar_index
         self.bars_since_last_scale += 1
 
-        # Compute indicators
-        adx_vals = adx(highs, lows, closes, self.adx_period)
-        chand_long, _ = chandelier_exit(highs, lows, closes, self.chand_period, self.chand_mult)
-        atr_vals = atr(highs, lows, closes, period=14)
-
-        cur_adx = adx_vals[-1]
-        cur_chand = chand_long[-1]
-        cur_atr = atr_vals[-1]
-        price = context.current_bar.close_raw
+        # Lookup pre-computed indicators
+        cur_adx = self._adx[i]
+        cur_chand = self._chand_long[i]
+        cur_atr = self._atr[i]
+        price = context.close_raw
 
         if np.isnan(cur_adx) or np.isnan(cur_chand) or np.isnan(cur_atr):
             return
@@ -105,7 +112,7 @@ class StrongTrendV47(TimeSeriesStrategy):
             profit_ok = price >= self.entry_price + cur_atr
             bar_gap_ok = self.bars_since_last_scale >= MIN_BARS_BETWEEN_ADDS
             adx_strong = cur_adx > 35.0
-            new_high = price >= np.max(highs[-20:])
+            new_high = price >= np.max(self._highs[max(0, i - 19):i + 1])
 
             if profit_ok and bar_gap_ok and adx_strong and new_high:
                 base_lots = self._calc_lots(context, price, cur_chand)

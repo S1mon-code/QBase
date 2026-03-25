@@ -50,6 +50,14 @@ class StrongTrendV32(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        self._ribbon_sig = None
+        self._tsi_line = None
+        self._tsi_signal = None
+        self._vroc = None
+        self._atr = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0
@@ -57,24 +65,13 @@ class StrongTrendV32(TimeSeriesStrategy):
         self.trail_stop = 0.0
         self.bars_since_last_scale = 999  # large initial value
 
-    # ------------------------------------------------------------------
-    # Core bar handler
-    # ------------------------------------------------------------------
-    def on_bar(self, context):
-        """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.tsi_long + self.tsi_short + 20)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
 
-        if len(closes) < lookback:
-            return
-
-        self.bars_since_last_scale += 1
-
-        # ----- Compute indicators -----
-        # EMA Ribbon with periods derived from ribbon_base
         ribbon_periods = (
             self.ribbon_base,
             self.ribbon_base + 5,
@@ -82,19 +79,27 @@ class StrongTrendV32(TimeSeriesStrategy):
             self.ribbon_base + 26,
             self.ribbon_base + 47,
         )
-        ribbon_sig = ema_ribbon_signal(closes, ribbon_periods)
+        self._ribbon_sig = ema_ribbon_signal(closes, ribbon_periods)
+        self._tsi_line, self._tsi_signal = tsi(closes, self.tsi_long, self.tsi_short)
+        self._vroc = vroc(volumes, self.vroc_period)
+        self._atr = atr(highs, lows, closes, period=14)
 
-        tsi_line, tsi_signal = tsi(closes, self.tsi_long, self.tsi_short)
-        vroc_vals = vroc(volumes, self.vroc_period)
-        atr_vals = atr(highs, lows, closes, period=14)
+    # ------------------------------------------------------------------
+    # Core bar handler
+    # ------------------------------------------------------------------
+    def on_bar(self, context):
+        """Evaluate signals on every bar."""
+        i = context.bar_index
 
-        # Current values
-        cur_ribbon = ribbon_sig[-1]
-        cur_tsi = tsi_line[-1]
-        cur_tsi_signal = tsi_signal[-1]
-        cur_vroc = vroc_vals[-1]
-        cur_atr = atr_vals[-1]
-        price = context.current_bar.close_raw
+        self.bars_since_last_scale += 1
+
+        # ----- Lookup pre-computed indicators -----
+        cur_ribbon = self._ribbon_sig[i]
+        cur_tsi = self._tsi_line[i]
+        cur_tsi_signal = self._tsi_signal[i]
+        cur_vroc = self._vroc[i]
+        cur_atr = self._atr[i]
+        price = context.close_raw
 
         # Guard: skip if indicators aren't ready
         if (

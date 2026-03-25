@@ -48,6 +48,13 @@ class StrongTrendV46(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        self._st_line = None
+        self._st_dir = None
+        self._atr = None
+        self._closes = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0
@@ -56,31 +63,30 @@ class StrongTrendV46(TimeSeriesStrategy):
         self.highest_since_entry = 0.0
         self.bars_since_last_scale = 999  # large initial value
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators once."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+
+        self._st_line, self._st_dir = supertrend(highs, lows, closes, self.st_period, self.st_mult)
+        self._atr = atr(highs, lows, closes, period=self.atr_period)
+        self._closes = closes
+
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.st_period + 10, self.new_high_lookback + 5)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-
-        if len(closes) < lookback:
-            return
-
+        i = context.bar_index
         self.bars_since_last_scale += 1
 
-        # ----- Compute indicators -----
-        st_line, st_dir = supertrend(highs, lows, closes, self.st_period, self.st_mult)
-        atr_vals = atr(highs, lows, closes, period=self.atr_period)
-
-        # Current values
-        cur_dir = st_dir[-1]
-        prev_dir = st_dir[-2] if len(st_dir) >= 2 else np.nan
-        cur_st_line = st_line[-1]
-        cur_atr = atr_vals[-1]
-        price = context.current_bar.close_raw
+        # ----- Lookup pre-computed indicators -----
+        cur_dir = self._st_dir[i]
+        prev_dir = self._st_dir[i - 1] if i >= 1 else np.nan
+        cur_st_line = self._st_line[i]
+        cur_atr = self._atr[i]
+        price = context.close_raw
 
         # Guard: skip if indicators aren't ready
         if np.isnan(cur_dir) or np.isnan(cur_st_line) or np.isnan(cur_atr):
@@ -119,8 +125,7 @@ class StrongTrendV46(TimeSeriesStrategy):
             bar_gap_ok = self.bars_since_last_scale >= MIN_BARS_BETWEEN_ADDS
 
             # Check for new high: current close is highest in last N bars
-            recent_highs = closes[-self.new_high_lookback:]
-            new_high = price >= np.max(recent_highs)
+            new_high = price >= np.max(self._closes[max(0, i - self.new_high_lookback + 1):i + 1])
             st_bullish = cur_dir == 1
 
             if profit_ok and bar_gap_ok and new_high and st_bullish:

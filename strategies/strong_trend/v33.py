@@ -50,6 +50,15 @@ class StrongTrendV33(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        self._t3 = None
+        self._aroon_up = None
+        self._aroon_down = None
+        self._aroon_osc = None
+        self._climax = None
+        self._atr = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0
@@ -57,35 +66,36 @@ class StrongTrendV33(TimeSeriesStrategy):
         self.trail_stop = 0.0
         self.bars_since_last_scale = 999  # large initial value
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        self._t3 = t3(closes, self.t3_period, self.t3_vfactor)
+        self._aroon_up, self._aroon_down, self._aroon_osc = aroon(highs, lows, self.aroon_period)
+        self._climax = volume_climax(highs, lows, closes, volumes, self.climax_period)
+        self._atr = atr(highs, lows, closes, period=14)
+
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.aroon_period + 10, self.climax_period + 10)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
-
-        if len(closes) < lookback:
+        i = context.bar_index
+        if i < 1:
             return
 
         self.bars_since_last_scale += 1
 
-        # ----- Compute indicators -----
-        t3_vals = t3(closes, self.t3_period, self.t3_vfactor)
-        aroon_up, aroon_down, aroon_osc = aroon(highs, lows, self.aroon_period)
-        climax_vals = volume_climax(highs, lows, closes, volumes, self.climax_period)
-        atr_vals = atr(highs, lows, closes, period=14)
-
-        # Current values
-        cur_t3 = t3_vals[-1]
-        prev_t3 = t3_vals[-2] if len(t3_vals) >= 2 else np.nan
-        cur_aroon_up = aroon_up[-1]
-        cur_aroon_osc = aroon_osc[-1]
-        cur_atr = atr_vals[-1]
-        price = context.current_bar.close_raw
+        # ----- Lookup pre-computed indicators -----
+        cur_t3 = self._t3[i]
+        prev_t3 = self._t3[i - 1]
+        cur_aroon_up = self._aroon_up[i]
+        cur_aroon_osc = self._aroon_osc[i]
+        cur_atr = self._atr[i]
+        price = context.close_raw
 
         # T3 rising: current T3 > previous T3
         t3_rising = (
@@ -96,17 +106,17 @@ class StrongTrendV33(TimeSeriesStrategy):
 
         # Volume climax positive in last 3 bars
         recent_climax = False
-        if len(climax_vals) >= 3:
-            for offset in range(1, 4):  # last 3 bars
-                val = climax_vals[-offset]
-                if not np.isnan(val) and val > 0:
+        if i >= 2:
+            for offset in range(0, 3):  # current bar and 2 previous
+                idx = i - offset
+                if idx >= 0 and not np.isnan(self._climax[idx]) and self._climax[idx] > 0:
                     recent_climax = True
                     break
 
         # New volume climax (current bar)
         new_climax = (
-            not np.isnan(climax_vals[-1])
-            and climax_vals[-1] > 0
+            not np.isnan(self._climax[i])
+            and self._climax[i] > 0
         )
 
         # Guard: skip if indicators aren't ready

@@ -50,6 +50,14 @@ class StrongTrendV35(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        self._alma = None
+        self._k_line = None
+        self._d_line = None
+        self._emv = None
+        self._atr = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0
@@ -57,36 +65,37 @@ class StrongTrendV35(TimeSeriesStrategy):
         self.trail_stop = 0.0
         self.bars_since_last_scale = 999  # large initial value
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        self._alma = alma(closes, period=self.alma_period, offset=self.alma_offset)
+        self._k_line, self._d_line = stoch_rsi(closes, rsi_period=self.stochrsi_period,
+                                                stoch_period=self.stochrsi_period)
+        self._emv = emv(highs, lows, volumes, period=self.emv_period)
+        self._atr = atr(highs, lows, closes, period=14)
+
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.stochrsi_period * 3, self.emv_period + 20)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
-
-        if len(closes) < lookback:
+        i = context.bar_index
+        if i < 1:
             return
 
         self.bars_since_last_scale += 1
 
-        # ----- Compute indicators -----
-        alma_vals = alma(closes, period=self.alma_period, offset=self.alma_offset)
-        k_line, _ = stoch_rsi(closes, rsi_period=self.stochrsi_period,
-                              stoch_period=self.stochrsi_period)
-        emv_vals = emv(highs, lows, volumes, period=self.emv_period)
-        atr_vals = atr(highs, lows, closes, period=14)
-
-        # Current values
-        cur_alma = alma_vals[-1]
-        prev_alma = alma_vals[-2]
-        cur_k = k_line[-1]
-        cur_emv = emv_vals[-1]
-        cur_atr = atr_vals[-1]
-        price = context.current_bar.close_raw
+        # ----- Lookup pre-computed indicators -----
+        cur_alma = self._alma[i]
+        prev_alma = self._alma[i - 1]
+        cur_k = self._k_line[i]
+        cur_emv = self._emv[i]
+        cur_atr = self._atr[i]
+        price = context.close_raw
 
         # Guard: skip if indicators aren't ready
         if (np.isnan(cur_alma) or np.isnan(prev_alma) or np.isnan(cur_k)

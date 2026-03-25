@@ -45,38 +45,47 @@ class StrongTrendV8(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0  # Default for most commodities
 
+    def __init__(self):
+        super().__init__()
+        self._slope = None
+        self._chop = None
+        self._natr = None
+        self._atr = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0         # 0 = flat, 1-3 = position tiers
         self.prev_slope = np.nan        # Previous bar's slope for acceleration
         self.trail_stop = 0.0           # Trailing stop level
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+
+        self._slope = linear_regression_slope(closes, self.slope_period)
+        self._chop = choppiness_index(highs, lows, closes, self.chop_period)
+        self._natr = natr(highs, lows, closes, self.natr_period)
+        self._atr = atr(highs, lows, closes, period=14)
+
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.slope_period + 10, self.chop_period + 10)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
+        i = context.bar_index
 
-        if len(closes) < lookback:
+        if i < 1:
             return
 
-        # ----- Compute indicators -----
-        slope_arr = linear_regression_slope(closes, self.slope_period)
-        chop_arr = choppiness_index(highs, lows, closes, self.chop_period)
-        natr_arr = natr(highs, lows, closes, self.natr_period)
-        atr_arr = atr(highs, lows, closes, period=14)
-
-        # Current values
-        cur_slope = slope_arr[-1]
-        prev_slope_ind = slope_arr[-2]
-        cur_chop = chop_arr[-1]
-        cur_natr = natr_arr[-1]
-        cur_atr = atr_arr[-1]
-        price = context.current_bar.close_raw
+        # ----- Look up pre-computed indicators -----
+        cur_slope = self._slope[i]
+        prev_slope_ind = self._slope[i - 1]
+        cur_chop = self._chop[i]
+        cur_natr = self._natr[i]
+        cur_atr = self._atr[i]
+        price = context.close_raw
 
         # Guard: skip if indicators aren't ready
         if (np.isnan(cur_slope) or np.isnan(cur_chop)

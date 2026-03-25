@@ -50,6 +50,16 @@ class StrongTrendV39(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        self._kc_upper = None
+        self._kc_mid = None
+        self._kc_lower = None
+        self._cmo = None
+        self._vol_spikes = None
+        self._atr = None
+        self._closes = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0
@@ -57,39 +67,40 @@ class StrongTrendV39(TimeSeriesStrategy):
         self.trail_stop = 0.0
         self.bars_since_last_scale = 999  # large initial value
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        self._closes = closes
+        self._kc_upper, self._kc_mid, self._kc_lower = keltner(
+            highs, lows, closes, ema_period=self.kc_ema, multiplier=self.kc_mult,
+        )
+        self._cmo = cmo(closes, period=self.cmo_period)
+        self._vol_spikes = volume_spike(volumes, period=20, threshold=self.vol_threshold)
+        self._atr = atr(highs, lows, closes, period=14)
+
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.kc_ema + 20, self.cmo_period * 3)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
-
-        if len(closes) < lookback:
-            return
+        i = context.bar_index
 
         self.bars_since_last_scale += 1
 
-        # ----- Compute indicators -----
-        kc_upper, kc_mid, kc_lower = keltner(
-            highs, lows, closes, ema_period=self.kc_ema, multiplier=self.kc_mult,
-        )
-        cmo_vals = cmo(closes, period=self.cmo_period)
-        vol_spikes = volume_spike(volumes, period=20, threshold=self.vol_threshold)
-        atr_vals = atr(highs, lows, closes, period=14)
-
-        # Current values
-        cur_kc_upper = kc_upper[-1]
-        cur_kc_mid = kc_mid[-1]
-        cur_cmo = cmo_vals[-1]
-        cur_atr = atr_vals[-1]
-        price = context.current_bar.close_raw
+        # ----- Lookup pre-computed indicators -----
+        cur_kc_upper = self._kc_upper[i]
+        cur_kc_mid = self._kc_mid[i]
+        cur_cmo = self._cmo[i]
+        cur_atr = self._atr[i]
+        price = context.close_raw
 
         # Volume spike in last 3 bars
-        has_recent_spike = bool(np.any(vol_spikes[-3:]))
+        start_idx = max(0, i - 2)
+        has_recent_spike = bool(np.any(self._vol_spikes[start_idx:i + 1]))
 
         # Guard: skip if indicators aren't ready
         if (
@@ -150,7 +161,7 @@ class StrongTrendV39(TimeSeriesStrategy):
         # ENTRY — flat, close > Keltner upper + CMO > 20 + volume spike
         # ==================================================================
         if lots == 0 and self.position_scale == 0:
-            breakout = closes[-1] > cur_kc_upper
+            breakout = self._closes[i] > cur_kc_upper
             momentum_ok = cur_cmo > 20.0
             volume_ok = has_recent_spike
 

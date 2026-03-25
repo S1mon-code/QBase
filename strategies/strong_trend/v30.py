@@ -49,6 +49,14 @@ class StrongTrendV30(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        self._st_line = None
+        self._st_dir = None
+        self._cop = None
+        self._cmf = None
+        self._atr = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0        # 0 = flat, 1-3 = position tiers
@@ -57,34 +65,36 @@ class StrongTrendV30(TimeSeriesStrategy):
         self.bars_since_last_scale = 0 # Min gap between adds
         self.base_lots = 0             # First entry lot size
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        self._st_line, self._st_dir = supertrend(highs, lows, closes, self.st_period, self.st_mult)
+        self._cop = coppock(closes, wma_period=self.cop_wma, roc_long=self.cop_roc_long)
+        self._cmf = cmf(highs, lows, closes, volumes)
+        self._atr = atr(highs, lows, closes, period=14)
+
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.st_period + 10, self.cop_roc_long + self.cop_wma + 5)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
+        i = context.bar_index
 
-        if len(closes) < lookback:
+        if i < 2:
             return
 
-        # ----- Compute indicators -----
-        st_line, st_dir = supertrend(highs, lows, closes, self.st_period, self.st_mult)
-        cop = coppock(closes, wma_period=self.cop_wma, roc_long=self.cop_roc_long)
-        cmf_arr = cmf(highs, lows, closes, volumes)
-        atr_arr = atr(highs, lows, closes, period=14)
-
-        # Current values
-        price = context.current_bar.close_raw
-        cur_dir = st_dir[-1]
-        cur_st_line = st_line[-1]
-        cur_cop = cop[-1]
-        prev_cop = cop[-2]
-        cur_cmf = cmf_arr[-1]
-        cur_atr = atr_arr[-1]
+        # ----- Look up pre-computed indicators -----
+        price = context.close_raw
+        cur_dir = self._st_dir[i]
+        cur_st_line = self._st_line[i]
+        cur_cop = self._cop[i]
+        prev_cop = self._cop[i - 1]
+        cur_cmf = self._cmf[i]
+        cur_atr = self._atr[i]
 
         # Guard: skip if indicators aren't ready
         if (np.isnan(cur_dir) or np.isnan(cur_st_line) or np.isnan(cur_cop)
@@ -92,7 +102,7 @@ class StrongTrendV30(TimeSeriesStrategy):
             return
 
         # Need 3 bars of coppock for acceleration check
-        cop_m3 = cop[-3] if len(cop) >= 3 and not np.isnan(cop[-3]) else np.nan
+        cop_m3 = self._cop[i - 2] if not np.isnan(self._cop[i - 2]) else np.nan
 
         # Derived signals
         st_bullish = cur_dir == 1

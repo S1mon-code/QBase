@@ -42,6 +42,13 @@ class StrongTrendV5(TimeSeriesStrategy):
     climax_period: int = 20
     atr_trail_mult: float = 3.5
 
+    def __init__(self):
+        super().__init__()
+        self._hma = None
+        self._cci = None
+        self._climax = None
+        self._atr = None
+
     # ── Internal state ──────────────────────────────────────────────
 
     def on_init(self, context):
@@ -49,31 +56,35 @@ class StrongTrendV5(TimeSeriesStrategy):
         self.highest_since_entry = 0.0  # for trailing stop
         self.position_scale = 0         # current add-on count (0-3)
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        self._hma = hma(closes, self.hma_period)
+        self._cci = cci(highs, lows, closes, self.cci_period)
+        self._climax = volume_climax(highs, lows, closes, volumes, self.climax_period)
+        self._atr = atr(highs, lows, closes, period=14)
+
     # ----------------------------------------------------------------
     #  Main bar handler
     # ----------------------------------------------------------------
     def on_bar(self, context):
-        # --- Fetch price / volume arrays ---------------------------
-        lookback = self.warmup
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-        volumes = context.get_volume_array(lookback)
+        i = context.bar_index
 
-        price = context.current_bar.close_raw
+        if i < 1:
+            return
+
+        price = context.close_raw
         side, lots = context.position
 
-        # --- Compute indicators ------------------------------------
-        hma_arr = hma(closes, self.hma_period)
-        cci_arr = cci(highs, lows, closes, self.cci_period)
-        climax_arr = volume_climax(highs, lows, closes, volumes, self.climax_period)
-        atr_arr = atr(highs, lows, closes, period=14)
-
-        # Current and previous values
-        hma_now = hma_arr[-1]
-        hma_prev = hma_arr[-2]
-        cci_now = cci_arr[-1]
-        atr_now = atr_arr[-1]
+        # --- Look up pre-computed indicators ---
+        hma_now = self._hma[i]
+        hma_prev = self._hma[i - 1]
+        cci_now = self._cci[i]
+        atr_now = self._atr[i]
 
         # Guard: skip bar if any indicator is not ready
         if np.isnan(hma_now) or np.isnan(hma_prev) or np.isnan(cci_now) or np.isnan(atr_now):
@@ -83,7 +94,7 @@ class StrongTrendV5(TimeSeriesStrategy):
         hma_rising = hma_now > hma_prev
 
         # Check for positive volume climax in the last 3 bars
-        recent_climax = climax_arr[-3:]
+        recent_climax = self._climax[max(0, i - 2):i + 1]
         has_buying_climax = any(
             not np.isnan(v) and v > 0 for v in recent_climax
         )
@@ -95,7 +106,7 @@ class StrongTrendV5(TimeSeriesStrategy):
         if lots == 0:
             if (
                 hma_rising
-                and closes[-1] > hma_now
+                and price > hma_now
                 and cci_now > self.cci_threshold
                 and has_buying_climax
             ):
@@ -120,7 +131,7 @@ class StrongTrendV5(TimeSeriesStrategy):
                 return
 
             # -- Hard exit: price below HMA or CCI deeply negative --
-            if closes[-1] < hma_now or cci_now < -100:
+            if price < hma_now or cci_now < -100:
                 context.close_long()
                 self._reset_state()
                 return
@@ -136,7 +147,7 @@ class StrongTrendV5(TimeSeriesStrategy):
             # -- Add: extremely strong momentum, room to scale ------
             if (
                 cci_now > 200
-                and closes[-1] > hma_now
+                and price > hma_now
                 and self.position_scale < 3
             ):
                 add_lots = self._calc_lots(context, atr_now, contract_mult)

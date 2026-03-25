@@ -44,38 +44,49 @@ class StrongTrendV18(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0
 
+    def __init__(self):
+        super().__init__()
+        self._dema = None
+        self._kst_line = None
+        self._kst_signal = None
+        self._nr7 = None
+        self._atr = None
+        self._closes = None
+
     def on_init(self, context):
         """Initialize tracking variables."""
         self.position_scale = 0       # 0 = flat, 1-3 = position tiers
         self.trailing_stop = 0.0      # ATR trailing stop level
+
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+
+        self._closes = closes
+        self._dema = dema(closes, self.dema_period)
+        self._kst_line, self._kst_signal = kst(closes, signal_period=self.kst_signal)
+        self._nr7 = nr7(highs, lows)
+        self._atr = atr(highs, lows, closes, period=self.atr_period)
 
     # ------------------------------------------------------------------
     # Core bar handler
     # ------------------------------------------------------------------
     def on_bar(self, context):
         """Evaluate signals on every bar."""
-        lookback = max(self.warmup, self.dema_period + 10, 50)
-        closes = context.get_close_array(lookback)
-        highs = context.get_high_array(lookback)
-        lows = context.get_low_array(lookback)
-
-        if len(closes) < lookback:
+        i = context.bar_index
+        if i < 4:
             return
 
-        # ----- Compute indicators -----
-        dema_line = dema(closes, self.dema_period)
-        kst_line, kst_signal = kst(closes, signal_period=self.kst_signal)
-        nr7_flags = nr7(highs, lows)
-        atr_vals = atr(highs, lows, closes, period=self.atr_period)
-
         # Current values
-        price = context.current_bar.close_raw
-        cur_close = closes[-1]
-        cur_dema = dema_line[-1]
-        prev_dema = dema_line[-2]
-        cur_kst = kst_line[-1]
-        cur_kst_sig = kst_signal[-1]
-        cur_atr = atr_vals[-1]
+        price = context.close_raw
+        cur_close = self._closes[i]
+        cur_dema = self._dema[i]
+        prev_dema = self._dema[i - 1]
+        cur_kst = self._kst_line[i]
+        cur_kst_sig = self._kst_signal[i]
+        cur_atr = self._atr[i]
 
         # Guard: skip if indicators aren't ready
         if (np.isnan(cur_dema) or np.isnan(cur_kst)
@@ -85,7 +96,7 @@ class StrongTrendV18(TimeSeriesStrategy):
         # Derived conditions
         dema_rising = cur_dema > prev_dema
         kst_bullish = cur_kst > cur_kst_sig
-        recent_squeeze = np.any(nr7_flags[-5:])  # NR7 in last 5 bars
+        recent_squeeze = np.any(self._nr7[i - 4:i + 1])  # NR7 in last 5 bars
 
         side, lots = context.position
 
@@ -125,9 +136,8 @@ class StrongTrendV18(TimeSeriesStrategy):
         # ADD — KST accelerating + still above DEMA + scale < 3
         # ==================================================================
         if lots > 0 and self.position_scale < 3:
-            if (len(kst_line) >= 3
-                    and not np.isnan(kst_line[-3])):
-                kst_accel = (kst_line[-1] > kst_line[-2] > kst_line[-3])
+            if i >= 2 and not np.isnan(self._kst_line[i - 2]):
+                kst_accel = (self._kst_line[i] > self._kst_line[i - 1] > self._kst_line[i - 2])
                 if kst_accel and cur_close > cur_dema:
                     add_lots = self._calc_lots(context, cur_atr)
                     if add_lots > 0:

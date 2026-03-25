@@ -41,6 +41,14 @@ class StrongTrendV4(TimeSeriesStrategy):
     # Internal (not tunable)
     _atr_period: int = 14
 
+    def __init__(self):
+        super().__init__()
+        self._fast_ema = None
+        self._slow_ema = None
+        self._cross_signal = None
+        self._histogram = None
+        self._atr = None
+
     # ── Lifecycle ────────────────────────────────────────────────────────
 
     def on_init(self, context):
@@ -49,36 +57,37 @@ class StrongTrendV4(TimeSeriesStrategy):
         self.position_scale = 0          # 0-3 scale tracker
         self.prev_macd_hist = np.nan     # for histogram acceleration check
 
+    def on_init_arrays(self, context, bars):
+        """Pre-compute all indicators on full data arrays."""
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+
+        self._fast_ema, self._slow_ema, self._cross_signal = ema_cross(
+            closes, self.ema_fast, self.ema_slow,
+        )
+        _, _, self._histogram = macd(closes, self.macd_fast, self.macd_slow)
+        self._atr = atr(highs, lows, closes, period=self._atr_period)
+
     # ── Core logic ───────────────────────────────────────────────────────
 
     def on_bar(self, context):
         """Called every bar — entry, add, reduce, and exit logic."""
-        # Need enough bars for the slowest indicator (EMA 60 + some margin)
-        n = self.warmup
-        closes = context.get_close_array(n)
-        highs = context.get_high_array(n)
-        lows = context.get_low_array(n)
+        i = context.bar_index
 
-        if len(closes) < n:
+        if i < 1:
             return
 
-        price = context.current_bar.close_raw
+        price = context.close_raw
         side, lots = context.position
 
-        # ── Compute indicators ───────────────────────────────────────────
-        fast_ema, slow_ema, cross_signal = ema_cross(
-            closes, self.ema_fast, self.ema_slow,
-        )
-        _, _, histogram = macd(closes, self.macd_fast, self.macd_slow)
-        atr_values = atr(highs, lows, closes, period=self._atr_period)
-
-        # Current values
-        cross_now = cross_signal[-1]         # +1 golden, -1 death, 0 none
-        fast_now = fast_ema[-1]
-        slow_now = slow_ema[-1]
-        hist_now = histogram[-1]
-        hist_prev = histogram[-2]
-        atr_now = atr_values[-1]
+        # ── Look up pre-computed indicators ───────────────────────────────
+        cross_now = self._cross_signal[i]         # +1 golden, -1 death, 0 none
+        fast_now = self._fast_ema[i]
+        slow_now = self._slow_ema[i]
+        hist_now = self._histogram[i]
+        hist_prev = self._histogram[i - 1]
+        atr_now = self._atr[i]
 
         # Bail if any indicator is still warming up
         if np.isnan(hist_now) or np.isnan(hist_prev) or np.isnan(atr_now):
