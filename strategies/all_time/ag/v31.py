@@ -1,0 +1,265 @@
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+import conftest
+
+import numpy as np
+from alphaforge.strategy.base import TimeSeriesStrategy
+from indicators.ml.boosting_signal import gradient_boost_signal
+from indicators.regime.momentum_regime import momentum_regime
+from indicators.volatility.atr import atr
+
+SCALE_FACTORS = [1.0, 0.5, 0.25]
+MAX_SCALE = 3
+
+
+class GradientBoostingTrendAcceleration(TimeSeriesStrategy):
+    """
+    Gradient Boosting Momentum + Trend Acceleration strategy for AG futures.
+
+    Enters on gradient boosting bullish/bearish probability when the
+    momentum regime indicates acceleration.
+
+    Indicators:
+    - Gradient Boost Signal (period=120): probability of positive return (0-1)
+    - Momentum Regime (fast=10, slow=60): 1=accelerating, 0=decelerating, -1=reversing
+    - ATR(14): stop and profit targets
+
+    Entry (Long):
+    - Boosting probability > 0.6 (bullish prediction)
+    - Momentum regime = 1 (accelerating) with positive score
+
+    Entry (Short):
+    - Boosting probability < 0.4 (bearish prediction)
+    - Momentum regime = 1 (accelerating) with negative score
+
+    Exit:
+    - ATR trailing stop
+    - Tiered profit-taking at 3ATR, 5ATR
+    - Momentum decelerating or reversing
+
+    Pros: GBT captures nonlinear patterns; acceleration filter avoids late entries
+    Cons: GBT retraining cost; acceleration can be brief
+    """
+    name = "v31_gbm_trend_acceleration"
+    warmup = 120 * 3
+    freq = "4h"
+
+    boost_period: int = 120
+    bull_threshold: float = 0.6
+    bear_threshold: float = 0.4
+    atr_stop_mult: float = 3.0
+
+    def __init__(self):
+        super().__init__()
+        self._boost_signal = None
+        self._mom_regime = None
+        self._mom_score = None
+        self._atr = None
+        self._avg_volume = None
+
+    def on_init(self, context):
+        self.entry_price = 0.0
+        self.stop_price = 0.0
+        self.highest_since_entry = 0.0
+        self.lowest_since_entry = 999999.0
+        self.position_scale = 0
+        self.bars_since_last_scale = 0
+        self._took_profit_3atr = False
+        self._took_profit_5atr = False
+
+    def on_init_arrays(self, context, bars):
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+
+        n = len(closes)
+        safe = np.maximum(closes, 1e-9)
+        log_ret = np.full(n, np.nan)
+        log_ret[1:] = np.log(safe[1:] / safe[:-1])
+
+        feat_cols = []
+        for lag in [1, 5, 10, 20]:
+            f = np.full(n, np.nan)
+            for idx in range(lag, n):
+                f[idx] = (closes[idx] - closes[idx - lag]) / closes[idx - lag]
+            feat_cols.append(f)
+        vol20 = np.full(n, np.nan)
+        for idx in range(20, n):
+            vol20[idx] = np.std(log_ret[idx - 20:idx])
+        feat_cols.append(vol20)
+        features = np.column_stack(feat_cols)
+
+        self._boost_signal, _ = gradient_boost_signal(closes, features, period=self.boost_period)
+        self._mom_regime, self._mom_score = momentum_regime(closes, fast=10, slow=60)
+        self._atr = atr(highs, lows, closes, period=14)
+
+        window = 20
+        self._avg_volume = np.full_like(volumes, np.nan)
+        for idx in range(window, len(volumes)):
+            self._avg_volume[idx] = np.mean(volumes[idx - window:idx])
+
+    def on_bar(self, context):
+        i = context.bar_index
+        price = context.close_raw
+        side, lots = context.position
+
+        if hasattr(context.current_bar, 'is_rollover') and context.current_bar.is_rollover:
+            return
+        vol = context.volume
+        if self._avg_volume[i] is not None and not np.isnan(self._avg_volume[i]):
+            if vol < self._avg_volume[i] * 0.1:
+                return
+
+        bsig = self._boost_signal[i]
+        mr = self._mom_regime[i]
+        ms = self._mom_score[i]
+        atr_val = self._atr[i]
+        if np.isnan(bsig) or np.isnan(mr) or np.isnan(ms) or np.isnan(atr_val):
+            return
+
+        accel_bull = mr == 1.0 and ms > 0
+        accel_bear = mr == 1.0 and ms < 0
+        reversing = mr == -1.0
+
+        self.bars_since_last_scale += 1
+
+        # Stop - Long
+        if side == 1:
+            self.highest_since_entry = max(self.highest_since_entry, price)
+            trailing = self.highest_since_entry - self.atr_stop_mult * atr_val
+            self.stop_price = max(self.stop_price, trailing)
+            if price <= self.stop_price:
+                context.close_long()
+                self._reset_state()
+                return
+
+        # Stop - Short
+        if side == -1:
+            self.lowest_since_entry = min(self.lowest_since_entry, price)
+            trailing = self.lowest_since_entry + self.atr_stop_mult * atr_val
+            self.stop_price = min(self.stop_price, trailing)
+            if price >= self.stop_price:
+                context.close_short()
+                self._reset_state()
+                return
+
+        # Profit - Long
+        if side == 1 and self.entry_price > 0:
+            profit_atr = (price - self.entry_price) / atr_val
+            if profit_atr >= 5.0 and not self._took_profit_5atr:
+                context.close_long(lots=max(1, lots // 3))
+                self._took_profit_5atr = True
+                self.position_scale = max(0, self.position_scale - 1)
+                return
+            elif profit_atr >= 3.0 and not self._took_profit_3atr:
+                context.close_long(lots=max(1, lots // 3))
+                self._took_profit_3atr = True
+                self.position_scale = max(0, self.position_scale - 1)
+                return
+
+        # Profit - Short
+        if side == -1 and self.entry_price > 0:
+            profit_atr = (self.entry_price - price) / atr_val
+            if profit_atr >= 5.0 and not self._took_profit_5atr:
+                context.close_short(lots=max(1, lots // 3))
+                self._took_profit_5atr = True
+                self.position_scale = max(0, self.position_scale - 1)
+                return
+            elif profit_atr >= 3.0 and not self._took_profit_3atr:
+                context.close_short(lots=max(1, lots // 3))
+                self._took_profit_3atr = True
+                self.position_scale = max(0, self.position_scale - 1)
+                return
+
+        # Exit on deceleration/reversal
+        if side == 1 and (reversing or ms < 0):
+            context.close_long()
+            self._reset_state()
+            return
+        if side == -1 and (reversing or ms > 0):
+            context.close_short()
+            self._reset_state()
+            return
+
+        # Entry - Long
+        if side == 0 and bsig > self.bull_threshold and accel_bull:
+            base_lots = self._calc_lots(context, atr_val)
+            if base_lots > 0:
+                context.buy(base_lots)
+                self.entry_price = price
+                self.stop_price = price - self.atr_stop_mult * atr_val
+                self.highest_since_entry = price
+                self.lowest_since_entry = price
+                self.position_scale = 1
+                self.bars_since_last_scale = 0
+
+        # Entry - Short
+        elif side == 0 and bsig < self.bear_threshold and accel_bear:
+            base_lots = self._calc_lots(context, atr_val)
+            if base_lots > 0:
+                context.sell(base_lots)
+                self.entry_price = price
+                self.stop_price = price + self.atr_stop_mult * atr_val
+                self.highest_since_entry = price
+                self.lowest_since_entry = price
+                self.position_scale = 1
+                self.bars_since_last_scale = 0
+
+        # Scaling - Long
+        elif side == 1 and self._should_add_long(price, atr_val, bsig > self.bull_threshold):
+            add_lots = self._calc_add_lots(self._calc_lots(context, atr_val))
+            if add_lots > 0:
+                context.buy(add_lots)
+                self.position_scale += 1
+                self.bars_since_last_scale = 0
+
+        # Scaling - Short
+        elif side == -1 and self._should_add_short(price, atr_val, bsig < self.bear_threshold):
+            add_lots = self._calc_add_lots(self._calc_lots(context, atr_val))
+            if add_lots > 0:
+                context.sell(add_lots)
+                self.position_scale += 1
+                self.bars_since_last_scale = 0
+
+    def _should_add_long(self, price, atr_val, confirm):
+        if self.position_scale >= MAX_SCALE or self.bars_since_last_scale < 10:
+            return False
+        if price < self.entry_price + atr_val or not confirm:
+            return False
+        return True
+
+    def _should_add_short(self, price, atr_val, confirm):
+        if self.position_scale >= MAX_SCALE or self.bars_since_last_scale < 10:
+            return False
+        if price > self.entry_price - atr_val or not confirm:
+            return False
+        return True
+
+    def _calc_add_lots(self, base_lots):
+        factor = SCALE_FACTORS[min(self.position_scale, len(SCALE_FACTORS) - 1)]
+        return max(1, int(base_lots * factor))
+
+    def _calc_lots(self, context, atr_val):
+        from alphaforge.data.contract_specs import ContractSpecManager
+        spec = ContractSpecManager().get(context.symbol)
+        stop_distance = self.atr_stop_mult * atr_val * spec.multiplier
+        if stop_distance <= 0:
+            return 0
+        risk_lots = int(context.equity * 0.02 / stop_distance)
+        margin_per_lot = context.close_raw * spec.multiplier * spec.margin_rate
+        if margin_per_lot <= 0:
+            return 0
+        max_lots = int(context.equity * 0.30 / margin_per_lot)
+        return max(1, min(risk_lots, max_lots))
+
+    def _reset_state(self):
+        self.entry_price = 0.0
+        self.stop_price = 0.0
+        self.highest_since_entry = 0.0
+        self.lowest_since_entry = 999999.0
+        self.position_scale = 0
+        self.bars_since_last_scale = 0
+        self._took_profit_3atr = False
+        self._took_profit_5atr = False
