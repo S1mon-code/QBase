@@ -216,32 +216,49 @@ strategies/all_time/
 
 ### 4. Portfolio 构建
 
+#### 核心原则
+
+**组合的唯一目标：最大化组合 Sharpe，同时控制回撤。**
+
+不是把好策略堆在一起，而是找到一组**互补**的策略。一个负 Sharpe 但与其他策略负相关的策略，可能比一个正 Sharpe 但高度相关的策略更有价值。
+
 #### 构建流程
 
 ```
-开发 N 个策略 → 按 Sharpe 取 top 50% → 相关性过滤 → 独立策略池
-→ HRP 或 Risk Parity 赋权 → Walk-forward 验证 → 最终 portfolio
+开发 N 个策略 → 全部回测（不按 Sharpe 过滤）→ 贪心组合优化
+→ Sharpe 加权 HRP 赋权 → 权重上限裁剪 → Leave-one-out 检验 → 最终 portfolio
 ```
 
-#### Step 1: 策略筛选
+#### Step 1: 贪心组合优化（策略选择）
 
-1. 按测试集 Sharpe 排序，取 top 50%
-2. **统一到日收益率** — 不同频率策略的收益率必须先对齐到日线级别再比较（见下方多频率处理）
-3. 计算策略间日收益率相关性矩阵
-4. 相关性 > 0.7 的一对中，保留 Sharpe 更高的那个
-5. 最终保留多少个策略不设固定数量 — **以 portfolio 整体 Sharpe 和 Information Ratio 最高为目标**
+**不使用 Sharpe 门槛过滤。** 改为以组合 Sharpe 最大化为目标的贪心选择：
+
+```python
+# 贪心构建算法
+pool = sort_by_sharpe_descending(all_strategies)  # 含负 Sharpe 策略
+selected = [pool[0]]  # 从最高 Sharpe 开始
+
+for strategy in pool[1:]:
+    candidate = selected + [strategy]
+    candidate_sharpe = calc_portfolio_sharpe(candidate)
+
+    if candidate_sharpe > current_portfolio_sharpe:
+        selected.append(strategy)  # 加入后组合更好 → 保留
+        current_portfolio_sharpe = candidate_sharpe
+    # 否则跳过（包括正 Sharpe 但高相关的，和负 Sharpe 但没帮助的）
+```
+
+**关键：负 Sharpe + 负相关性的策略会被自然纳入。** 比如一个 Sharpe=-0.3 但与组合相关性 -0.5 的策略，加入后可能让组合 MaxDD 从 -10% 降到 -6%，整体 Sharpe 反而提升。
+
+**不再使用硬性相关性阈值（0.7）过滤。** 相关性过滤太粗暴 — 两个相关性 0.75 的策略如果回撤不重叠，组合仍有价值。贪心算法会自然处理：加入后组合 Sharpe 提升就保留，否则跳过。
 
 #### 多频率策略混合
 
-Portfolio 中的策略可能混合 5min、1h、4h、daily 等不同频率，这需要特殊处理：
+Portfolio 中的策略可能混合 5min、1h、4h、daily 等不同频率：
 
 **收益率对齐：** 所有策略的权益曲线统一 resample 到**日线级别**后再做相关性计算和赋权。
 
 ```python
-# 5min 策略：取每日最后一笔权益作为日权益
-# 1h 策略：同上
-# daily 策略：已经是日线
-# 统一后计算日收益率 → 相关性矩阵 → HRP/Risk Parity
 daily_equity = resample_to_daily(strategy_equity_curve)
 daily_returns = daily_equity.pct_change()
 ```
@@ -256,53 +273,80 @@ daily_returns = daily_equity.pct_change()
 - 在 `all_time/` 中这是允许的（多空均可），但需要注意净头寸
 - 在 `strong_trend/` 中不会冲突（都是只做多）
 
-#### Step 2: 赋权方式
+#### Step 2: Sharpe 加权 HRP 赋权
 
-保留两种方法，后续通过回测对比选择：
-
-**方法 A: HRP (Hierarchical Risk Parity)（首选）**
-- 对策略收益做层次聚类（按相关性距离）
-- 自顶向下分配权重：相关性低的分组获得更多权重
-- 优势：不需要矩阵求逆，处理相关策略最稳，样本外最优
-
-**方法 B: Risk Parity（备选）**
-- 每个策略对组合贡献相等的风险
-- 权重 ∝ 1/vol，再调整使风险贡献相等
-- 优势：简单直观，易于理解和调试
+纯 HRP 只按相关性分配权重，会给低相关性但低质量的策略过多权重。改为 **Sharpe 加权 HRP**：
 
 ```python
-# portfolio/weights.json 格式
-{
-  "name": "ag_alltime_portfolio_v1",
-  "method": "hrp",            # "hrp" 或 "risk_parity"
-  "n_strategies": 12,
-  "portfolio_sharpe": 2.1,
-  "portfolio_ir": 1.8,
-  "strategies": {
-    "v3": {"weight": 0.12, "sharpe": 1.85},
-    "v7": {"weight": 0.10, "sharpe": 1.62},
-    "v15": {"weight": 0.09, "sharpe": 1.45}
-  },
-  "rebalance": "quarterly",
-  "backtest_period": "2022-01-01 to 2026-03-01"
-}
+# Step 2a: 标准 HRP 权重（基于相关性聚类）
+w_hrp = hrp_weights(returns_matrix)
+
+# Step 2b: Sharpe 调整因子
+sharpe_factor = {v: max(0.1, sharpe) for v, sharpe in strategy_sharpes.items()}
+# 对负 Sharpe 策略（因负相关被纳入）给予最低权重 0.1
+
+# Step 2c: 混合权重 = HRP × Sharpe 调整，然后归一化
+w_final = {v: w_hrp[v] * sharpe_factor[v] for v in strategies}
+w_final = normalize(w_final)  # 归一化到 sum=1
 ```
 
-#### Step 3: Portfolio 质量要求
+**效果：** 高 Sharpe + 低相关的策略获得最多权重。低 Sharpe 的"对冲策略"获得适当但不过多的权重。
 
-**Portfolio 必须优于最佳单策略，否则不采用：**
+#### Step 3: 权重上限裁剪
 
-| 指标 | 要求 |
-|------|------|
-| Portfolio Sharpe | > 最佳单策略 Sharpe 的 **80%** |
-| Portfolio MaxDD | < 最佳单策略 MaxDD 的 **70%**（回撤更小） |
-| Information Ratio | > 1.0 |
-| 策略间平均相关性 | < 0.5 |
+**单策略最大权重 15%。** 超出部分按比例重新分配给其他策略：
 
-如果 portfolio Sharpe 低于最佳单策略，必须在 `research_log/` 中分析原因：
-- 策略间相关性太高？→ 加强过滤
-- 赋权方法不适合？→ 换方法对比
-- 策略数量太多稀释了 alpha？→ 减少策略数
+```python
+MAX_WEIGHT = 0.15
+
+while any(w > MAX_WEIGHT for w in weights.values()):
+    excess = {v: w - MAX_WEIGHT for v, w in weights.items() if w > MAX_WEIGHT}
+    for v in excess:
+        weights[v] = MAX_WEIGHT
+    # 将多余权重按比例分配给未达上限的策略
+    total_excess = sum(excess.values())
+    under_cap = {v: w for v, w in weights.items() if w < MAX_WEIGHT}
+    for v in under_cap:
+        weights[v] += total_excess * (weights[v] / sum(under_cap.values()))
+```
+
+**为什么 15%：** 实测中 v41 在 AG 上拿了 24%、v31 在 LC 上拿了 22%，单策略集中度过高。15% 上限保证至少 7 个策略共同承担风险。
+
+#### Step 4: Leave-one-out 边际检验
+
+构建完成后，逐个移除策略验证其边际贡献：
+
+```python
+for strategy in portfolio:
+    without = portfolio - {strategy}
+    sharpe_without = calc_portfolio_sharpe(without)
+
+    if sharpe_without > current_sharpe:
+        # 去掉这个策略反而更好 → 移除它
+        portfolio.remove(strategy)
+        current_sharpe = sharpe_without
+        print(f"Removed {strategy}: portfolio Sharpe improved to {sharpe_without}")
+```
+
+**这是最后的清理步骤。** 贪心构建时加入的策略，在其他策略也加入后可能变成冗余。Leave-one-out 检验能发现并清理这些冗余。
+
+#### Step 5: Portfolio 质量要求
+
+**Portfolio 评分必须达到 B+ (75分) 以上才可使用：**
+
+| 指标 | 最低要求 | 理想目标 |
+|------|---------|---------|
+| 综合评分 | ≥ 75 (B+) | ≥ 85 (A) |
+| Portfolio Sharpe / 最佳单策略 | ≥ 0.8 | ≥ 1.0 |
+| Max Drawdown | < -15% | < -5% |
+| 策略间平均相关性 | < 0.5 | < 0.3 |
+| 最大单策略权重 | ≤ 15% | ≤ 10% |
+
+如果评分低于 B+，必须在 `research_log/` 中分析原因并迭代：
+- 组合 Sharpe 低于单策略？→ 检查 Sharpe 加权是否生效
+- 回撤过大？→ 检查是否缺少对冲策略（负相关层）
+- 相关性过高？→ 扩大策略池（加入不同频率/指标类型）
+- 某策略权重过高？→ 降低权重上限
 
 #### Step 4: Portfolio 止损标准
 
