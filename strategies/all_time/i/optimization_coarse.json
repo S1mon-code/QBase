@@ -1,0 +1,3734 @@
+[
+  {
+    "version": "v1",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 4.379556811980259,
+      "roc_period": 23,
+      "roc_threshold": 9.683939679670253,
+      "st_mult": 12.680669798658483,
+      "st_period": 25
+    },
+    "best_sharpe": 0.5214845143822685,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.5785219396695149,
+      "neighbor_std": 2.7807794626364237,
+      "above_threshold_pct": 0.48
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 4.6
+  },
+  {
+    "version": "v2",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "adx_period": 18,
+      "adx_threshold": 119.08571676918994,
+      "atr_stop_mult": 11.140712762084233,
+      "macd_fast": 23,
+      "macd_slow": 19
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.0
+  },
+  {
+    "version": "v3",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "aroon_period": 31,
+      "aroon_threshold": 18.936215386363827,
+      "atr_stop_mult": 14.70926558429607,
+      "ppo_fast": 6,
+      "ppo_slow": 62
+    },
+    "best_sharpe": 0.20864683922518124,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.025364070854235737,
+      "neighbor_std": 0.12422051610529329,
+      "above_threshold_pct": 0.16
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 4.8
+  },
+  {
+    "version": "v4",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 10.678592351578553,
+      "ema_fast": 53,
+      "ema_slow": 139,
+      "fi_period": 19,
+      "rsi_period": 6
+    },
+    "best_sharpe": 0.42495253091727225,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 0.26220407917539174,
+      "neighbor_std": 0.07422594015351734,
+      "above_threshold_pct": 0.8
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 4.3
+  },
+  {
+    "version": "v5",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 0.6161675508034086,
+      "cmf_period": 60,
+      "ichi_kijun": 65,
+      "ichi_tenkan": 11,
+      "stoch_period": 14
+    },
+    "best_sharpe": 0.6041297520483244,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.1425972379470395,
+      "neighbor_std": 0.5394071598012915,
+      "above_threshold_pct": 0.2
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 6.2
+  },
+  {
+    "version": "v6",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "mfi_period": 41,
+      "psar_af_max": 0.7427141841389489,
+      "psar_af_step": 0.061471214482915516,
+      "tsi_long": 18
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 0.9
+  },
+  {
+    "version": "v7",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 10.944402045656007,
+      "cci_period": 16,
+      "cci_threshold": 157.45057893623792,
+      "hma_period": 19,
+      "klinger_fast": 38
+    },
+    "best_sharpe": 0.42967506125076443,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.05795077905740546,
+      "neighbor_std": 0.20063847608614138,
+      "above_threshold_pct": 0.28
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 5.1
+  },
+  {
+    "version": "v8",
+    "phase": "coarse",
+    "error": "cannot import name 'choppiness' from 'indicators.volatility.chop' (/Users/simon/Desktop/QBase/indicators/volatility/chop.py)"
+  },
+  {
+    "version": "v9",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 14.581201897232576,
+      "oi_period": 25,
+      "roc_period": 9,
+      "roc_threshold": 0.3110195627465066,
+      "vortex_period": 29
+    },
+    "best_sharpe": 0.3395960252861536,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.15374613859081854,
+      "neighbor_std": 0.11571576955053832,
+      "above_threshold_pct": 0.48
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 4.1
+  },
+  {
+    "version": "v10",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "aroon_osc_threshold": 38.076139012082585,
+      "aroon_period": 71,
+      "atr_stop_mult": 11.922756987638357,
+      "kama_period": 11,
+      "vol_spike_mult": 1.8873143102878016
+    },
+    "best_sharpe": 0.22719054768933,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -1.693317230944075,
+      "neighbor_std": 3.628572892991115,
+      "above_threshold_pct": 0.08
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 4.8
+  },
+  {
+    "version": "v11",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "adx_period": 18,
+      "adx_threshold": 119.08571676918994,
+      "atr_stop_mult": 11.140712762084233,
+      "st_mult": 9.220682172437327,
+      "st_period": 7
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.8
+  },
+  {
+    "version": "v12",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 1.6335522380333076,
+      "dema_period": 35,
+      "macd_fast": 32,
+      "macd_slow": 50
+    },
+    "best_sharpe": 0.8266024596764601,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.18279289000558802,
+      "neighbor_std": 0.3389855080292911,
+      "above_threshold_pct": 0.35
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 6.9
+  },
+  {
+    "version": "v13",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 1.810716592478855,
+      "ppo_fast": 34,
+      "ppo_slow": 69,
+      "tema_period": 51
+    },
+    "best_sharpe": 0.8561418158344799,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.2815587703118478,
+      "neighbor_std": 0.4497781129738877,
+      "above_threshold_pct": 0.55
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 7.2
+  },
+  {
+    "version": "v14",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 2.143119110682043,
+      "cmf_period": 52,
+      "mcg_period": 31,
+      "rsi_ob": 102.90493107757892,
+      "rsi_period": 13
+    },
+    "best_sharpe": 0.583621200761127,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.2948740633807891,
+      "neighbor_std": 0.49427207977473897,
+      "above_threshold_pct": 0.12
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 7.1
+  },
+  {
+    "version": "v15",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.2171314856742335,
+      "don_period": 50,
+      "mfi_period": 35,
+      "mfi_threshold": 129.30659262199669,
+      "roc_period": 11
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.0,
+      "neighbor_std": 0.0,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 7.1
+  },
+  {
+    "version": "v16",
+    "phase": "coarse",
+    "error": "cannot import name 'fractal' from 'indicators.trend.fractal' (/Users/simon/Desktop/QBase/indicators/trend/fractal.py)"
+  },
+  {
+    "version": "v17",
+    "phase": "coarse",
+    "error": "cannot import name 'higher_low' from 'indicators.trend.higher_low' (/Users/simon/Desktop/QBase/indicators/trend/higher_low.py)"
+  },
+  {
+    "version": "v18",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "ribbon_fast": 23,
+      "ribbon_slow": 48,
+      "stoch_ob": 245.88485793166205,
+      "stoch_period": 10
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.6
+  },
+  {
+    "version": "v19",
+    "phase": "coarse",
+    "error": "cannot import name 'trix_indicator' from 'indicators.trend.trix' (/Users/simon/Desktop/QBase/indicators/trend/trix.py)"
+  },
+  {
+    "version": "v20",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 0.7557102200875309,
+      "ppo_fast": 36,
+      "ppo_slow": 66,
+      "zlema_period": 41
+    },
+    "best_sharpe": 0.8634941719498639,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.30694127760440837,
+      "neighbor_std": 0.3190865230403754,
+      "above_threshold_pct": 0.5
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 7.0
+  },
+  {
+    "version": "v21",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "adx_period": 18,
+      "adx_threshold": 119.08571676918994,
+      "alma_period": 46,
+      "atr_stop_mult": 9.220682172437327,
+      "cmf_period": 14
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.8
+  },
+  {
+    "version": "v22",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 0.6495181284055977,
+      "mfi_period": 23,
+      "roc_period": 22,
+      "t3_period": 6,
+      "t3_vfactor": 2.0350875443166596
+    },
+    "best_sharpe": 0.6731494049086908,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.05983248570007465,
+      "neighbor_std": 0.4851278280588183,
+      "above_threshold_pct": 0.36
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 7.4
+  },
+  {
+    "version": "v23",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 13.832284606565475,
+      "st_mult": 6.178996834139105,
+      "st_period": 14,
+      "vortex_period": 37
+    },
+    "best_sharpe": 0.268213446866799,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.13658365784764703,
+      "neighbor_std": 0.07941421309308451,
+      "above_threshold_pct": 0.5
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 7.5
+  },
+  {
+    "version": "v24",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 0.8127450923544404,
+      "ichi_kijun": 76,
+      "ichi_tenkan": 22,
+      "macd_fast": 15,
+      "macd_slow": 24
+    },
+    "best_sharpe": 0.4063017302879635,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.1386323841076334,
+      "neighbor_std": 0.4863487020962626,
+      "above_threshold_pct": 0.32
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 10.1
+  },
+  {
+    "version": "v25",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "cci_period": 58,
+      "oi_period": 23,
+      "psar_af_max": 0.6147121448291551,
+      "psar_af_step": 0.018977789482473906
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.7
+  },
+  {
+    "version": "v26",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 10.545789423153712,
+      "rsi_period": 13,
+      "rsi_threshold": 29.202529985741904,
+      "st_mult": 10.944619780899648,
+      "st_period": 26
+    },
+    "best_sharpe": 1.2244150796382274,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.17010364032582148,
+      "neighbor_std": 0.44447223942884717,
+      "above_threshold_pct": 0.16
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 12.8
+  },
+  {
+    "version": "v27",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "adx_period": 18,
+      "adx_threshold": 95.26857341535195,
+      "atr_stop_mult": 11.140712762084233,
+      "macd_fast": 23,
+      "macd_slow": 19
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.8
+  },
+  {
+    "version": "v28",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "aroon_period": 29,
+      "aroon_threshold": 292.7448369273975,
+      "atr_stop_mult": 12.525454294421538,
+      "ppo_fast": 19,
+      "ppo_slow": 28
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.0,
+      "neighbor_std": 0.0,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 13.0
+  },
+  {
+    "version": "v29",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 7.5397700877847456,
+      "cmf_period": 51,
+      "ema_fast": 23,
+      "ema_slow": 78,
+      "roc_period": 6
+    },
+    "best_sharpe": 0.7809284205034067,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.14922146626203156,
+      "neighbor_std": 0.6096406597151444,
+      "above_threshold_pct": 0.28
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 12.5
+  },
+  {
+    "version": "v30",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 2.0700748671135325,
+      "hma_period": 5,
+      "mfi_period": 40,
+      "stoch_period": 22,
+      "stoch_threshold": 212.34411575739273
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.0,
+      "neighbor_std": 0.0,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 17.9
+  },
+  {
+    "version": "v31",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "kama_period": 29,
+      "tsi_long": 57,
+      "tsi_short": 25,
+      "tsi_threshold": 4.744447370618476
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 4.0
+  },
+  {
+    "version": "v32",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "cci_period": 41,
+      "cci_threshold": 297.08567365557957,
+      "lr_period": 38,
+      "r2_threshold": 0.3795557896494781
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 3.1
+  },
+  {
+    "version": "v33",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 9.19901404666001,
+      "macd_fast": 5,
+      "macd_slow": 35,
+      "oi_period": 13,
+      "vortex_period": 21
+    },
+    "best_sharpe": 0.8390314805045982,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.1835958579138928,
+      "neighbor_std": 0.548885774893128,
+      "above_threshold_pct": 0.44
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 12.3
+  },
+  {
+    "version": "v34",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 8.63431575685308,
+      "dema_period": 52,
+      "rsi_period": 6,
+      "rsi_threshold": 55.86353128830259
+    },
+    "best_sharpe": 1.2517570233013706,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.10114567253056568,
+      "neighbor_std": 0.5129106984599798,
+      "above_threshold_pct": 0.2
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 10.8
+  },
+  {
+    "version": "v35",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 10.423194598327616,
+      "ppo_fast": 9,
+      "ppo_slow": 35,
+      "tema_period": 27,
+      "vol_spike_mult": 1.271671129131568
+    },
+    "best_sharpe": 1.7705060363865461,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.8974353294137184,
+      "neighbor_std": 0.4811113637263762,
+      "above_threshold_pct": 0.48
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 14.8
+  },
+  {
+    "version": "v36",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 9.34941791674538,
+      "don_period": 6,
+      "fi_period": 15,
+      "roc_period": 13
+    },
+    "best_sharpe": 0.83687747399651,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.3990584932953277,
+      "neighbor_std": 0.17373633465990126,
+      "above_threshold_pct": 0.45
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 13.7
+  },
+  {
+    "version": "v37",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "adx_period": 18,
+      "adx_threshold": 95.26857341535195,
+      "atr_stop_mult": 11.140712762084233,
+      "cmf_period": 38,
+      "zlema_period": 14
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 2.0
+  },
+  {
+    "version": "v38",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 8.888685477147412,
+      "cci_period": 8,
+      "cci_threshold": 18.206485787083427,
+      "mcg_period": 35,
+      "mfi_period": 32
+    },
+    "best_sharpe": 1.3571873790979814,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.534755496370783,
+      "neighbor_std": 0.3494016758871893,
+      "above_threshold_pct": 0.36
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 16.4
+  },
+  {
+    "version": "v39",
+    "phase": "coarse",
+    "error": "cannot import name 'fractal' from 'indicators.trend.fractal' (/Users/simon/Desktop/QBase/indicators/trend/fractal.py)"
+  },
+  {
+    "version": "v40",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "ribbon_fast": 23,
+      "ribbon_slow": 48,
+      "stoch_period": 27,
+      "stoch_threshold": 47.444473706184766
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.5
+  },
+  {
+    "version": "v41",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 6.859434788624004,
+      "bb_period": 12,
+      "obv_lookback": 20,
+      "rsi_overbought": 282.7051931931288,
+      "rsi_oversold": 58.78029438682102
+    },
+    "best_sharpe": 0.30589870983722545,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -7.59488525466036,
+      "neighbor_std": 4.281808041139085,
+      "above_threshold_pct": 0.08
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 5.0
+  },
+  {
+    "version": "v42",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "kc_mult": 7.145143006151397,
+      "kc_period": 46,
+      "stoch_overbought": 245.88485793166205,
+      "stoch_oversold": 18.977789482473906
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 0.9
+  },
+  {
+    "version": "v43",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 5.2171314856742335,
+      "cci_period": 50,
+      "zscore_period": 51,
+      "zscore_threshold": 5.1722637048798665
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.0,
+      "neighbor_std": 0.0,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 5.4
+  },
+  {
+    "version": "v44",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 7.295879960457849,
+      "bb_period": 23
+    },
+    "best_sharpe": 0.026702026234837584,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -4.102956458962581,
+      "neighbor_std": 4.81553159921003,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 5.0
+  },
+  {
+    "version": "v45",
+    "phase": "coarse",
+    "error": "cannot import name 'detrended_price_oscillator' from 'indicators.momentum.dpo' (/Users/simon/Desktop/QBase/indicators/momentum/dpo.py)"
+  },
+  {
+    "version": "v46",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 4.746691694745201,
+      "bb_period": 14,
+      "obv_lookback": 29,
+      "stoch_overbought": 183.6197905583012,
+      "stoch_oversold": 82.07952743205202
+    },
+    "best_sharpe": 0.2575163102002597,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.9952878492790266,
+      "neighbor_std": 2.6654628935812,
+      "above_threshold_pct": 0.12
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 11.0
+  },
+  {
+    "version": "v47",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "adx_threshold": 49.9448142616835,
+      "atr_stop_mult": 14.290286012302793,
+      "mfi_threshold": 111.40712762084233,
+      "rsi_overbought": 215.1492506902043,
+      "rsi_oversold": 28.466684223710857
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.7
+  },
+  {
+    "version": "v48",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 8.641963183715925,
+      "bb_period": 8,
+      "cci_period": 14,
+      "cci_threshold": 425.733260170938,
+      "vol_mom_period": 30
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -4.0,
+      "neighbor_std": 4.898979485566356,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 10.5
+  },
+  {
+    "version": "v49",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "kc_mult": 7.145143006151397,
+      "kc_period": 46
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.6
+  },
+  {
+    "version": "v50",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "fisher_period": 29,
+      "fisher_threshold": 5.570356381042116,
+      "zscore_period": 38,
+      "zscore_threshold": 1.8977789482473906
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 2.9
+  },
+  {
+    "version": "v51",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "bb_period": 58,
+      "oi_mom_period": 23,
+      "srsi_overbought": 2.4588485793166206,
+      "srsi_oversold": 0.18977789482473906
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 2.2
+  },
+  {
+    "version": "v52",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "cmo_period": 41,
+      "cmo_threshold": 185.67854603473722,
+      "kc_mult": 4.610341086218663,
+      "kc_period": 14
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.7
+  },
+  {
+    "version": "v53",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "bb_period": 58,
+      "rvi_period": 23,
+      "rvi_threshold": 0.6147121448291551
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 2.7
+  },
+  {
+    "version": "v54",
+    "phase": "coarse",
+    "error": "cannot import name 'detrended_price_oscillator' from 'indicators.momentum.dpo' (/Users/simon/Desktop/QBase/indicators/momentum/dpo.py)"
+  },
+  {
+    "version": "v55",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 3.9775324601649404,
+      "mfi_low": 125.5962561246758,
+      "rsi_overbought": 59.61287051472082,
+      "rsi_oversold": 134.43756475304434,
+      "vwap_dev": 0.07049380616040354
+    },
+    "best_sharpe": 1.0599925356772872,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.05434726211312793,
+      "neighbor_std": 0.4487727802531439,
+      "above_threshold_pct": 0.16
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 7.2
+  },
+  {
+    "version": "v56",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.2171314856742335,
+      "bb_period": 50,
+      "cci_period": 51,
+      "cci_threshold": 258.61318524399337,
+      "squeeze_pctl": 31.940468317010623
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -2.0,
+      "neighbor_std": 4.0,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 18.8
+  },
+  {
+    "version": "v57",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "div_lookback": 15,
+      "kc_mult": 5.570356381042116,
+      "kc_period": 38,
+      "rsi_period": 10
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.5
+  },
+  {
+    "version": "v58",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 2.0700748671135325,
+      "stoch_overbought": 25.857076807059205,
+      "stoch_oversold": 118.88786538020435,
+      "zscore_period": 32,
+      "zscore_threshold": 6.370323472721782
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.0,
+      "neighbor_std": 0.0,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 10.3
+  },
+  {
+    "version": "v59",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "adx_threshold": 49.9448142616835,
+      "atr_stop_mult": 14.290286012302793,
+      "oi_period": 23
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.9
+  },
+  {
+    "version": "v60",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "bb_period": 58,
+      "fisher_period": 23,
+      "fisher_threshold": 4.610341086218663
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 2.7
+  },
+  {
+    "version": "v61",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 13.87017036224387,
+      "bb_period": 12,
+      "obv_lookback": 14,
+      "rsi_overbought": 195.07732652393577,
+      "rsi_oversold": 8.93193973791855
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.4,
+      "neighbor_std": 1.9595917942265424,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 18.6
+  },
+  {
+    "version": "v62",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "kc_mult": 7.145143006151397,
+      "kc_period": 46,
+      "stoch_overbought": 245.88485793166205,
+      "stoch_oversold": 18.977789482473906
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.2
+  },
+  {
+    "version": "v63",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 13.275830894585082,
+      "cci_threshold": 105.71953301181252,
+      "mfi_oversold": 62.71410703792287,
+      "zscore_period": 43,
+      "zscore_threshold": 1.415559407620274
+    },
+    "best_sharpe": 0.6958794761453251,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.07807980734804908,
+      "neighbor_std": 0.6369171115670668,
+      "above_threshold_pct": 0.24
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 24.7
+  },
+  {
+    "version": "v64",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 15.0,
+      "bb_period": 23,
+      "rsi_overbought": 221.20128621823955,
+      "rsi_oversold": 39.23828550891886,
+      "rsi_period": 13
+    },
+    "best_sharpe": -0.5902818360857337,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": -0.6258275725913542,
+      "neighbor_std": 0.018048314605244826,
+      "above_threshold_pct": 1.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 18.7
+  },
+  {
+    "version": "v65",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "kc_mult": 7.145143006151397,
+      "kc_period": 46,
+      "stoch_overbought": 261.2526615523909,
+      "stoch_oversold": 14.233342111855428
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 3.5
+  },
+  {
+    "version": "v66",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 4.531091096284494,
+      "cci_threshold": 742.8390613657235,
+      "vm_period": 21
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.5,
+      "neighbor_std": 2.179449471770337,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 15.2
+  },
+  {
+    "version": "v67",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.2171314856742335,
+      "bb_period": 50,
+      "cmo_threshold": 208.7575715736923,
+      "oi_period": 15
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.0,
+      "neighbor_std": 0.0,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 18.3
+  },
+  {
+    "version": "v68",
+    "phase": "coarse",
+    "error": "cannot import name 'detrended_price_oscillator' from 'indicators.momentum.dpo' (/Users/simon/Desktop/QBase/indicators/momentum/dpo.py)"
+  },
+  {
+    "version": "v69",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 4.042323271323177,
+      "dev_pct": 0.005122060263848059,
+      "rsi_overbought": 341.0218541679676,
+      "rsi_oversold": 106.60991100872832,
+      "sma_period": 45
+    },
+    "best_sharpe": 1.1762717399072087,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.19362728930335685,
+      "neighbor_std": 0.6695111151777323,
+      "above_threshold_pct": 0.32
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 9.5
+  },
+  {
+    "version": "v70",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "fisher_period": 29,
+      "fisher_threshold": 5.570356381042116,
+      "kc_mult": 4.610341086218663,
+      "kc_period": 14
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 2.5
+  },
+  {
+    "version": "v71",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "bb_period": 58,
+      "mfi_threshold": 92.83927301736861,
+      "rvi_period": 19,
+      "rvi_threshold": 0.1423334211185543
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 5.9
+  },
+  {
+    "version": "v72",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.2171314856742335,
+      "zscore_period": 50,
+      "zscore_threshold": 7.515272576652924
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.0,
+      "neighbor_std": 0.0,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 19.9
+  },
+  {
+    "version": "v73",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 4.261099068527917,
+      "bb_period": 54,
+      "pctb_high": 3.7067115370668557,
+      "pctb_low": 0.21222211751887204,
+      "stoch_oversold": 68.26441699810991
+    },
+    "best_sharpe": 0.8772865894476272,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.3267857040415996,
+      "neighbor_std": 0.3625468003623938,
+      "above_threshold_pct": 0.4
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 29.8
+  },
+  {
+    "version": "v74",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "cci_threshold": 571.6114404921117,
+      "kc_mult": 5.570356381042116,
+      "kc_period": 38,
+      "vm_period": 7
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.2
+  },
+  {
+    "version": "v75",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "adx_threshold": 39.9558514093468,
+      "atr_stop_mult": 14.290286012302793,
+      "oi_period": 23,
+      "rsi_overbought": 230.5170543109332,
+      "rsi_oversold": 23.722236853092383
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.7
+  },
+  {
+    "version": "v76",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "bb_period": 58,
+      "srsi_overbought": 3.1565352825905326,
+      "srsi_oversold": 0.46103410862186633
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.2
+  },
+  {
+    "version": "v77",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.2171314856742335,
+      "cmo_threshold": 209.1034549481411,
+      "obv_lookback": 26,
+      "zscore_period": 31,
+      "zscore_threshold": 2.3955351237757974
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.0,
+      "neighbor_std": 0.0,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 20.5
+  },
+  {
+    "version": "v78",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "kc_mult": 7.145143006151397,
+      "kc_period": 46
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 2.3
+  },
+  {
+    "version": "v79",
+    "phase": "coarse",
+    "error": "cannot import name 'detrended_price_oscillator' from 'indicators.momentum.dpo' (/Users/simon/Desktop/QBase/indicators/momentum/dpo.py)"
+  },
+  {
+    "version": "v80",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 9.15683587614379,
+      "stoch_overbought": 58.77551271500217,
+      "stoch_oversold": 91.12800686416662,
+      "vwap_dev": 0.003029054941807918
+    },
+    "best_sharpe": 1.123675623052592,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.24495495877635048,
+      "neighbor_std": 0.6314891490528647,
+      "above_threshold_pct": 0.55
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 16.6
+  },
+  {
+    "version": "v81",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "adx_period": 18,
+      "adx_threshold": 95.26857341535195,
+      "atr_stop_mult": 11.140712762084233,
+      "don_period": 38,
+      "vol_spike_mult": 1.423334211185543
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.2
+  },
+  {
+    "version": "v82",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "macd_fast": 35,
+      "macd_slow": 59,
+      "obv_ema": 38,
+      "squeeze_period": 14
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 0.9
+  },
+  {
+    "version": "v83",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "kc_mult": 9.526857341535194,
+      "kc_period": 46,
+      "mfi_threshold": 153.67803620728878,
+      "roc_period": 10
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 0.9
+  },
+  {
+    "version": "v84",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "bb_period": 58,
+      "bb_std": 7.4271418413894885,
+      "fi_period": 25,
+      "nr7_lookback": 2
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.0
+  },
+  {
+    "version": "v85",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "aroon_diff": 94.10681684002265,
+      "aroon_period": 17,
+      "atr_stop_mult": 4.806882938907141,
+      "cmf_period": 26
+    },
+    "best_sharpe": 0.24215954511246707,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.07381995031063697,
+      "neighbor_std": 0.17777472386888618,
+      "above_threshold_pct": 0.1
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 4.4
+  },
+  {
+    "version": "v86",
+    "phase": "coarse",
+    "error": "cannot import name 'choppiness' from 'indicators.volatility.chop' (/Users/simon/Desktop/QBase/indicators/volatility/chop.py)"
+  },
+  {
+    "version": "v87",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "adx_period": 18,
+      "adx_threshold": 104.79543075688714,
+      "atr_stop_mult": 11.140712762084233,
+      "bb_period": 38,
+      "bb_std": 1.8977789482473906
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 0.9
+  },
+  {
+    "version": "v88",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "chand_mult": 14.290286012302793,
+      "chand_period": 50,
+      "roc_period": 27
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 0.9
+  },
+  {
+    "version": "v89",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 5.004134326185185,
+      "macd_fast": 30,
+      "macd_slow": 62,
+      "vol_spike_mult": 0.42890467082014877,
+      "vr_threshold": 1.1668438597464772
+    },
+    "best_sharpe": 0.3953367702577001,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.704517318065374,
+      "neighbor_std": 2.742897482166937,
+      "above_threshold_pct": 0.24
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 4.3
+  },
+  {
+    "version": "v90",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 15.0,
+      "don_period": 36,
+      "obv_ema": 19,
+      "st_mult": 11.40181282199184,
+      "st_period": 30
+    },
+    "best_sharpe": 0.351533150908551,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 0.19178041645024335,
+      "neighbor_std": 0.11884145624965352,
+      "above_threshold_pct": 0.64
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 4.8
+  },
+  {
+    "version": "v91",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "mfi_threshold": 238.1714335383799,
+      "rsi_period": 32,
+      "rsi_threshold": 153.67803620728878,
+      "squeeze_period": 14
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.6
+  },
+  {
+    "version": "v92",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "adx_period": 18,
+      "adx_threshold": 104.79543075688714,
+      "atr_stop_mult": 11.140712762084233,
+      "kc_mult": 6.147121448291551,
+      "kc_period": 14
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.6
+  },
+  {
+    "version": "v93",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "aroon_diff": 8.964167178595552,
+      "aroon_period": 73,
+      "atr_stop_mult": 12.587174027526073,
+      "cmf_period": 17,
+      "nr7_lookback": 2
+    },
+    "best_sharpe": 0.2202395636995249,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.05017845075454174,
+      "neighbor_std": 0.11231255112658002,
+      "above_threshold_pct": 0.4
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 8.7
+  },
+  {
+    "version": "v94",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 14.66194918126509,
+      "cci_period": 15,
+      "cci_threshold": 259.97095518650934,
+      "don_period": 43
+    },
+    "best_sharpe": 0.3751870868902316,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -4.522584673010487,
+      "neighbor_std": 4.956500739956158,
+      "above_threshold_pct": 0.1
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 8.7
+  },
+  {
+    "version": "v95",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "bb_period": 58,
+      "bb_std": 7.4271418413894885,
+      "vortex_period": 27
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.6
+  },
+  {
+    "version": "v96",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 3.3113906818948413,
+      "macd_fast": 4,
+      "macd_signal": 6,
+      "macd_slow": 58
+    },
+    "best_sharpe": 1.6245669696829106,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.5224250093671983,
+      "neighbor_std": 0.43370701949788115,
+      "above_threshold_pct": 0.15
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 7.6
+  },
+  {
+    "version": "v97",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "chand_mult": 14.290286012302793,
+      "chand_period": 50,
+      "vol_spike_mult": 4.610341086218663
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.6
+  },
+  {
+    "version": "v98",
+    "phase": "coarse",
+    "error": "cannot import name 'choppiness' from 'indicators.volatility.chop' (/Users/simon/Desktop/QBase/indicators/volatility/chop.py)"
+  },
+  {
+    "version": "v99",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "kc_mult": 9.526857341535194,
+      "kc_period": 46,
+      "st_mult": 9.220682172437327,
+      "st_period": 7
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.6
+  },
+  {
+    "version": "v100",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 2.0700748671135325,
+      "fi_period": 5,
+      "rsi_period": 40,
+      "rsi_threshold": 129.896159233078,
+      "vr_threshold": 6.370323472721782
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.0,
+      "neighbor_std": 0.0,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 6.6
+  },
+  {
+    "version": "v101",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "cmf_period": 58,
+      "squeeze_period": 46,
+      "stoch_period": 27
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 2.1
+  },
+  {
+    "version": "v102",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "bb_period": 58,
+      "bb_std": 7.4271418413894885,
+      "roc_period": 27
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.6
+  },
+  {
+    "version": "v103",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "adx_period": 18,
+      "adx_threshold": 104.79543075688714,
+      "atr_stop_mult": 11.140712762084233,
+      "nr7_lookback": 6
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.8
+  },
+  {
+    "version": "v104",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "don_period": 72,
+      "tsi_long": 57,
+      "tsi_short": 25
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 2.0
+  },
+  {
+    "version": "v105",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 8.478243099267374,
+      "cci_period": 41,
+      "cci_threshold": 139.2172909318254,
+      "vol_spike_mult": 0.4386678619381041
+    },
+    "best_sharpe": 0.5434260111943017,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.1756008796562762,
+      "neighbor_std": 0.16382285877266867,
+      "above_threshold_pct": 0.35
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 7.9
+  },
+  {
+    "version": "v106",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "adx_period": 18,
+      "adx_threshold": 95.26857341535195,
+      "atr_stop_mult": 11.140712762084233,
+      "don_period": 38,
+      "obv_ema": 14
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 2.6
+  },
+  {
+    "version": "v107",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "macd_fast": 35,
+      "macd_slow": 59,
+      "mfi_threshold": 153.67803620728878,
+      "squeeze_period": 14
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.2
+  },
+  {
+    "version": "v108",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "kc_mult": 9.526857341535194,
+      "kc_period": 46,
+      "rsi_period": 27,
+      "rsi_threshold": 47.444473706184766
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.2
+  },
+  {
+    "version": "v109",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "aroon_diff": 48.15260898037979,
+      "aroon_period": 35,
+      "atr_stop_mult": 6.810306858408957,
+      "cmf_period": 29,
+      "nr7_lookback": 4
+    },
+    "best_sharpe": 0.6081291295957015,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.2910273323092545,
+      "neighbor_std": 0.5525693348825917,
+      "above_threshold_pct": 0.16
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 16.6
+  },
+  {
+    "version": "v110",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "bb_period": 58,
+      "bb_std": 7.4271418413894885,
+      "roc_period": 27
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.2
+  },
+  {
+    "version": "v111",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 13.2852105605025,
+      "don_period": 22,
+      "vortex_period": 16
+    },
+    "best_sharpe": 0.8362823981910681,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.4668134106984511,
+      "neighbor_std": 0.20773463469428355,
+      "above_threshold_pct": 0.4
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 14.9
+  },
+  {
+    "version": "v112",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 11.353778356367854,
+      "ppo_fast": 13,
+      "ppo_signal": 9,
+      "ppo_slow": 52
+    },
+    "best_sharpe": 1.0340211905601262,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.39307101801374117,
+      "neighbor_std": 0.3205663007594276,
+      "above_threshold_pct": 0.4
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 13.7
+  },
+  {
+    "version": "v113",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "cci_period": 41,
+      "cci_threshold": 371.35709206947445,
+      "chand_mult": 9.220682172437327,
+      "chand_period": 16
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.2
+  },
+  {
+    "version": "v114",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "obv_ema": 58,
+      "stoch_period": 32,
+      "vr_threshold": 4.610341086218663
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.7
+  },
+  {
+    "version": "v115",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "adx_period": 18,
+      "adx_threshold": 95.26857341535195,
+      "atr_stop_mult": 11.140712762084233,
+      "mfi_threshold": 153.67803620728878,
+      "squeeze_period": 14
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.2
+  },
+  {
+    "version": "v116",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "kc_mult": 9.526857341535194,
+      "kc_period": 46,
+      "macd_fast": 23,
+      "macd_slow": 19
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.2
+  },
+  {
+    "version": "v117",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "bb_period": 58,
+      "bb_std": 7.4271418413894885,
+      "st_mult": 9.220682172437327,
+      "st_period": 7
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.2
+  },
+  {
+    "version": "v118",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.88895499119122,
+      "don_period": 50,
+      "roc_period": 37
+    },
+    "best_sharpe": 1.3949225147473754,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.6438142165471767,
+      "neighbor_std": 0.4402879174878375,
+      "above_threshold_pct": 0.35
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 15.5
+  },
+  {
+    "version": "v119",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "nr7_lookback": 15,
+      "tsi_long": 57,
+      "tsi_short": 25
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 2.6
+  },
+  {
+    "version": "v120",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 13.701361632577411,
+      "rsi_period": 31,
+      "rsi_threshold": 14.780834097493834
+    },
+    "best_sharpe": 0.637290302856222,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.24142325754242694,
+      "neighbor_std": 0.3588940016700564,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 13.1
+  },
+  {
+    "version": "v121",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 2.0700748671135325,
+      "rsi_entry_long": 12.066635843294296,
+      "rsi_period": 40,
+      "st_mult": 7.793769553984681,
+      "st_period": 26
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -1.7029103223121884,
+      "neighbor_std": 3.6384810528066605,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 9.1
+  },
+  {
+    "version": "v122",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "adx_period": 18,
+      "adx_threshold": 95.26857341535195,
+      "atr_stop_mult": 11.140712762084233,
+      "macd_fast": 23,
+      "macd_slow": 19
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.8
+  },
+  {
+    "version": "v123",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "aroon_period": 29,
+      "aroon_threshold": 292.7448369273975,
+      "atr_stop_mult": 12.525454294421538,
+      "stoch_entry": 51.72263704879868,
+      "stoch_period": 15
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.0,
+      "neighbor_std": 0.0,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 15.8
+  },
+  {
+    "version": "v124",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 4.0470454425843645,
+      "cci_period": 24,
+      "cci_threshold": 108.01065641161296,
+      "ema_fast": 58,
+      "ema_slow": 48
+    },
+    "best_sharpe": 1.5820193666816713,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.1880317554846927,
+      "neighbor_std": 0.6244860890936567,
+      "above_threshold_pct": 0.2
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 14.3
+  },
+  {
+    "version": "v125",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 13.098172378096585,
+      "ichi_kijun": 49,
+      "ichi_tenkan": 12,
+      "rsi_entry": 11.557359674249858,
+      "rsi_period": 33
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -2.0,
+      "neighbor_std": 4.0,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 11.9
+  },
+  {
+    "version": "v126",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "ppo_fast": 35,
+      "ppo_slow": 59,
+      "psar_max": 0.6147121448291551,
+      "psar_step": 0.018977789482473906
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.7
+  },
+  {
+    "version": "v127",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 12.340656799170947,
+      "roc_period": 9,
+      "roc_threshold": 4.597641031760357,
+      "vortex_diff": 0.3871641318196941,
+      "vortex_period": 37
+    },
+    "best_sharpe": 0.3331055397520457,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -2.4782791524952947,
+      "neighbor_std": 4.229362040857068,
+      "above_threshold_pct": 0.04
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 8.5
+  },
+  {
+    "version": "v128",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 10.82058972140874,
+      "don_period": 32,
+      "wr_period": 5
+    },
+    "best_sharpe": 0.96854694551862,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.5549361572131909,
+      "neighbor_std": 0.25992518491174366,
+      "above_threshold_pct": 0.55
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 13.6
+  },
+  {
+    "version": "v129",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 11.446431273981196,
+      "macd_fast": 10,
+      "macd_slow": 78,
+      "stoch_entry": 28.47510584319452,
+      "stoch_rsi_period": 4
+    },
+    "best_sharpe": 0.37489541215376543,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.20187852336971898,
+      "neighbor_std": 0.23293656667013582,
+      "above_threshold_pct": 0.08
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 18.0
+  },
+  {
+    "version": "v130",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 8.564678860305168,
+      "fi_period": 26,
+      "hma_lookback": 1,
+      "hma_period": 55
+    },
+    "best_sharpe": 0.7632448052810605,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.2579151643605252,
+      "neighbor_std": 0.2894933948951998,
+      "above_threshold_pct": 0.4
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 12.1
+  },
+  {
+    "version": "v131",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 12.046666978920912,
+      "bb_mult": 2.8309604082118605,
+      "bb_period": 36,
+      "st_mult": 0.6159850574306648,
+      "st_period": 20
+    },
+    "best_sharpe": 0.777074012692716,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.7352528120654224,
+      "neighbor_std": 0.7442745306335006,
+      "above_threshold_pct": 0.08
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 21.4
+  },
+  {
+    "version": "v132",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "adx_period": 18,
+      "adx_threshold": 119.08571676918994,
+      "atr_stop_mult": 11.140712762084233,
+      "don_exit_period": 19,
+      "don_period": 14
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 2.7
+  },
+  {
+    "version": "v133",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "lr_period": 58,
+      "rsi_entry": 129.97498222431605,
+      "rsi_period": 27,
+      "vol_spike_mult": 1.423334211185543
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 2.8
+  },
+  {
+    "version": "v134",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "adx_threshold": 39.9558514093468,
+      "aroon_period": 72,
+      "atr_stop_mult": 11.140712762084233,
+      "cci_period": 38,
+      "mfi_threshold": 28.466684223710857
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 3.8
+  },
+  {
+    "version": "v135",
+    "phase": "coarse",
+    "error": "No module named 'indicators.trend.kama'"
+  },
+  {
+    "version": "v136",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 14.204558331061515,
+      "macd_fast": 12,
+      "macd_slow": 12,
+      "st_mult": 9.125278851119079,
+      "st_period": 11
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.5277204585157916,
+      "neighbor_std": 0.5644554867223669,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 10.8
+  },
+  {
+    "version": "v137",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 7.957014229586493,
+      "ichi_kijun": 68,
+      "ichi_tenkan": 18,
+      "ppo_fast": 19,
+      "ppo_slow": 11
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.102131850225857,
+      "neighbor_std": 0.346461554408719,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 15.0
+  },
+  {
+    "version": "v138",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "ribbon_fast": 23,
+      "ribbon_slow": 48,
+      "roc_period": 19,
+      "roc_threshold": 0.9488894741236953
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.7
+  },
+  {
+    "version": "v139",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 9.475778384640902,
+      "fi_period": 4,
+      "vortex_period": 23,
+      "wr_period": 14
+    },
+    "best_sharpe": -0.10982152897294184,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -3.4952936812797524,
+      "neighbor_std": 4.265711462112499,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 11.6
+  },
+  {
+    "version": "v140",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 8.997357054311074,
+      "don_period": 21,
+      "oi_mom_period": 5,
+      "stoch_entry": 82.20816297790395,
+      "stoch_period": 37
+    },
+    "best_sharpe": 0.595466318649938,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.029813208643996957,
+      "neighbor_std": 0.35261827941807344,
+      "above_threshold_pct": 0.2
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 19.6
+  },
+  {
+    "version": "v141",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 3.2410249418894472,
+      "rsi_entry": 58.112696817202334,
+      "rsi_period": 24,
+      "st_mult": 6.820008268446467,
+      "st_period": 11
+    },
+    "best_sharpe": 0.29912292808581037,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -1.7722830074359337,
+      "neighbor_std": 1.3489527006103956,
+      "above_threshold_pct": 0.04
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 7.5
+  },
+  {
+    "version": "v142",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "adx_period": 18,
+      "adx_threshold": 95.26857341535195,
+      "atr_stop_mult": 11.140712762084233,
+      "macd_fast": 23,
+      "macd_slow": 19
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.7
+  },
+  {
+    "version": "v143",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "aroon_period": 29,
+      "aroon_threshold": 292.7448369273975,
+      "atr_stop_mult": 12.525454294421538,
+      "stoch_entry": 51.72263704879868,
+      "stoch_period": 15
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.0,
+      "neighbor_std": 0.0,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 8.1
+  },
+  {
+    "version": "v144",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 10.825320828311071,
+      "cci_period": 11,
+      "cci_threshold": 56.52898181066743,
+      "ema_fast": 59,
+      "ema_slow": 174
+    },
+    "best_sharpe": 0.11252466397647412,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.05953955160440214,
+      "neighbor_std": 0.07685378503263107,
+      "above_threshold_pct": 0.04
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 8.1
+  },
+  {
+    "version": "v145",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 7.957014229586493,
+      "ichi_kijun": 68,
+      "ichi_tenkan": 18,
+      "ppo_fast": 19,
+      "ppo_slow": 11
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.02423402746066329,
+      "neighbor_std": 0.09063335849029636,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 6.6
+  },
+  {
+    "version": "v146",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "psar_max": 0.9526857341535195,
+      "psar_step": 0.0742714184138949,
+      "roc_period": 19,
+      "roc_threshold": 0.9488894741236953
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.6
+  },
+  {
+    "version": "v147",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 10.255850053510361,
+      "vortex_diff": 0.2291633090166697,
+      "vortex_period": 37,
+      "wr_period": 13
+    },
+    "best_sharpe": 0.01130034393299923,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.2735727922177277,
+      "neighbor_std": 0.16417855310574522,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 7.1
+  },
+  {
+    "version": "v148",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 2.065156346978636,
+      "hma_lookback": 1,
+      "hma_period": 44,
+      "stoch_entry": 47.60187983886173,
+      "stoch_rsi_period": 32
+    },
+    "best_sharpe": 0.9764241727083036,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.012033244336381494,
+      "neighbor_std": 0.40144593883810603,
+      "above_threshold_pct": 0.04
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 8.8
+  },
+  {
+    "version": "v149",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.2171314856742335,
+      "macd_fast": 31,
+      "macd_slow": 66,
+      "rsi_entry": 90.51461483539768,
+      "rsi_period": 15
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.0,
+      "neighbor_std": 0.0,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 6.7
+  },
+  {
+    "version": "v150",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 9.720509270345657,
+      "don_period": 33,
+      "fi_period": 31
+    },
+    "best_sharpe": 0.35943791152811333,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.08786078796059973,
+      "neighbor_std": 0.122070486311293,
+      "above_threshold_pct": 0.2
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 6.7
+  },
+  {
+    "version": "v151",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 9.960592051377333,
+      "bb_mult": 2.4970628859800534,
+      "bb_period": 20,
+      "st_mult": 6.905012149265074,
+      "st_period": 12
+    },
+    "best_sharpe": -0.2056842952365841,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.5669531756428424,
+      "neighbor_std": 0.2259054631524172,
+      "above_threshold_pct": 0.12
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 9.4
+  },
+  {
+    "version": "v152",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "adx_period": 18,
+      "adx_threshold": 119.08571676918994,
+      "atr_stop_mult": 11.140712762084233,
+      "don_exit_period": 19,
+      "don_period": 14
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.9
+  },
+  {
+    "version": "v153",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "cci_period": 58,
+      "cci_threshold": 371.35709206947445,
+      "lr_period": 38,
+      "mfi_threshold": 28.466684223710857
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 2.1
+  },
+  {
+    "version": "v154",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "adx_threshold": 39.9558514093468,
+      "aroon_period": 72,
+      "atr_stop_mult": 11.140712762084233,
+      "stoch_entry": 61.471214482915514,
+      "stoch_period": 10
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 2.2
+  },
+  {
+    "version": "v155",
+    "phase": "coarse",
+    "error": "No module named 'indicators.trend.kama'"
+  },
+  {
+    "version": "v156",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 12.693912551124924,
+      "ichi_kijun": 67,
+      "ichi_tenkan": 6,
+      "roc_period": 29,
+      "roc_threshold": 4.459836618280645
+    },
+    "best_sharpe": 0.22090929742998008,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.028929600078797243,
+      "neighbor_std": 0.125038754659175,
+      "above_threshold_pct": 0.2
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 8.1
+  },
+  {
+    "version": "v157",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "ppo_fast": 35,
+      "ppo_slow": 59,
+      "ribbon_fast": 15,
+      "ribbon_slow": 15
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.7
+  },
+  {
+    "version": "v158",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 11.58935391660983,
+      "fi_period": 25,
+      "vortex_period": 9,
+      "wr_period": 4
+    },
+    "best_sharpe": 0.12518868381423948,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.0057858307534408,
+      "neighbor_std": 0.06726465464084855,
+      "above_threshold_pct": 0.15
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 6.9
+  },
+  {
+    "version": "v159",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "adx_threshold": 39.9558514093468,
+      "atr_stop_mult": 14.290286012302793,
+      "rsi_entry": 129.97498222431605,
+      "st_mult": 9.220682172437327,
+      "st_period": 7
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 25,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.7
+  },
+  {
+    "version": "v160",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "aroon_period": 62,
+      "atr_stop_mult": 11.799200610744183,
+      "don_period": 58,
+      "stoch_entry": 57.18367368397635,
+      "stoch_period": 21
+    },
+    "best_sharpe": 0.4645012677024043,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 0.26141577787908,
+      "neighbor_std": 0.11988162355563144,
+      "above_threshold_pct": 0.76
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 9.2
+  },
+  {
+    "version": "v161",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 14.35222448578009,
+      "regime_period": 264,
+      "rsi_entry_long": 49.56614798515682,
+      "rsi_entry_short": 311.0051866609833,
+      "rsi_period": 42
+    },
+    "best_sharpe": 0.11848805282695879,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -4.530364300124413,
+      "neighbor_std": 4.850625179814996,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 5.2
+  },
+  {
+    "version": "v162",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 4.981088298617343,
+      "macd_fast": 21,
+      "macd_slow": 38,
+      "regime_period": 133
+    },
+    "best_sharpe": 0.45233735388923274,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.0755919208963984,
+      "neighbor_std": 0.24045475674917266,
+      "above_threshold_pct": 0.3
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 5.0
+  },
+  {
+    "version": "v163",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 9.05124494250261,
+      "regime_period": 82,
+      "stoch_overbought": 154.59180471995305,
+      "stoch_oversold": 48.47887132015022,
+      "stoch_period": 20
+    },
+    "best_sharpe": 0.41373550224338684,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.4108084183771011,
+      "neighbor_std": 1.963950580355255,
+      "above_threshold_pct": 0.12
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 6.0
+  },
+  {
+    "version": "v164",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 1.4426882570467239,
+      "cci_period": 25,
+      "cci_threshold": 57.1250142417753,
+      "regime_period": 337
+    },
+    "best_sharpe": 0.3468439029892253,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -2.987958189876569,
+      "neighbor_std": 4.592801743959951,
+      "above_threshold_pct": 0.25
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 5.2
+  },
+  {
+    "version": "v165",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 1.1959401326414225,
+      "ppo_fast": 32,
+      "ppo_slow": 64,
+      "regime_period": 94,
+      "vol_spike_mult": 1.7822886428927782
+    },
+    "best_sharpe": 0.4423782444099218,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -3.4352463315350934,
+      "neighbor_std": 4.524553762130449,
+      "above_threshold_pct": 0.08
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 5.3
+  },
+  {
+    "version": "v166",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 10.620815859200164,
+      "regime_period": 238,
+      "rsi_long": 76.7547115490344,
+      "rsi_period": 32,
+      "rsi_short": 198.36838898510427
+    },
+    "best_sharpe": 0.26747589813467276,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.10435364087089491,
+      "neighbor_std": 0.09394269873690252,
+      "above_threshold_pct": 0.4
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 9.8
+  },
+  {
+    "version": "v167",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 6.041246203531703,
+      "macd_fast": 26,
+      "macd_slow": 39,
+      "regime_period": 300
+    },
+    "best_sharpe": 0.3213513226236464,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.11166764876852267,
+      "neighbor_std": 0.27659650540832703,
+      "above_threshold_pct": 0.25
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 9.9
+  },
+  {
+    "version": "v168",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "aroon_period": 46,
+      "aroon_thresh": 31.59831027953537,
+      "atr_stop_mult": 10.725435117271694,
+      "regime_period": 93
+    },
+    "best_sharpe": 0.32802888961348986,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.09155267754518157,
+      "neighbor_std": 0.2437434234683477,
+      "above_threshold_pct": 0.1
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 10.1
+  },
+  {
+    "version": "v169",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 12.58593040590453,
+      "regime_period": 90,
+      "stoch_ob": 103.66245521975698,
+      "stoch_os": 84.77112466023283,
+      "stoch_period": 16
+    },
+    "best_sharpe": 0.15704772817240414,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.03852607365599681,
+      "neighbor_std": 0.17409417236712946,
+      "above_threshold_pct": 0.2
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 11.6
+  },
+  {
+    "version": "v170",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 12.401737294750506,
+      "regime_period": 57,
+      "roc_period": 44,
+      "roc_thresh": 1.6496334996208124
+    },
+    "best_sharpe": 0.30198671647685194,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.06056973255620224,
+      "neighbor_std": 0.18258433201134097,
+      "above_threshold_pct": 0.5
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 9.2
+  },
+  {
+    "version": "v171",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 7.167407772725317,
+      "rsi_period": 34,
+      "slope_thresh": 0.5792170771800633
+    },
+    "best_sharpe": 0.17392074025940063,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.17591825196943173,
+      "neighbor_std": 0.1697306608126011,
+      "above_threshold_pct": 0.1
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 6.3
+  },
+  {
+    "version": "v172",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.3567554211043005,
+      "macd_fast": 13,
+      "slope_thresh": 0.8577976148531368
+    },
+    "best_sharpe": 0.06571261560861291,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.13846698270832042,
+      "neighbor_std": 0.1441391065135747,
+      "above_threshold_pct": 0.15
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 6.2
+  },
+  {
+    "version": "v173",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 1.5774257333631165,
+      "stoch_ob": 206.25254793667813,
+      "stoch_os": 108.43453718013548
+    },
+    "best_sharpe": 1.1657886706677287,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.405888789671187,
+      "neighbor_std": 0.5121721117413909,
+      "above_threshold_pct": 0.45
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 8.3
+  },
+  {
+    "version": "v174",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.2171314856742335,
+      "rsi_period": 36,
+      "zscore_thresh": 6.262727147210769
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.0,
+      "neighbor_std": 0.0,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 8.3
+  },
+  {
+    "version": "v175",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.2171314856742335,
+      "cci_thresh": 418.2069098962822,
+      "zscore_period": 153
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.0,
+      "neighbor_std": 0.0,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 10.2
+  },
+  {
+    "version": "v176",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 14.832033282962438,
+      "roc_period": 38,
+      "slope_thresh": 1.050812076085833
+    },
+    "best_sharpe": 0.43946842365878536,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.21335616598251503,
+      "neighbor_std": 0.06674830606409882,
+      "above_threshold_pct": 0.25
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 9.6
+  },
+  {
+    "version": "v177",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 11.380813139629753,
+      "ppo_fast": 15,
+      "ppo_slow": 40
+    },
+    "best_sharpe": 1.0055666794931206,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.20848291429416946,
+      "neighbor_std": 0.2057258108531266,
+      "above_threshold_pct": 0.1
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 12.6
+  },
+  {
+    "version": "v178",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 7.630787498053496,
+      "stoch_os": 119.44060702341771,
+      "zscore_period": 120
+    },
+    "best_sharpe": 1.0429813161461017,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.23106284127826382,
+      "neighbor_std": 0.27875190068228667,
+      "above_threshold_pct": 0.2
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 27.2
+  },
+  {
+    "version": "v179",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.2171314856742335,
+      "macd_fast": 31,
+      "slope_thresh": 0.8350302862947693
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.0,
+      "neighbor_std": 0.0,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 8.1
+  },
+  {
+    "version": "v180",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 12.406144596479537,
+      "rsi_period": 15,
+      "zscore_thresh": 1.5800667713855574
+    },
+    "best_sharpe": 0.9043565994622897,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.03535182711282954,
+      "neighbor_std": 0.6789606700758806,
+      "above_threshold_pct": 0.3
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 20.8
+  },
+  {
+    "version": "v181",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "adx_threshold": 91.7123809798581,
+      "atr_stop_mult": 1.6966284705360004
+    },
+    "best_sharpe": 1.3286541086445025,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.14188844565236286,
+      "neighbor_std": 0.5936305353635679,
+      "above_threshold_pct": 0.3
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 8.0
+  },
+  {
+    "version": "v182",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 0.8286149305409198,
+      "cci_period": 38,
+      "rsi_period": 22
+    },
+    "best_sharpe": 0.0692749169103154,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.49112850867189345,
+      "neighbor_std": 0.2846366374490365,
+      "above_threshold_pct": 0.05
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 9.8
+  },
+  {
+    "version": "v183",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "aroon_period": 54,
+      "atr_stop_mult": 3.1757363257529283,
+      "roc_period": 16
+    },
+    "best_sharpe": 1.236431525879093,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.11966834839998837,
+      "neighbor_std": 0.6335324707246569,
+      "above_threshold_pct": 0.2
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 8.7
+  },
+  {
+    "version": "v184",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 2.9661125857215715,
+      "ema_fast": 20,
+      "ema_slow": 65
+    },
+    "best_sharpe": 1.0519228119451651,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.2992763675708346,
+      "neighbor_std": 0.45230553099757687,
+      "above_threshold_pct": 0.4
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 8.4
+  },
+  {
+    "version": "v185",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "adx_threshold": 83.49999078779392,
+      "atr_stop_mult": 0.9560201473561158,
+      "vol_spike_mult": 7.267305979909932
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.0,
+      "neighbor_std": 0.0,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 9.2
+  },
+  {
+    "version": "v186",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 9.71876218863604,
+      "rsi_period": 31
+    },
+    "best_sharpe": 0.21024086536676495,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.047241431611966464,
+      "neighbor_std": 0.13525254568279166,
+      "above_threshold_pct": 0.1
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 17.3
+  },
+  {
+    "version": "v187",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 12.546837179107538,
+      "ppo_fast": 26,
+      "stoch_period": 9
+    },
+    "best_sharpe": 0.769793347930139,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.07292103292720235,
+      "neighbor_std": 0.13491665846431758,
+      "above_threshold_pct": 0.05
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 19.7
+  },
+  {
+    "version": "v188",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "aroon_period": 72,
+      "atr_stop_mult": 11.603792100223755,
+      "roc_period": 21
+    },
+    "best_sharpe": 0.6244207751052384,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.05998019352298456,
+      "neighbor_std": 0.2775713362634124,
+      "above_threshold_pct": 0.05
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 20.4
+  },
+  {
+    "version": "v189",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 8.195546465729622,
+      "don_period": 29,
+      "vol_spike_mult": 4.919424510373457
+    },
+    "best_sharpe": 1.161356046746319,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 0.6786865223120822,
+      "neighbor_std": 0.20713203507386754,
+      "above_threshold_pct": 0.65
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 15.7
+  },
+  {
+    "version": "v190",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 7.5012344067449375,
+      "rsi_period": 36
+    },
+    "best_sharpe": 0.5957836334662954,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.12532457539464056,
+      "neighbor_std": 0.5013669774670362,
+      "above_threshold_pct": 0.3
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 13.4
+  },
+  {
+    "version": "v191",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "adx_range": 66.87168599820669,
+      "adx_trend": 17.167929195223394,
+      "atr_stop_mult": 4.916420492222788,
+      "bb_period": 47
+    },
+    "best_sharpe": 0.641301853069708,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.5239179474759674,
+      "neighbor_std": 0.6425745663882748,
+      "above_threshold_pct": 0.1
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 10.1
+  },
+  {
+    "version": "v192",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 4.581951295377393,
+      "chop_range": 3.253219056540606,
+      "chop_trend": 2.354775414347794,
+      "rsi_period": 5
+    },
+    "best_sharpe": 1.175984723960508,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.15927355414715774,
+      "neighbor_std": 0.474393729892318,
+      "above_threshold_pct": 0.15
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 7.9
+  },
+  {
+    "version": "v193",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "adx_range": 44.210017638454474,
+      "adx_trend": 84.11354292994208,
+      "atr_stop_mult": 13.101084652527442,
+      "stoch_os": 66.80289402994204
+    },
+    "best_sharpe": -0.07448326924391989,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.2391007069288063,
+      "neighbor_std": 0.11629836113854354,
+      "above_threshold_pct": 0.1
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 9.4
+  },
+  {
+    "version": "v194",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 13.60582250951355,
+      "bb_period": 23,
+      "ema_fast": 27,
+      "ema_slow": 115,
+      "regime_period": 86
+    },
+    "best_sharpe": -0.04406440166462352,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.4073586157949522,
+      "neighbor_std": 0.27051205734338785,
+      "above_threshold_pct": 0.04
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 14.0
+  },
+  {
+    "version": "v195",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 3.5548797217346353,
+      "cci_period": 32,
+      "vr_breakout": 0.7385489956638568,
+      "vr_range": 3.394288261765097
+    },
+    "best_sharpe": 1.1486856986291487,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.11591327459204451,
+      "neighbor_std": 0.6224648362384911,
+      "above_threshold_pct": 0.1
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 8.6
+  },
+  {
+    "version": "v196",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "adx_range": 10.612854521258502,
+      "adx_trend": 104.36408143974084,
+      "atr_stop_mult": 14.523557241584323,
+      "rsi_period": 30
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.0,
+      "neighbor_std": 0.0,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 10.5
+  },
+  {
+    "version": "v197",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 7.861858627790504,
+      "chop_range": 3.1959351037506876,
+      "chop_trend": 0.8893811100372309,
+      "stoch_os": 72.68081874081622
+    },
+    "best_sharpe": 1.0536935312858904,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -1.786066265405136,
+      "neighbor_std": 3.465424031249365,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 19.1
+  },
+  {
+    "version": "v198",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "adx_range": 12.806875131386887,
+      "adx_trend": 21.77229728521329,
+      "atr_stop_mult": 10.579904214324232,
+      "bb_period": 43
+    },
+    "best_sharpe": 0.04529475668632105,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.760002990270501,
+      "neighbor_std": 0.4785737135406979,
+      "above_threshold_pct": 0.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 22.0
+  },
+  {
+    "version": "v199",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 10.274329979054727,
+      "regime_period": 176,
+      "wr_period": 29
+    },
+    "best_sharpe": 0.17255910641111952,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -0.5166646818948538,
+      "neighbor_std": 0.580835753463806,
+      "above_threshold_pct": 0.15
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 27.8
+  },
+  {
+    "version": "v200",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 14.720204924683095,
+      "fisher_thresh": 0.9590792181555411,
+      "vr_breakout": 1.4823251752867352,
+      "vr_range": 0.9561294347821847
+    },
+    "best_sharpe": 1.0521812007484035,
+    "n_trials": 50,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 0.028288049177233043,
+      "neighbor_std": 0.5060968427885393,
+      "above_threshold_pct": 0.1
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 15.9
+  }
+]

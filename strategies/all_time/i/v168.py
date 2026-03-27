@@ -1,0 +1,255 @@
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+import conftest
+from strategies.all_time.i.strategy_utils import fast_avg_volume
+
+import numpy as np
+from alphaforge.strategy.base import TimeSeriesStrategy
+from alphaforge.data.contract_specs import ContractSpecManager
+
+_SPEC_MANAGER = ContractSpecManager()
+from indicators.volatility.atr import atr
+from indicators.trend.aroon import aroon
+from indicators.volume.obv import obv
+
+SCALE_FACTORS = [1.0, 0.5, 0.25]
+MAX_SCALE = 3
+
+
+def _hmm_regime(closes, period=120):
+    """Simple regime detection via rolling z-score of log returns."""
+    n = len(closes)
+    states = np.full(n, 0, dtype=np.int32)
+    state_prob = np.full(n, np.nan)
+    if n < period + 1:
+        return states, state_prob
+    log_ret = np.full(n, np.nan)
+    log_ret[1:] = np.log(closes[1:] / np.maximum(closes[:-1], 1e-9))
+    for i in range(period, n):
+        window = log_ret[i - period + 1:i + 1]
+        valid = window[~np.isnan(window)]
+        if len(valid) < 20:
+            continue
+        mu, sigma = np.mean(valid), np.std(valid)
+        if sigma < 1e-12:
+            states[i] = 0
+            state_prob[i] = 0.5
+            continue
+        z = mu / sigma * np.sqrt(len(valid))
+        if z > 1.0:
+            states[i] = 1
+            state_prob[i] = min(1.0, abs(z) / 3.0)
+        elif z < -1.0:
+            states[i] = 2
+            state_prob[i] = min(1.0, abs(z) / 3.0)
+        else:
+            states[i] = 0
+            state_prob[i] = 1.0 - abs(z)
+    return states, state_prob
+
+
+class StrategyV168(TimeSeriesStrategy):
+    """
+    策略简介：HMM regime + Aroon oscillator trend strength + OBV trend.
+
+    使用指标：
+    - HMM Regime(120): regime detection
+    - Aroon(25): oscillator > 50 = strong uptrend, < -50 = strong downtrend
+    - OBV: cumulative volume flow direction
+    - ATR(14): stop distance
+
+    进场条件（做多）：Regime=1 且 Aroon osc > aroon_thresh 且 OBV rising
+    进场条件（做空）：Regime=2 且 Aroon osc < -aroon_thresh 且 OBV falling
+
+    出场条件：ATR trailing stop / tiered profit / regime change
+
+    优点：Aroon captures trend with zero lag at period boundaries
+    缺点：Aroon can whipsaw in sideways markets
+    """
+    name = "i_alltime_v168"
+    warmup = 400
+    freq = "4h"
+
+    aroon_period: int = 25
+    aroon_thresh: float = 50.0
+    regime_period: int = 120
+    atr_stop_mult: float = 3.0
+
+    def __init__(self):
+        super().__init__()
+        self._atr = None
+        self._aroon_osc = None
+        self._obv = None
+        self._regime = None
+        self._regime_prob = None
+        self._avg_volume = None
+
+    def on_init(self, context):
+        self.entry_price = 0.0
+        self.stop_price = 0.0
+        self.highest_since_entry = 0.0
+        self.lowest_since_entry = 999999.0
+        self.position_scale = 0
+        self.bars_since_last_scale = 0
+        self._took_profit_3atr = False
+        self._took_profit_5atr = False
+        self.direction = 0
+
+    def on_init_arrays(self, context, bars):
+        closes = context.get_full_close_array()
+        highs = context.get_full_high_array()
+        lows = context.get_full_low_array()
+        volumes = context.get_full_volume_array()
+        self._atr = atr(highs, lows, closes, period=14)
+        _, _, self._aroon_osc = aroon(highs, lows, self.aroon_period)
+        self._obv = obv(closes, volumes)
+        self._regime, self._regime_prob = _hmm_regime(closes, self.regime_period)
+        self._avg_volume = fast_avg_volume(volumes, 20)
+
+    def on_bar(self, context):
+        i = context.bar_index
+        price = context.close_raw
+        side, lots = context.position
+
+        if context.is_rollover:
+            return
+        if not np.isnan(self._avg_volume[i]) and context.volume < self._avg_volume[i] * 0.1:
+            return
+
+        atr_val = self._atr[i]
+        regime = self._regime[i]
+        if np.isnan(atr_val) or atr_val <= 0:
+            return
+
+        aroon_val = self._aroon_osc[i]
+        if np.isnan(aroon_val):
+            return
+        obv_now = self._obv[i]
+        obv_prev = self._obv[i - 20] if i >= 20 else np.nan
+        if np.isnan(obv_now) or np.isnan(obv_prev):
+            return
+        obv_rising = obv_now > obv_prev
+
+        self.bars_since_last_scale += 1
+
+        # 1. Stop loss
+        if side == 1:
+            self.highest_since_entry = max(self.highest_since_entry, price)
+            trailing = self.highest_since_entry - self.atr_stop_mult * atr_val
+            self.stop_price = max(self.stop_price, trailing)
+            if price <= self.stop_price:
+                context.close_long()
+                self._reset_state()
+                return
+        elif side == -1:
+            self.lowest_since_entry = min(self.lowest_since_entry, price)
+            trailing = self.lowest_since_entry + self.atr_stop_mult * atr_val
+            self.stop_price = min(self.stop_price, trailing)
+            if price >= self.stop_price:
+                context.close_short()
+                self._reset_state()
+                return
+
+        # 2. Tiered profit-taking
+        if side != 0 and self.entry_price > 0:
+            profit_atr = ((price - self.entry_price) / atr_val) if side == 1 else ((self.entry_price - price) / atr_val)
+            if profit_atr >= 5.0 and not self._took_profit_5atr:
+                cl = max(1, lots // 3)
+                if side == 1:
+                    context.close_long(lots=cl)
+                else:
+                    context.close_short(lots=cl)
+                self._took_profit_5atr = True
+                return
+            elif profit_atr >= 3.0 and not self._took_profit_3atr:
+                cl = max(1, lots // 3)
+                if side == 1:
+                    context.close_long(lots=cl)
+                else:
+                    context.close_short(lots=cl)
+                self._took_profit_3atr = True
+                return
+
+        # 3. Signal exit
+        if side == 1 and (regime == 2):
+            context.close_long()
+            self._reset_state()
+            return
+        elif side == -1 and (regime == 1):
+            context.close_short()
+            self._reset_state()
+            return
+
+        # 4. Entry
+        if side == 0:
+            if regime == 1 and aroon_val > self.aroon_thresh and obv_rising:
+                base_lots = self._calc_lots(context, atr_val)
+                if base_lots > 0:
+                    context.buy(base_lots)
+                    self.entry_price = price
+                    self.stop_price = price - self.atr_stop_mult * atr_val
+                    self.highest_since_entry = price
+                    self.lowest_since_entry = price
+                    self.position_scale = 1
+                    self.bars_since_last_scale = 0
+                    self.direction = 1
+            elif regime == 2 and aroon_val < -self.aroon_thresh and not obv_rising:
+                base_lots = self._calc_lots(context, atr_val)
+                if base_lots > 0:
+                    context.sell(base_lots)
+                    self.entry_price = price
+                    self.stop_price = price + self.atr_stop_mult * atr_val
+                    self.highest_since_entry = price
+                    self.lowest_since_entry = price
+                    self.position_scale = 1
+                    self.bars_since_last_scale = 0
+                    self.direction = -1
+
+        # 5. Scale-in
+        elif side != 0 and self._should_add(price, atr_val):
+            add_lots = self._calc_add_lots(self._calc_lots(context, atr_val))
+            if add_lots > 0:
+                if side == 1:
+                    context.buy(add_lots)
+                else:
+                    context.sell(add_lots)
+                self.position_scale += 1
+                self.bars_since_last_scale = 0
+
+    def _should_add(self, price, atr_val):
+        if self.position_scale >= MAX_SCALE:
+            return False
+        if self.bars_since_last_scale < 10:
+            return False
+        if self.direction == 1 and price < self.entry_price + atr_val:
+            return False
+        if self.direction == -1 and price > self.entry_price - atr_val:
+            return False
+        return True
+
+    def _calc_add_lots(self, base_lots):
+        factor = SCALE_FACTORS[min(self.position_scale, len(SCALE_FACTORS) - 1)]
+        return max(1, int(base_lots * factor))
+
+    def _calc_lots(self, context, atr_val):
+        spec = _SPEC_MANAGER.get(context.symbol)
+        stop_dist = self.atr_stop_mult * atr_val * spec.multiplier
+        if stop_dist <= 0:
+            return 0
+        risk_lots = int(context.equity * 0.02 / stop_dist)
+        margin = context.close_raw * spec.multiplier * spec.margin_rate
+        if margin <= 0:
+            return 0
+        return max(1, min(risk_lots, int(context.equity * 0.30 / margin)))
+
+    def _reset_state(self):
+        self.entry_price = 0.0
+        self.stop_price = 0.0
+        self.highest_since_entry = 0.0
+        self.lowest_since_entry = 999999.0
+        self.position_scale = 0
+        self.bars_since_last_scale = 0
+        self._took_profit_3atr = False
+        self._took_profit_5atr = False
+        self.direction = 0
