@@ -1,5 +1,1114 @@
 [
   {
+    "version": "v41",
+    "phase": "coarse",
+    "freq": "30min",
+    "best_params": {
+      "atr_stop_mult": 12.24092181287704,
+      "rsi_entry": 58.175113221126274,
+      "rsi_period": 7,
+      "st_multiplier": 10.45295558177506,
+      "st_period": 15
+    },
+    "best_sharpe": 2.3230447513734167,
+    "n_trials": 30,
+    "elapsed_seconds": 109.2
+  },
+  {
+    "version": "v42",
+    "phase": "coarse",
+    "freq": "30min",
+    "best_params": {
+      "atr_stop_mult": 8.266849085611947,
+      "macd_fast": 11,
+      "macd_signal": 8,
+      "macd_slow": 56,
+      "obv_slope_period": 50
+    },
+    "best_sharpe": 1.8156981434674098,
+    "n_trials": 30,
+    "elapsed_seconds": 180.4
+  },
+  {
+    "version": "v43",
+    "phase": "coarse",
+    "freq": "30min",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "kalman_meas_noise": 4.763428670767597,
+      "kalman_process_noise": 0.03713570920694745,
+      "ms_period": 38
+    },
+    "best_sharpe": -1.05,
+    "n_trials": 30,
+    "elapsed_seconds": 11.3
+  },
+  {
+    "version": "v44",
+    "phase": "coarse",
+    "freq": "30min",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "bb_mult": 9.526857341535194,
+      "bb_period": 46,
+      "kc_mult": 4.610341086218663,
+      "kc_period": 14,
+      "vol_spike_threshold": 1.8975473952275455
+    },
+    "best_sharpe": -1.3,
+    "n_trials": 30,
+    "elapsed_seconds": 1.4
+  },
+  {
+    "version": "v45",
+    "phase": "coarse",
+    "freq": "30min",
+    "best_params": {
+      "adx_period": 18,
+      "adx_threshold": 119.08571676918994,
+      "atr_stop_mult": 11.140712762084233,
+      "hmm_period": 480,
+      "hmm_states": 2
+    },
+    "best_sharpe": -0.9666666666666666,
+    "n_trials": 30,
+    "elapsed_seconds": 788.0
+  },
+  {
+    "version": "v46",
+    "phase": "coarse",
+    "freq": "30min",
+    "best_params": {
+      "adx_period": 18,
+      "adx_threshold": 95.26857341535195,
+      "atr_stop_mult": 11.140712762084233,
+      "ema_fast": 19,
+      "ema_slow": 22
+    },
+    "best_sharpe": -1.1333333333333333,
+    "n_trials": 30,
+    "elapsed_seconds": 2.4
+  },
+  {
+    "version": "v47",
+    "phase": "coarse",
+    "freq": "30min",
+    "best_params": {
+      "atr_stop_mult": 11.368564725313902,
+      "bb_period": 44,
+      "bb_std": 2.034734940885418,
+      "roc_period": 26
+    },
+    "best_sharpe": 1.713962769786884,
+    "n_trials": 30,
+    "elapsed_seconds": 71.8
+  },
+  {
+    "version": "v48",
+    "phase": "coarse",
+    "freq": "30min",
+    "best_params": {
+      "atr_stop_mult": 9.220682172437327,
+      "cmf_period": 14,
+      "vortex_period": 10
+    },
+    "best_sharpe": 1.266149376070923,
+    "n_trials": 30,
+    "elapsed_seconds": 254.6
+  },
+  {
+    "version": "v49",
+    "phase": "coarse",
+    "freq": "30min",
+    "best_params": {
+      "atr_stop_mult": 7.1868600995331455,
+      "tsi_long": 74,
+      "tsi_short": 20,
+      "tsi_signal": 15
+    },
+    "best_sharpe": 1.165882247596377,
+    "n_trials": 30,
+    "elapsed_seconds": 220.7
+  },
+  {
+    "version": "v50",
+    "phase": "coarse",
+    "freq": "30min",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "dc_period": 58,
+      "er_period": 46,
+      "er_threshold": 0.9220682172437327
+    },
+    "best_sharpe": -1.1333333333333333,
+    "n_trials": 30,
+    "elapsed_seconds": 3.4
+  },
+  {
+    "version": "v51",
+    "phase": "coarse",
+    "freq": "30min",
+    "best_params": {
+      "atr_stop_mult": 9.256056169102207,
+      "cmo_period": 31,
+      "cmo_threshold": 2.9880557261985174,
+      "hma_period": 60
+    },
+    "best_sharpe": 1.3111337490486024,
+    "n_trials": 30,
+    "elapsed_seconds": 204.5
+  },
+  {
+    "version": "v52",
+    "phase": "coarse",
+    "freq": "30min",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "fi_period": 38,
+      "grad_period": 46,
+      "grad_smooth": 9
+    },
+    "best_sharpe": -1.1333333333333333,
+    "n_trials": 30,
+    "elapsed_seconds": 5.8
+  },
+  {
+    "version": "v53",
+    "phase": "coarse",
+    "freq": "30min",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "kc_atr": 29,
+      "kc_ema": 46,
+      "kc_mult": 4.610341086218663,
+      "stoch_d": 2,
+      "stoch_entry": 28.463210928413183,
+      "stoch_k": 6
+    },
+    "best_sharpe": -1.3,
+    "n_trials": 30,
+    "elapsed_seconds": 1.4
+  },
+  {
+    "version": "v54",
+    "phase": "coarse",
+    "freq": "30min",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "stc_fast": 64,
+      "stc_period": 23,
+      "stc_slow": 94,
+      "tp_max_lag": 14,
+      "tp_period": 44,
+      "tp_threshold": 0.2394006692036787
+    },
+    "best_sharpe": -1.05,
+    "n_trials": 30,
+    "elapsed_seconds": 10.3
+  },
+  {
+    "version": "v55",
+    "phase": "coarse",
+    "freq": "30min",
+    "best_params": {
+      "atr_stop_mult": 9.220682172437327,
+      "lr_period": 14,
+      "r2_threshold": 0.47438684880688636
+    },
+    "best_sharpe": 1.9179034300180102,
+    "n_trials": 30,
+    "elapsed_seconds": 121.5
+  },
+  {
+    "version": "v56",
+    "phase": "coarse",
+    "freq": "30min",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "mom_fast": 29,
+      "mom_slow": 140,
+      "natr_period": 27,
+      "natr_threshold": 0.9488894741236953
+    },
+    "best_sharpe": -1.05,
+    "n_trials": 30,
+    "elapsed_seconds": 2.2
+  },
+  {
+    "version": "v57",
+    "phase": "coarse",
+    "freq": "30min",
+    "best_params": {
+      "atr_stop_mult": 11.17434337382127,
+      "tema_period": 40
+    },
+    "best_sharpe": 1.526271762115281,
+    "n_trials": 30,
+    "elapsed_seconds": 285.7
+  },
+  {
+    "version": "v58",
+    "phase": "coarse",
+    "freq": "30min",
+    "best_params": {
+      "adx_threshold": 39.9558514093468,
+      "atr_stop_mult": 14.290286012302793,
+      "ensemble_period": 280,
+      "vote_threshold": 1.5367803620728877
+    },
+    "best_sharpe": -0.9666666666666666,
+    "n_trials": 30,
+    "elapsed_seconds": 301.9
+  },
+  {
+    "version": "v59",
+    "phase": "coarse",
+    "freq": "30min",
+    "best_params": {
+      "atr_stop_mult": 10.99601492007412,
+      "fisher_period": 19,
+      "ti_period": 36,
+      "ti_threshold": 62.658857241161655
+    },
+    "best_sharpe": 1.6980323530552395,
+    "n_trials": 30,
+    "elapsed_seconds": 267.0
+  },
+  {
+    "version": "v60",
+    "phase": "coarse",
+    "error": "No module named 'indicators.regime.composite_regime_score'"
+  },
+  {
+    "version": "v61",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "ema_fast": 29,
+      "ema_slow": 70,
+      "mfi_period": 27,
+      "mfi_threshold": 47.444473706184766
+    },
+    "best_sharpe": -1.1333333333333333,
+    "n_trials": 30,
+    "elapsed_seconds": 1.5
+  },
+  {
+    "version": "v62",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 11.715705778273023,
+      "cmf_period": 28,
+      "ichi_kijun": 35,
+      "ichi_offset": 26,
+      "ichi_senkou": 137,
+      "ichi_tenkan": 9
+    },
+    "best_sharpe": 1.594261546777722,
+    "n_trials": 30,
+    "elapsed_seconds": 60.8
+  },
+  {
+    "version": "v63",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "boost_n_est": 58,
+      "boost_period": 280,
+      "boost_threshold": 1.5367803620728877,
+      "tp_threshold": 0.47444473706184764
+    },
+    "best_sharpe": -0.9666666666666666,
+    "n_trials": 30,
+    "elapsed_seconds": 40.2
+  },
+  {
+    "version": "v64",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "aroon_period": 68,
+      "aroon_threshold": 23.91159700205489,
+      "atr_stop_mult": 9.55660222636241,
+      "vol_spike_threshold": 2.7115978227513597
+    },
+    "best_sharpe": 2.2475852495108275,
+    "n_trials": 30,
+    "elapsed_seconds": 43.2
+  },
+  {
+    "version": "v65",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "hazard_rate": 0.04763428670767598,
+      "natr_period": 32,
+      "natr_threshold": 3.0735607241457754
+    },
+    "best_sharpe": -1.1333333333333333,
+    "n_trials": 30,
+    "elapsed_seconds": 41.0
+  },
+  {
+    "version": "v66",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 12.004466784374042,
+      "st_mult": 9.153645429755985,
+      "st_period": 26,
+      "tmf_period": 23
+    },
+    "best_sharpe": 2.3870077703150825,
+    "n_trials": 30,
+    "elapsed_seconds": 92.9
+  },
+  {
+    "version": "v67",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "er_period": 58,
+      "er_threshold": 1.1140712762084233
+    },
+    "best_sharpe": -1.1333333333333333,
+    "n_trials": 30,
+    "elapsed_seconds": 2.1
+  },
+  {
+    "version": "v68",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 4.389809606207581,
+      "fi_period": 5,
+      "vidya_cmo": 18,
+      "vidya_period": 30
+    },
+    "best_sharpe": 2.3576125656116735,
+    "n_trials": 30,
+    "elapsed_seconds": 145.9
+  },
+  {
+    "version": "v69",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "adx_threshold": 49.9448142616835,
+      "atr_stop_mult": 14.290286012302793,
+      "crsi_entry": 74.27141841389489,
+      "crsi_pct": 189,
+      "crsi_rsi": 2,
+      "crsi_streak": 1
+    },
+    "best_sharpe": -1.3,
+    "n_trials": 30,
+    "elapsed_seconds": 1.1
+  },
+  {
+    "version": "v70",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "kalman_period": 172
+    },
+    "best_sharpe": -1.1333333333333333,
+    "n_trials": 30,
+    "elapsed_seconds": 4.9
+  },
+  {
+    "version": "v71",
+    "phase": "coarse",
+    "error": "No module named 'indicators.trend.chandelier_exit'"
+  },
+  {
+    "version": "v72",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 9.130769791613412,
+      "mama_fast": 0.21148099052799454,
+      "mama_slow": 0.1558107644563452,
+      "obv_slope_period": 14
+    },
+    "best_sharpe": 2.3979388787956286,
+    "n_trials": 30,
+    "elapsed_seconds": 188.2
+  },
+  {
+    "version": "v73",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "bp_period": 41,
+      "ts_period": 46,
+      "ts_threshold": 1.5367803620728877
+    },
+    "best_sharpe": -1.1333333333333333,
+    "n_trials": 30,
+    "elapsed_seconds": 5.8
+  },
+  {
+    "version": "v74",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "trix_period": 43,
+      "ve_period": 46
+    },
+    "best_sharpe": -1.1333333333333333,
+    "n_trials": 30,
+    "elapsed_seconds": 3.4
+  },
+  {
+    "version": "v75",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 8.958218922377547,
+      "mg_period": 39,
+      "srsi_entry": 30.26531296399841
+    },
+    "best_sharpe": 2.3189500864764514,
+    "n_trials": 30,
+    "elapsed_seconds": 165.7
+  },
+  {
+    "version": "v76",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "erg_long": 58,
+      "erg_short": 11,
+      "erg_signal": 9
+    },
+    "best_sharpe": -1.3,
+    "n_trials": 30,
+    "elapsed_seconds": 1.1
+  },
+  {
+    "version": "v77",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "st_mult": 14.290286012302793,
+      "st_period": 23,
+      "vol_period": 116
+    },
+    "best_sharpe": -1.1333333333333333,
+    "n_trials": 30,
+    "elapsed_seconds": 5.4
+  },
+  {
+    "version": "v78",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 2.2514308744034004,
+      "di_period": 32,
+      "kama_fast": 1,
+      "kama_period": 22,
+      "kama_slow": 38
+    },
+    "best_sharpe": 2.267884657997217,
+    "n_trials": 30,
+    "elapsed_seconds": 218.7
+  },
+  {
+    "version": "v79",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "adx_threshold": 39.9558514093468,
+      "atr_stop_mult": 14.290286012302793,
+      "cop_roc_long": 32,
+      "cop_roc_short": 21,
+      "cop_wma": 7
+    },
+    "best_sharpe": -1.3,
+    "n_trials": 30,
+    "elapsed_seconds": 1.1
+  },
+  {
+    "version": "v80",
+    "phase": "coarse",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "cusum_threshold": 4.763428670767597,
+      "ema_period": 46,
+      "nv_threshold": 4.610341086218663
+    },
+    "best_sharpe": -1.1333333333333333,
+    "n_trials": 30,
+    "elapsed_seconds": 5.5
+  },
+  {
+    "version": "v81",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 9.490850483780424,
+      "st_multiplier": 1.8550250276741016,
+      "st_period": 25
+    },
+    "best_sharpe": 1.1676513974135982,
+    "n_trials": 30,
+    "elapsed_seconds": 64.3
+  },
+  {
+    "version": "v82",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "adx_period": 15,
+      "adx_threshold": 16.720653680766063,
+      "atr_stop_mult": 10.45295558177506,
+      "roc_period": 30
+    },
+    "best_sharpe": 1.624219946546476,
+    "n_trials": 30,
+    "elapsed_seconds": 58.3
+  },
+  {
+    "version": "v83",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "kmeans_period": 344,
+      "macd_fast": 28,
+      "macd_signal": 17,
+      "macd_slow": 17
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 30,
+    "elapsed_seconds": 10.3
+  },
+  {
+    "version": "v84",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "ensemble_period": 344,
+      "spike_lookback": 11,
+      "vote_threshold": 0.9220682172437327
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 30,
+    "elapsed_seconds": 79.9
+  },
+  {
+    "version": "v85",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "fd_period": 172,
+      "fd_threshold": 5.570356381042116,
+      "stoch_d": 6,
+      "stoch_k": 10,
+      "stoch_oversold": 18.975473952275454
+    },
+    "best_sharpe": -1.3,
+    "n_trials": 30,
+    "elapsed_seconds": 149.7
+  },
+  {
+    "version": "v86",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 3.7561634643369537,
+      "ema_fast": 30,
+      "ema_slow": 64,
+      "obv_lookback": 46
+    },
+    "best_sharpe": 1.8153202898507528,
+    "n_trials": 30,
+    "elapsed_seconds": 138.5
+  },
+  {
+    "version": "v87",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "aroon_period": 32,
+      "aroon_threshold": 333.4400069537318,
+      "atr_stop_mult": 11.140712762084233,
+      "bb_period": 38
+    },
+    "best_sharpe": -1.3,
+    "n_trials": 30,
+    "elapsed_seconds": 2.6
+  },
+  {
+    "version": "v88",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "hma_period": 58,
+      "tsi_long": 56,
+      "tsi_short": 25,
+      "tsi_signal": 5
+    },
+    "best_sharpe": -1.3,
+    "n_trials": 30,
+    "elapsed_seconds": 2.3
+  },
+  {
+    "version": "v89",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "er_period": 58,
+      "er_threshold": 1.1140712762084233,
+      "vortex_period": 27
+    },
+    "best_sharpe": -0.9857142857142858,
+    "n_trials": 30,
+    "elapsed_seconds": 3.1
+  },
+  {
+    "version": "v90",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 1.8256709470557917,
+      "cmf_period": 42,
+      "sar_af_max": 0.43131944368298314,
+      "sar_af_start": 0.017326032405048437,
+      "sar_af_step": 0.05877905437955672
+    },
+    "best_sharpe": 1.6289277640495983,
+    "n_trials": 30,
+    "elapsed_seconds": 197.2
+  },
+  {
+    "version": "v91",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "kalman_measure_noise": 4.763428670767597,
+      "kalman_process_noise": 0.03713570920694745,
+      "rsi_period": 27
+    },
+    "best_sharpe": -0.9857142857142858,
+    "n_trials": 30,
+    "elapsed_seconds": 4.3
+  },
+  {
+    "version": "v92",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "kc_atr": 29,
+      "kc_ema": 46,
+      "kc_mult": 4.610341086218663,
+      "mom_fast": 7,
+      "mom_slow": 44
+    },
+    "best_sharpe": -1.3,
+    "n_trials": 30,
+    "elapsed_seconds": 2.2
+  },
+  {
+    "version": "v93",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 9.130769791613412,
+      "force_period": 5,
+      "lr_period": 40,
+      "r2_threshold": 0.5092578968494996
+    },
+    "best_sharpe": 1.3952433602601293,
+    "n_trials": 30,
+    "elapsed_seconds": 56.7
+  },
+  {
+    "version": "v94",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "dc_period": 58,
+      "ttm_period": 46
+    },
+    "best_sharpe": -1.3,
+    "n_trials": 30,
+    "elapsed_seconds": 2.5
+  },
+  {
+    "version": "v95",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 2.919332816269277,
+      "cmo_period": 23,
+      "ts_period": 30,
+      "ts_threshold": 1.7983043335433584
+    },
+    "best_sharpe": 1.7723707139875613,
+    "n_trials": 30,
+    "elapsed_seconds": 175.8
+  },
+  {
+    "version": "v96",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 6.99227399663569,
+      "chand_mult": 14.290286012302793,
+      "chand_period": 49,
+      "tema_period": 38
+    },
+    "best_sharpe": -1.3,
+    "n_trials": 30,
+    "elapsed_seconds": 2.1
+  },
+  {
+    "version": "v97",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "hazard_rate": 0.04763428670767598,
+      "trend_threshold": 2.2281425524168466
+    },
+    "best_sharpe": -0.7285714285714285,
+    "n_trials": 30,
+    "elapsed_seconds": 25.7
+  },
+  {
+    "version": "v98",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.083372821329492,
+      "vol_period": 58,
+      "vol_threshold": 1.7289621849407317
+    },
+    "best_sharpe": 0.6398732644056379,
+    "n_trials": 30,
+    "elapsed_seconds": 92.6
+  },
+  {
+    "version": "v99",
+    "phase": "coarse",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "grad_period": 58,
+      "grad_smooth": 11,
+      "mfi_period": 27
+    },
+    "best_sharpe": -0.9857142857142858,
+    "n_trials": 30,
+    "elapsed_seconds": 5.1
+  },
+  {
+    "version": "v100",
+    "phase": "coarse",
+    "error": "No module named 'indicators.regime.composite_regime_score'"
+  },
+  {
+    "version": "v101",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "ema_fast": 58,
+      "ema_slow": 140,
+      "obv_lookback": 38
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 30,
+    "elapsed_seconds": 2.1
+  },
+  {
+    "version": "v102",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "displacement": 74,
+      "kijun": 59,
+      "mfi_period": 27,
+      "senkou_b": 35,
+      "tenkan": 6
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 30,
+    "elapsed_seconds": 2.4
+  },
+  {
+    "version": "v103",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "hmm_period": 711,
+      "hmm_states": 7,
+      "ts_period": 38,
+      "ts_threshold": 0.3795557896494781
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 30,
+    "elapsed_seconds": 7.1
+  },
+  {
+    "version": "v104",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "dc_period": 58,
+      "vol_threshold": 4.456285104833693
+    },
+    "best_sharpe": -0.8714285714285714,
+    "n_trials": 30,
+    "elapsed_seconds": 2.2
+  },
+  {
+    "version": "v105",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "cmf_period": 58,
+      "trend_lookback": 11,
+      "wavelet_level": 8
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 30,
+    "elapsed_seconds": 2.3
+  },
+  {
+    "version": "v106",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "adx_period": 35,
+      "adx_threshold": 41.55365230080448,
+      "atr_stop_mult": 2.006478441691928,
+      "st_mult": 10.45295558177506,
+      "st_period": 15
+    },
+    "best_sharpe": 0.7214665015782318,
+    "n_trials": 30,
+    "elapsed_seconds": 17.7
+  },
+  {
+    "version": "v107",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 11.906533844059396,
+      "macd_fast": 10,
+      "macd_signal": 15,
+      "macd_slow": 50,
+      "vpt_lookback": 8
+    },
+    "best_sharpe": 0.9642971719965107,
+    "n_trials": 30,
+    "elapsed_seconds": 26.7
+  },
+  {
+    "version": "v108",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 14.80270608110653,
+      "rsi_entry": 80.61798410629586,
+      "rsi_period": 8
+    },
+    "best_sharpe": 0.46201878284802456,
+    "n_trials": 30,
+    "elapsed_seconds": 14.7
+  },
+  {
+    "version": "v109",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "kc_atr": 29,
+      "kc_ema": 46,
+      "kc_mult": 4.610341086218663,
+      "roc_period": 10
+    },
+    "best_sharpe": -1.3,
+    "n_trials": 30,
+    "elapsed_seconds": 1.6
+  },
+  {
+    "version": "v110",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "kalman_period": 172
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 30,
+    "elapsed_seconds": 2.8
+  },
+  {
+    "version": "v111",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "lr_period": 58,
+      "stoch_d": 7,
+      "stoch_k": 27,
+      "stoch_oversold": 18.977789482473906
+    },
+    "best_sharpe": -1.3,
+    "n_trials": 30,
+    "elapsed_seconds": 1.8
+  },
+  {
+    "version": "v112",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "ema_period": 86,
+      "vr_holding": 11,
+      "vr_period": 116,
+      "vr_threshold": 1.0437784215360648
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 30,
+    "elapsed_seconds": 2.5
+  },
+  {
+    "version": "v113",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "bp_period": 41,
+      "mg_period": 32
+    },
+    "best_sharpe": -0.8714285714285714,
+    "n_trials": 30,
+    "elapsed_seconds": 2.1
+  },
+  {
+    "version": "v114",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "tp_max_lag": 58,
+      "tp_period": 140,
+      "tp_threshold": 1.5367803620728877
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 30,
+    "elapsed_seconds": 2.3
+  },
+  {
+    "version": "v115",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "gbm_period": 344,
+      "gbm_threshold": 1.1140712762084233
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 30,
+    "elapsed_seconds": 3.8
+  },
+  {
+    "version": "v116",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "vidya_cmo": 26,
+      "vidya_period": 32
+    },
+    "best_sharpe": -1.3,
+    "n_trials": 30,
+    "elapsed_seconds": 1.7
+  },
+  {
+    "version": "v117",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "pi_period": 58,
+      "pi_threshold": 1.8567854603473721,
+      "tmf_period": 41
+    },
+    "best_sharpe": -0.8714285714285714,
+    "n_trials": 30,
+    "elapsed_seconds": 2.7
+  },
+  {
+    "version": "v118",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 11.559277233567407,
+      "emv_period": 27,
+      "ti_period": 14,
+      "ti_threshold": 36.23384961293952
+    },
+    "best_sharpe": 0.7363229276037795,
+    "n_trials": 30,
+    "elapsed_seconds": 19.1
+  },
+  {
+    "version": "v119",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "dema_period": 58,
+      "z_max": 7.4271418413894885,
+      "z_period": 116
+    },
+    "best_sharpe": 0.0,
+    "n_trials": 30,
+    "elapsed_seconds": 2.1
+  },
+  {
+    "version": "v120",
+    "phase": "coarse",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 5.99337771140202,
+      "hma_period": 58,
+      "smi_lookback": 11,
+      "smi_period": 38
+    },
+    "best_sharpe": -0.8714285714285714,
+    "n_trials": 30,
+    "elapsed_seconds": 2.0
+  },
+  {
     "version": "v124",
     "phase": "coarse",
     "freq": "30min",
