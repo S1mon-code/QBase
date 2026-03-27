@@ -1891,10 +1891,12 @@ daily_returns = daily_equity.pct_change()
 
 **当前 Portfolio 评分：**
 
-| Portfolio | Sharpe | MaxDD | 策略数 | 相关性 | 主要改进 |
-|-----------|:------:|:-----:|:-----:|:-----:|---------|
-| **AG Strong Trend** | **3.08** | **-3.52%** | 6 | 0.118 | Sharpe 2.43→3.08, MaxDD -5.92%→-3.52%, 相关性 0.45→0.12 |
-| **LC Strong Trend** | **3.23** | **-0.75%** | 4 | 0.022 | Sharpe 2.91→3.23, MaxDD -3.07%→-0.75%, Portfolio/Best 1.29x |
+| Portfolio | Sharpe | Return | MaxDD | 策略数 | 说明 |
+|-----------|:------:|:------:|:-----:|:-----:|------|
+| **AG Strong Trend** | **3.08** | **43.34%** | **-3.52%** | 6 | 相关性 0.118, Calmar 9.17 |
+| **LC Strong Trend** | **2.47** | **15.77%** | **-2.95%** | 5 | 平衡型（Sharpe/收益/回撤 trade-off）|
+| **AG All-Time** | 优化完成 | — | — | 158 valid | 待构建 Portfolio |
+| **Medium Trend** | 优化完成 | — | — | 41 positive | 待构建 Portfolio, 5min/10min 待优化 |
 
 **运行评分：**
 
