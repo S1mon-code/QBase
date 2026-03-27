@@ -972,6 +972,38 @@ report.correlation_matrix  # pd.DataFrame
 ./run.sh strategies/strong_trend/v9.py --symbols AG --freq 60min --start 2024
 ```
 
+### 生成报告必须使用优化参数
+
+**生成回测报告或 portfolio 报告时，必须传入 Optuna 优化后的参数。不能用默认参数。**
+
+```python
+# ❌ 错误：用默认参数（未经优化）
+strat = StrategyV20()  # 使用类的默认参数
+result = engine.run(strat, {'AG': bars})
+reporter.generate(result, 'reports/v20.html')  # 结果不准确！
+
+# ✅ 正确：传入优化后的参数
+from strategies.strong_trend.optimizer import create_strategy_with_params
+import json
+
+with open('strategies/strong_trend/optimization_results.json') as f:
+    opt_results = json.load(f)
+params = {r['version']: r['best_params'] for r in opt_results}
+
+strat = create_strategy_with_params('v20', params['v20'])
+result = engine.run(strat, {'AG': bars}, warmup=strat.warmup)
+reporter.generate(result, 'reports/v20.html')  # 结果准确
+```
+
+**Portfolio 报告同理：** 使用 `StrategyAllocation` 的 `params` 参数传入优化结果。
+
+```python
+StrategyAllocation('v20', 'strategies/strong_trend/v20.py', 'AG', 'daily',
+                   weight=0.20, params=params['v20'])  # 传入优化参数
+```
+
+**教训（v20 参数 bug）：** 之前生成报告时使用默认参数，导致 v20 AG Sharpe 显示 -0.78（实际优化后为 1.80）。两者差异巨大是因为优化调整了 fractal_period、atr_trail_mult 等关键参数。
+
 ### 频率体系
 
 **支持频率：** AlphaForge 支持任意频率：`<N>min`（如 `1min`, `5min`, `20min`）、`<N>h`（如 `1h`, `4h`）、`daily`
