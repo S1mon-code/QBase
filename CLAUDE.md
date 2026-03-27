@@ -1030,7 +1030,10 @@ reporter.generate(result, 'reports/strong_trend/ag/v20.html')
 
 #### Portfolio 报告（新 API）
 
-**必须传入 `slot_results` 参数**，这样报告中会有每个策略的链接和权重信息。
+**必须传入 `slot_results` 和 `kline_bars`**，这样报告中会有：
+- 每个策略的单独报告 + K 线图 + 进出场标记
+- 策略链接和权重信息
+- 组合级净值曲线和回撤
 
 ```python
 from alphaforge.engine.portfolio import PortfolioConfig, StrategyAllocation, PortfolioBacktester
@@ -1058,15 +1061,27 @@ config = PortfolioConfig(
 runner = PortfolioBacktester(data_dir=get_data_dir())
 report = runner.run(config, start='2025-01-01', end='2026-03-01')
 
-# 4. 生成报告（必须传 slot_results）
+# 4. 构建 kline_bars（从 slot_results 提取 K 线数据）
+kline_bars = {}
+for s in report.slot_results:
+    if s.bar_data:
+        sym = s.symbol.split(',')[0].strip().upper()
+        if sym in s.bar_data:
+            kline_bars[sym] = s.bar_data[sym]
+
+# 5. 生成报告（必须传 slot_results + kline_bars）
 reporter = HTMLReportGenerator()
 reporter.generate_portfolio_report(
-    results=[s.result for s in report.slot_results],
-    combined=report.combined_result,
-    output_path='reports/strong_trend/ag/portfolio.html',
-    slot_results=report.slot_results,  # 传这个才有策略链接+权重
+    [s.result for s in report.slot_results],
+    report.combined_result,
+    'reports/strong_trend/ag/portfolio.html',
+    slot_results=report.slot_results,     # 关键：单策略报告+链接+权重
+    kline_bars=kline_bars,                # 关键：K 线图+进出场标记
+    kline_freq='daily',                   # K 线频率
 )
 ```
+
+**不传 `slot_results` 就没有单策略报告和 K 线。这是必须的。**
 
 #### 当前 Portfolio 报告
 
