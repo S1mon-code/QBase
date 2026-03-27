@@ -38,7 +38,13 @@ QBase/
 │       │   ├── build_portfolio.py  # Portfolio 构建入口
 │       │   ├── optimization_results.json
 │       │   └── portfolio/      # 构建结果
-│       ├── i/                   # 铁矿石（待开发）
+│       ├── i/                   # 铁矿石全时间策略 (v1-v200 + optimizer.py)
+│       │   ├── v1.py ~ v200.py # 200个策略（多空，5类×40：趋势/均值回归/突破/多周期/自适应）
+│       │   ├── optimizer.py    # Optuna 优化器（调用 optimizer_core）
+│       │   ├── strategy_utils.py   # 共享工具函数
+│       │   ├── optimization_coarse.json  # 粗调结果
+│       │   ├── optimization_results.json # 精调结果
+│       │   └── portfolio/      # 构建结果
 │       └── .../                 # 其他品种按需添加
 ├── trend/                       # 行情时段参考数据
 │   ├── RALLIES.md               # 强趋势时段表（19品种，涨幅99%-907%）
@@ -2034,10 +2040,50 @@ daily_returns = daily_equity.pct_change()
 | optimizer | 手动定义参数空间 | **自动检测参数空间** |
 
 **优化器特性（`optimizer.py`）：**
+- 调用 `optimizer_core` 的复合目标函数、两阶段优化、稳健性检查
 - 自动从策略类的 type annotations 检测参数及范围
-- 特殊参数（atr_trail_mult、rsi_period 等）有预定义范围
-- ValueError 安全捕获（多空冲突时返回 -1.0 惩罚）
 - 支持批量优化：`--strategy v1-v20 --trials 150`
+
+### All-Time Iron Ore (I) 策略架构
+
+**200 个策略，5 类×40，多空全天候，最低频率 1h：**
+
+| 类别 | 版本 | 数量 | 频率分布 | 指标特点 |
+|------|------|:---:|---------|---------|
+| 趋势跟踪 | v1-v40 | 40 | daily(10), 4h(15), 1h(15) | Supertrend/ADX/Aroon/Ichimoku/PSAR/HMA/EMA Ribbon 等 |
+| 均值回归 | v41-v80 | 40 | daily(5), 4h(15), 1h(20) | Bollinger/Keltner/Z-score/RSI/Stochastic/CCI/Fisher 等 |
+| 突破 | v81-v120 | 40 | daily(10), 4h(15), 1h(15) | Donchian/TTM Squeeze/NR7/Range Expansion/Chandelier 等 |
+| 多周期 | v121-v160 | 40 | 1h+4h(20), 4h+daily(20) | 大周期定方向+小周期精确入场，lookahead-free 映射 |
+| 自适应/混合 | v161-v200 | 40 | daily(5), 4h(20), 1h(15) | HMM regime/Kalman/投票(≥2/3)/双模切换(趋势↔均值回归) |
+
+**品种特性：**
+- 数据：2013-10 ~ 2026-02（12.4 年 1min 数据）
+- 乘数 100，保证金 12%，涨跌停 ±8%
+- 流动性 A 级（>100 万手/日）
+- 板块：黑色系（J/JM/RB 强相关）
+- 驱动：供给侧政策、产能冲击、房地产周期
+
+**数据分割：**
+- 训练集：2013-10 ~ 2021-12-31（8.3 年）
+- 测试集：2022-01-01 ~ 2026-02
+
+**优化结果（粗调 50 trials/strategy）：**
+- 200 策略中 89 个正 Sharpe（44%），最高 1.77（v35 TEMA+PPO 1h）
+- 自适应类最稳定：33/40 正 Sharpe，0 失败
+- 均值回归和突破类失败率较高（信号在铁矿上偏稀疏）
+- 1h 频率策略整体表现优于 daily
+
+**用法：**
+```bash
+# 粗调
+python strategies/all_time/i/optimizer.py --strategy all --trials 50 --phase coarse
+
+# 精调
+python strategies/all_time/i/optimizer.py --strategy v35,v96,v124 --trials 100 --phase fine
+
+# 多种子（top 候选）
+python strategies/all_time/i/optimizer.py --strategy v35 --trials 50 --multi-seed
+```
 
 ---
 
