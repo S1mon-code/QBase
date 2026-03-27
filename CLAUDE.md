@@ -21,9 +21,10 @@ QBase/
 │   ├── builder.py               # 组合构建器（穷举/贪心 + HRP + Bootstrap）
 │   └── scorer.py                # 组合评分器（4维12指标，0-100分）
 ├── strategies/                  # 策略库
+│   ├── optimizer_core.py        # 共享优化基础设施（目标函数/两阶段/稳健性/多种子）
 │   ├── strong_trend/            # 强趋势策略 (v1-v50 + optimizer.py)
 │   │   ├── v1.py ~ v50.py      # 50个策略（不同指标组合）
-│   │   ├── optimizer.py         # Optuna 参数优化器
+│   │   ├── optimizer.py         # Optuna 参数优化器（调用 optimizer_core）
 │   │   ├── validate_and_iterate.py  # 测试集验证+迭代优化
 │   │   ├── optimization_results.json
 │   │   └── portfolio/           # 构建结果（weights_ag.json, scores.json 等）
@@ -33,7 +34,7 @@ QBase/
 │   └── all_time/                # 全时间策略（按品种，覆盖所有行情状态）
 │       ├── ag/                  # 白银全时间策略 (v1-v100 + optimizer.py)
 │       │   ├── v1.py ~ v100.py # 100个策略（多空，5类：趋势/均值回归/突破/多周期/混合）
-│       │   ├── optimizer.py    # Optuna 自动参数检测 + 优化
+│       │   ├── optimizer.py    # Optuna 自动参数检测 + 优化（调用 optimizer_core）
 │       │   ├── build_portfolio.py  # Portfolio 构建入口
 │       │   ├── optimization_results.json
 │       │   └── portfolio/      # 构建结果
@@ -1300,6 +1301,23 @@ python strategies/strong_trend/validate_and_iterate.py
 
 **所有优化在训练集上完成，测试集不参与任何优化决策。**
 
+### 优化架构
+
+所有优化逻辑统一由 `strategies/optimizer_core.py` 提供，各优化器调用它：
+
+```
+optimizer_core.py (共享基础设施)
+├── 参数自动发现 (auto_discover_params)
+├── 复合目标函数 (composite_objective)
+├── 两阶段优化   (optimize_two_phase: 粗调→精调→稳健性检查)
+├── 多种子验证   (optimize_multi_seed: 3种子→取中位数)
+├── 稳健性检查   (check_robustness: 邻域采样→高原/尖峰判断)
+└── 统一回测接口 (run_single_backtest: 频率映射+bar重采样)
+
+strategies/strong_trend/optimizer.py  → 调用 optimizer_core（多品种评估）
+strategies/all_time/ag/optimizer.py   → 调用 optimizer_core（单品种评估）
+```
+
 ### 可调参数分类与优先级
 
 | 优先级 | 参数类别 | 示例 | 说明 |
@@ -1312,83 +1330,139 @@ python strategies/strong_trend/validate_and_iterate.py
 
 **总可调参数 ≤ 5 个，范围窄（2-3x）。** 参数越少、范围越窄，过拟合风险越低。
 
-### 分阶段优化（粗调 → 精调）
+### 参数自动发现
 
-**不要直接 200 trials 全范围搜索。** 分两阶段效率更高：
+**不再需要手动定义参数搜索空间。** `optimizer_core.auto_discover_params()` 从策略类的 type annotations + 默认值自动推导：
 
-**第一阶段 — 粗调（30 trials）：**
-- 大步长（period 步长 5，阈值步长 0.05）
-- 快速锁定参数大致范围
-- 内置 probe 机制：先跑 5 个 trials，如果全部报错（-999）则跳过该策略
-
-```bash
-# 粗调：大范围、大步长、30 trials（含 5 trial probe）
-python optimizer.py --strategy v1 --trials 30 --phase coarse
-
-# 批量粗调
-python optimizer.py --strategy v1-v50 --trials 30 --phase coarse
-
-# 全部粗调
-python optimizer.py --strategy all --trials 30 --phase coarse
+```python
+class StrongTrendV1(TimeSeriesStrategy):
+    st_period: int = 10          # 自动推导: range [4, 30]
+    st_mult: float = 3.0         # 已知参数: range [1.5, 5.0]
+    roc_period: int = 20         # 自动推导: range [8, 60]
+    roc_threshold: float = 5.0   # 自动推导: range [1.5, 15.0]
+    atr_trail_mult: float = 3.0  # 已知参数: range [2.0, 5.5]
 ```
 
-**第二阶段 — 精调（50 trials）：**
-- 在粗调最优附近缩小范围至 30%、步长减半
-- 精确找到最优参数
+**已知参数映射（精确范围）：**
 
-```bash
-# 精调：自动读取粗调结果，窄范围、细步长
-python optimizer.py --strategy v1 --trials 50 --phase fine
+| 参数名 | 固定范围 |
+|--------|---------|
+| `atr_trail_mult` / `atr_stop_mult` | 2.0 - 5.5 |
+| `st_mult` | 1.5 - 5.0 |
+| `kc_mult` | 1.0 - 3.0 |
+| `chand_mult` | 2.0 - 5.0 |
+| `psar_af_step` | 0.01 - 0.04 |
+| `psar_af_max` | 0.1 - 0.3 |
+| `t3_vfactor` | 0.5 - 0.9 |
+| `alma_offset` | 0.7 - 0.95 |
+
+**通用规则（按参数名模式）：**
+- Period 类（含 period/lookback/fast/slow/signal/tenkan 等）：`default × 0.4 ~ default × 3.0`
+- Threshold/Mult 类：`default × 0.3 ~ default × 3.0`
+- 其他：`default × 0.4 ~ default × 3.0`（int），`default × 0.3 ~ default × 3.0`（float）
+
+**跳过的属性：** `name`, `warmup`, `freq`, `contract_multiplier`
+
+### 目标函数（composite_objective）
+
+**多品种（Strong Trend，跨 6 个训练品种）：**
+```python
+score = mean_sharpe + 0.3 * min_sharpe - 0.5 * max(0, mean|MaxDD| - 0.20)
+         ─────────   ──────────────────   ──────────────────────────────────
+          基础收益      一致性奖励              回撤惩罚(>20%才触发)
 ```
 
-### 优化效率注意事项
+一致性奖励确保参数在**所有品种**上都有效，而非只在平均值上好看。
 
-**速度瓶颈分析：**
-- 数据加载：每个策略 ~3-5 秒（StrategyOptimizer 内部只加载一次）
-- ML 指标计算：每个 trial 的 `on_init_arrays` 都要重算（参数变了），HMM/K-Means 等较慢
-- 回测本身：daily ~4s/trial，4h ~4.5s/trial，1h ~7s/trial
+**单品种（All-Time AG，只跑 AG 训练集）：**
+```python
+score = sharpe - 0.5 * max(0, |MaxDD| - 0.20)
+```
 
-**并行建议：**
-- 不同策略之间用多进程并行（2-3 个进程，不要超过 CPU 核数的 50%）
-- 同一策略内 Optuna 不建议并行（n_jobs=1），因为 TPE 采样是顺序依赖的
+单品种不加一致性奖励（只有一个结果时 `0.3 * min_sharpe` 退化为 `0.3 * sharpe`，只是无意义的 1.3x 缩放）。
+
+**交易次数门槛（自动执行）：** 优化目标函数内置了按频率的最低交易次数过滤。低于门槛的回测结果直接被排除（返回 -10.0），确保参数在统计上有意义：
+
+| 频率 | 最低交易次数 |
+|------|:---:|
+| daily | 30 |
+| 4h | 50 |
+| 1h / 60min | 80 |
+| 30min | 100 |
+| 15min / 10min / 5min | 150 |
+
+### 两阶段优化（optimize_two_phase）
+
+默认优化流程，自动执行粗调→精调→稳健性检查三步：
+
+```
+Phase 1: 粗调 (coarse)          Phase 2: 精调 (fine)         Phase 3: 稳健性
+───────────────────────        ──────────────────────       ──────────────────
+全范围 TPE 搜索                 围绕粗调最优 ±15% 范围       最优参数 ±15% 邻域
+30 trials (含 5 probe)          50 trials                    max(20, n_params*5) 采样
+  │                               │                           │
+  ├─ probe 全失败 → 早停          ├─ 取 coarse vs fine 较优    ├─ ≥60% 邻居 > 最优50%
+  └─ Sharpe ≤ -5 → 跳过精调      └─ 步长减半，精确寻优          → PLATEAU (稳健)
+                                                               → SPIKE (噪音)
+```
+
+**Strong Trend 用法：**
+```bash
+# 默认两阶段优化（推荐，80 trials = 27 coarse + 27 fine + robustness）
+python strategies/strong_trend/optimizer.py --strategy v1 --trials 80
+
+# 批量优化
+python strategies/strong_trend/optimizer.py --strategy all --trials 80
+
+# 最终 top 候选启用多种子验证（3x 算力，更可靠）
+python strategies/strong_trend/optimizer.py --strategy v12 --trials 80 --multi-seed
+```
+
+**All-Time AG 用法：**
+```bash
+# 粗调
+python strategies/all_time/ag/optimizer.py --strategy v1 --trials 50 --phase coarse
+
+# 精调（自动读取粗调结果）
+python strategies/all_time/ag/optimizer.py --strategy v1 --trials 100 --phase fine
+
+# 批量
+python strategies/all_time/ag/optimizer.py --strategy v1-v50 --trials 50 --phase coarse
+
+# 多种子
+python strategies/all_time/ag/optimizer.py --strategy v1 --trials 50 --multi-seed
+```
+
+### 稳健性检查（check_robustness）
+
+**每次优化自动执行。** 找到最优参数后，在 ±15% 邻域随机采样：
+
+- **采样数量：** `max(20, n_params × 5)` — 3 个参数采 20 个，7 个参数采 35 个
+- **判断标准：** ≥60% 邻居得分 > 最优的 50% → PLATEAU（稳健），否则 → SPIKE（噪音）
+- **输出标记：** 结果 JSON 中 `robustness.is_robust` 字段
+
+如果判定为 PLATEAU，可能使用邻域中发现的更优参数（高原中心可能比 Optuna 的最优更好）。
+
+### 多种子验证（optimize_multi_seed）
+
+**默认关闭，用 `--multi-seed` 手动开启。** 适用于最终 portfolio 入选的 top 10-15 个策略。
+
+- 3 个种子 (42, 123, 456) 各自独立跑完整两阶段
+- 最终取**中位数**结果（最稳定，避免选到运气好/差的种子）
+- 跨种子一致性检查：`std < 50% × mean` → CONSISTENT，否则 → INCONSISTENT
+
+**3x 算力成本**，不建议对全部策略开启。
 
 ### 早停与淘汰标准
 
-**Probe 早停机制（optimizer.py 内置）：**
-- 每个策略先跑 5 个 probe trials
-- 如果 5 个 trials 全部返回 -999（策略代码报错），立即跳过，不浪费剩余 trials
-- 节省大量时间（有 bug 的策略不需要跑完全部 30 trials）
+**Probe 早停机制（自动）：**
+- 每次优化先跑 5 个 probe trials
+- 如果 5 个 trials 全部返回 -999（策略代码报错），立即跳过
+- 多种子模式下，第一个种子 probe 失败则跳过剩余种子
 
-**Sharpe 负值不跳过：** 粗调 Sharpe < 0 的策略直接用粗调最优参数，不进精调（节省时间），但保留在策略池中（portfolio 可能用作 hedge）。
+**Sharpe 负值不跳过：** Sharpe ≤ -5.0 跳过精调（节省时间），但保留在策略池中。portfolio 构建时负 Sharpe + 负相关的策略可能比正 Sharpe + 高相关的更有价值。
 
-**优化阶段唯一淘汰标准：** 训练集交易次数不达标（见统计显著性标准表）则淘汰。Sharpe 为负不淘汰——portfolio 构建时负 Sharpe + 负相关的策略可能比正 Sharpe + 高相关的更有价值。
-
-### 目标函数
-
-**趋势策略（多品种）：**
-```python
-# 基础目标：多品种平均 Sharpe
-objective = mean(sharpe across training_symbols)
-
-# 加一致性 bonus：奖励所有品种都盈利的参数
-objective = mean_sharpe + 0.3 * min_sharpe
-```
-
-**All-Time 单品种：**
-```python
-# 单品种训练集 Sharpe
-objective = sharpe_on_training_set
-```
-
-**复合目标（推荐）：**
-
-纯 Sharpe 最大化可能选出回撤很大但收益更大的参数。加入回撤惩罚：
-
-```python
-# Sharpe - 回撤惩罚
-objective = sharpe - 0.5 * max(0, abs(max_drawdown) - 0.20)
-# MaxDD > 20% 时开始惩罚，每超 1% 扣 0.5 分
-```
+**交易次数门槛：** 内置在目标函数中自动执行（见上方表格）。
 
 ### 参数交互处理
 
@@ -1396,28 +1470,6 @@ objective = sharpe - 0.5 * max(0, abs(max_drawdown) - 0.20)
 
 - Optuna TPE 能捕捉部分交互，但参数 > 5 个时交互空间爆炸
 - 如果发现两个参数强耦合，考虑固定其中一个或合并为比值参数
-
-### 稳健性检查（参数高原 vs 参数尖峰）
-
-Optuna 找到最优参数后，不是直接用，而是检查周围邻域：
-
-```python
-# 最优参数邻域检查
-best_params = study.best_params  # 如 adx_threshold=25
-
-# 在 ±20% 范围内采样 10 组邻近参数
-for delta in [-2, -1, 0, 1, 2]:
-    neighbor = {**best_params, "adx_threshold": 25 + delta}
-    sharpe = evaluate(neighbor)
-    print(f"adx={25+delta}: Sharpe={sharpe:.3f}")
-
-# 如果最优 Sharpe=1.5 但邻居都 < 0.3 → 噪音峰值，不可靠
-# 应该选一片区域都 Sharpe > 0.8 的"高原"中心
-```
-
-**判断标准：**
-- 邻域内 80% 参数组合 Sharpe > 最优的 50% → 稳健，可用
-- 邻域内 Sharpe 方差 > 最优的 50% → 不稳健，考虑放弃或简化策略
 
 ### 频率也是优化维度
 
@@ -1432,25 +1484,36 @@ done
 # 选 Sharpe 最高的频率，再在该频率上 fine-tune 参数
 ```
 
-### 并行优化
+### 优化效率注意事项
 
+**速度瓶颈分析：**
+- 数据加载：每个策略 ~3-5 秒
+- ML 指标计算：每个 trial 的 `on_init_arrays` 都要重算（参数变了），HMM/K-Means 等较慢
+- 回测本身：daily ~4s/trial，4h ~4.5s/trial，1h ~7s/trial
+
+**并行建议：**
 - 不同策略之间完全独立，可以用 subagent 并行优化
-- 同一策略内 Optuna 支持 `n_jobs` 并行 trials
-- 批量优化：`optimizer.py --strategy all --trials 150`
+- 同一策略内 Optuna TPE 是顺序依赖的（n_jobs=1）
+- 批量优化：`optimizer.py --strategy all --trials 80`
 
 ### 优化器位置与配置
 
-每个市场状态目录下有独立的 `optimizer.py`：
-
 ```
-strategies/strong_trend/optimizer.py     # 强趋势优化器
-strategies/all_time/ag/optimizer.py      # AG 全时间优化器
+strategies/optimizer_core.py             # 共享优化基础设施（目标函数/两阶段/稳健性/多种子）
+strategies/strong_trend/optimizer.py     # 强趋势优化器（多品种评估）
+strategies/all_time/ag/optimizer.py      # AG 全时间优化器（单品种评估）
 strategies/medium_trend/optimizer.py     # 中趋势优化器（待开发）
 ```
 
 **优化结果保存：**
-- `optimization_results.json` — 每个策略的最优参数和 Sharpe
-- 粗调和精调的结果都保存，方便对比
+- `optimization_results.json` — 每个策略的最优参数、Sharpe、稳健性标记
+- 粗调结果保存在 `optimization_coarse.json`（All-Time AG）
+
+**输出字段：**
+- `version`, `best_sharpe`, `best_params`, `n_trials` — 基本信息
+- `robustness` — `{is_robust, neighbor_mean, neighbor_std, above_threshold_pct}`
+- `is_consistent` — 多种子一致性（仅 `--multi-seed` 时）
+- `phase` — 优化阶段（`two_phase` / `coarse_only` / `probe_failed`）
 
 ### 非标准频率支持
 
