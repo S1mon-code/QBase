@@ -972,13 +972,35 @@ report.correlation_matrix  # pd.DataFrame
 ./run.sh strategies/strong_trend/v9.py --symbols AG --freq 60min --start 2024
 ```
 
-### 生成报告必须使用优化参数
+### Report 生成规范
+
+#### 目录结构
+
+所有 HTML 报告按策略类型和品种组织：
+
+```
+reports/
+├── strong_trend/
+│   ├── ag/
+│   │   ├── portfolio.html      # AG 强趋势 Portfolio 报告
+│   │   ├── v7.html ~ v49.html  # 各策略单独报告
+│   └── lc/
+│       ├── portfolio.html      # LC 强趋势 Portfolio 报告
+│       └── v5.html ~ v34.html
+├── medium_trend/
+│   └── <symbol>/
+├── all_time/
+│   └── ag/
+└── ...
+```
+
+#### 必须使用优化参数
 
 **生成回测报告或 portfolio 报告时，必须传入 Optuna 优化后的参数。不能用默认参数。**
 
 ```python
 # ❌ 错误：用默认参数（未经优化）
-strat = StrategyV20()  # 使用类的默认参数
+strat = StrategyV20()
 result = engine.run(strat, {'AG': bars})
 reporter.generate(result, 'reports/v20.html')  # 结果不准确！
 
@@ -992,17 +1014,66 @@ params = {r['version']: r['best_params'] for r in opt_results}
 
 strat = create_strategy_with_params('v20', params['v20'])
 result = engine.run(strat, {'AG': bars}, warmup=strat.warmup)
-reporter.generate(result, 'reports/v20.html')  # 结果准确
+reporter.generate(result, 'reports/strong_trend/ag/v20.html')
 ```
 
-**Portfolio 报告同理：** 使用 `StrategyAllocation` 的 `params` 参数传入优化结果。
+**教训（v20 参数 bug）：** 默认参数 v20 AG Sharpe=-0.78，优化后为 1.80。差异巨大。
+
+#### 单策略报告
 
 ```python
-StrategyAllocation('v20', 'strategies/strong_trend/v20.py', 'AG', 'daily',
-                   weight=0.20, params=params['v20'])  # 传入优化参数
+from alphaforge.report import HTMLReportGenerator
+
+reporter = HTMLReportGenerator()
+reporter.generate(result, 'reports/strong_trend/ag/v20.html')
 ```
 
-**教训（v20 参数 bug）：** 之前生成报告时使用默认参数，导致 v20 AG Sharpe 显示 -0.78（实际优化后为 1.80）。两者差异巨大是因为优化调整了 fractal_period、atr_trail_mult 等关键参数。
+#### Portfolio 报告（新 API）
+
+**必须传入 `slot_results` 参数**，这样报告中会有每个策略的链接和权重信息。
+
+```python
+from alphaforge.engine.portfolio import PortfolioConfig, StrategyAllocation, PortfolioBacktester
+from alphaforge.report import HTMLReportGenerator
+
+# 1. 加载优化参数
+with open('strategies/strong_trend/optimization_results.json') as f:
+    opt_results = json.load(f)
+params_map = {r['version']: r.get('best_params', {}) for r in opt_results}
+
+# 2. 构建 PortfolioConfig（必须传入 params）
+config = PortfolioConfig(
+    total_capital=3_000_000,
+    allocations=[
+        StrategyAllocation('v20', 'strategies/strong_trend/v20.py', 'AG', 'daily',
+                           weight=0.20, params=params_map['v20']),
+        StrategyAllocation('v12', 'strategies/strong_trend/v12.py', 'AG', 'daily',
+                           weight=0.144, params=params_map['v12']),
+        # ... 其他策略
+    ],
+    rebalance='none',
+)
+
+# 3. 运行回测
+runner = PortfolioBacktester(data_dir=get_data_dir())
+report = runner.run(config, start='2025-01-01', end='2026-03-01')
+
+# 4. 生成报告（必须传 slot_results）
+reporter = HTMLReportGenerator()
+reporter.generate_portfolio_report(
+    results=[s.result for s in report.slot_results],
+    combined=report.combined_result,
+    output_path='reports/strong_trend/ag/portfolio.html',
+    slot_results=report.slot_results,  # 传这个才有策略链接+权重
+)
+```
+
+#### 当前 Portfolio 报告
+
+| Portfolio | Sharpe | Return | MaxDD | 路径 |
+|-----------|:------:|:------:|:-----:|------|
+| AG Strong Trend | 3.08 | 43.34% | -3.52% | `reports/strong_trend/ag/portfolio.html` |
+| LC Strong Trend | 2.47 | 15.77% | -2.95% | `reports/strong_trend/lc/portfolio.html` |
 
 ### 频率体系
 
