@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 import conftest
+from strategies.all_time.ag.strategy_utils import fast_avg_volume, compute_tradeable_mask
 
 import numpy as np
 from alphaforge.strategy.base import TimeSeriesStrategy
@@ -80,9 +81,7 @@ class RSIDivergenceVolumeStrategy(TimeSeriesStrategy):
         self._highs = highs
 
         window = 20
-        self._avg_volume = np.full_like(volumes, np.nan)
-        for idx in range(window, len(volumes)):
-            self._avg_volume[idx] = np.mean(volumes[idx - window:idx])
+        self._avg_volume = fast_avg_volume(volumes, window)
 
     def _detect_bullish_divergence(self, i):
         """价格新低但RSI未新低 = 看涨背离"""

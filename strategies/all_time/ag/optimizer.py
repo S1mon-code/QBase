@@ -118,13 +118,19 @@ def discover_params(strategy_cls):
     return params
 
 
-def optimize_single(version: str, n_trials: int = 50, phase: str = "coarse",
-                    n_jobs: int = 1, seed: int = 42):
+def optimize_single(version: str, n_trials: int = 30, phase: str = "coarse",
+                    n_jobs: int = 1, seed: int = 42, probe_trials: int = 5):
     """Optimize a single strategy.
+
+    Optimization flow:
+    1. Probe phase: run `probe_trials` trials first
+    2. If all probe trials return -999 (strategy errors), skip remaining trials
+    3. Otherwise, run remaining trials to complete `n_trials` total
 
     Returns dict with results or None if failed.
     """
     from alphaforge.optimizer.base import StrategyOptimizer
+    import time
 
     try:
         strategy_cls = load_strategy_class(version)
@@ -133,6 +139,8 @@ def optimize_single(version: str, n_trials: int = 50, phase: str = "coarse",
         print(f"\n{'='*60}")
         print(f"Optimizing {version} | freq={freq} | phase={phase} | trials={n_trials}")
         print(f"{'='*60}")
+
+        t0 = time.time()
 
         # Create optimizer
         opt = StrategyOptimizer(
@@ -150,7 +158,7 @@ def optimize_single(version: str, n_trials: int = 50, phase: str = "coarse",
             print(f"  WARNING: No tunable parameters found for {version}, skipping")
             return None
 
-        # If fine phase, narrow ranges based on coarse results
+        # Setup parameters based on phase
         if phase == "fine":
             coarse = load_coarse_results()
             if version in coarse and coarse[version].get("best_params"):
@@ -158,7 +166,7 @@ def optimize_single(version: str, n_trials: int = 50, phase: str = "coarse",
                 for name, low, high, step in params:
                     if name in best:
                         val = best[name]
-                        range_size = (high - low) * 0.3  # 30% of original range
+                        range_size = (high - low) * 0.3
                         new_low = max(low, val - range_size / 2)
                         new_high = min(high, val + range_size / 2)
                         new_step = step / 2 if step else None
@@ -176,15 +184,44 @@ def optimize_single(version: str, n_trials: int = 50, phase: str = "coarse",
 
         print(f"  Parameters: {[(p[0], p[1], p[2]) for p in params]}")
 
-        # Run optimization
-        result = opt.optimize(
-            n_trials=n_trials,
+        # --- PROBE PHASE: quick check if strategy works at all ---
+        probe_n = min(probe_trials, n_trials)
+        probe_result = opt.optimize(
+            n_trials=probe_n,
             objective="sharpe",
             n_jobs=n_jobs,
             seed=seed,
         )
 
-        # Extract results
+        # Check if all probe trials failed (-999 means strategy error)
+        probe_values = probe_result.all_trials["value"].dropna().tolist()
+        all_failed = all(v <= -900 for v in probe_values) if probe_values else True
+
+        if all_failed:
+            elapsed = time.time() - t0
+            print(f"  EARLY STOP: All {probe_n} probe trials failed (-999). "
+                  f"Strategy has code errors. Skipping. ({elapsed:.1f}s)")
+            return {
+                "version": version, "phase": phase, "freq": freq,
+                "best_params": {}, "best_sharpe": -999.0,
+                "n_trials": probe_n, "n_completed": probe_n,
+                "early_stopped": True, "reason": "all_probe_trials_failed",
+            }
+
+        # --- MAIN PHASE: run remaining trials ---
+        remaining = n_trials - probe_n
+        if remaining > 0:
+            result = opt.optimize(
+                n_trials=remaining,
+                objective="sharpe",
+                n_jobs=n_jobs,
+                seed=seed + 1000,
+            )
+        else:
+            result = probe_result
+
+        elapsed = time.time() - t0
+
         output = {
             "version": version,
             "phase": phase,
@@ -192,16 +229,16 @@ def optimize_single(version: str, n_trials: int = 50, phase: str = "coarse",
             "best_params": result.best_params,
             "best_sharpe": float(result.best_value),
             "n_trials": n_trials,
-            "n_completed": len(result.all_trials),
+            "n_completed": len(result.all_trials) + probe_n,
+            "elapsed_seconds": round(elapsed, 1),
         }
 
         print(f"  Best Sharpe: {result.best_value:.4f}")
         print(f"  Best params: {result.best_params}")
+        print(f"  Time: {elapsed:.1f}s")
 
-        # Early stop check for coarse phase
         if phase == "coarse" and result.best_value < 0:
-            print(f"  NOTE: Negative Sharpe ({result.best_value:.4f}), "
-                  f"but keeping (may be useful as hedge in portfolio)")
+            print(f"  NOTE: Negative Sharpe, but keeping (may hedge in portfolio)")
 
         return output
 
@@ -229,10 +266,24 @@ def load_results():
 
 
 def save_results(results, filepath):
-    """Save optimization results."""
+    """Save optimization results (append mode — merges with existing)."""
+    existing = []
+    if filepath.exists():
+        try:
+            with open(filepath) as f:
+                existing = json.load(f)
+        except (json.JSONDecodeError, Exception):
+            existing = []
+
+    # Merge: new results override existing for same version
+    existing_map = {r["version"]: r for r in existing}
+    for r in results:
+        existing_map[r["version"]] = r
+
+    merged = sorted(existing_map.values(), key=lambda r: int(r["version"][1:]))
     with open(filepath, 'w') as f:
-        json.dump(results, f, indent=2, default=str)
-    print(f"\nResults saved to {filepath}")
+        json.dump(merged, f, indent=2, default=str)
+    print(f"\nResults saved to {filepath} ({len(merged)} total, {len(results)} new)")
 
 
 def parse_strategy_range(s: str) -> list[str]:
@@ -267,11 +318,25 @@ def main():
     print(f"Phase: {args.phase} | Trials: {args.trials} | Symbol: {SYMBOL}")
     print(f"Training period: start ~ {TRAIN_END}")
 
+    # Load already-done results to skip them
+    result_file = COARSE_RESULTS_FILE if args.phase == "coarse" else RESULTS_FILE
+    already_done = set()
+    if result_file.exists():
+        try:
+            with open(result_file) as f:
+                for r in json.load(f):
+                    already_done.add(r["version"])
+        except (json.JSONDecodeError, Exception):
+            pass
+
     results = []
     for version in versions:
         filepath = AG_DIR / f"{version}.py"
         if not filepath.exists():
             print(f"  Skipping {version}: file not found")
+            continue
+        if version in already_done:
+            print(f"  Skipping {version}: already optimized")
             continue
 
         r = optimize_single(version, n_trials=args.trials, phase=args.phase,

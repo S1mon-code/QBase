@@ -482,6 +482,7 @@ from alphaforge.strategy.base import TimeSeriesStrategy
 from indicators.trend.adx import adx
 from indicators.momentum.roc import rate_of_change
 from indicators.volatility.atr import atr
+from strategies.all_time.ag.strategy_utils import fast_avg_volume, compute_tradeable_mask
 
 # 加仓配置
 SCALE_FACTORS = [1.0, 0.5, 0.25]   # 首仓100% → 加仓50% → 加仓25%
@@ -550,9 +551,7 @@ class MyStrategy(TimeSeriesStrategy):
 
         # 预计算平均成交量（用于低量过滤）
         window = 20
-        self._avg_volume = np.full_like(volumes, np.nan)
-        for idx in range(window, len(volumes)):
-            self._avg_volume[idx] = np.mean(volumes[idx-window:idx])
+        self._avg_volume = fast_avg_volume(volumes, window)  # 200x faster than Python loop
 
     def on_bar(self, context):
         i = context.bar_index
@@ -699,6 +698,7 @@ from alphaforge.strategy.base import TimeSeriesStrategy
 from indicators.momentum.rsi import rsi
 from indicators.trend.supertrend import supertrend
 from indicators.volatility.atr import atr
+from strategies.all_time.ag.strategy_utils import fast_avg_volume, compute_tradeable_mask
 
 SCALE_FACTORS = [1.0, 0.5, 0.25]
 MAX_SCALE = 3
@@ -765,9 +765,7 @@ class MultiTFTrend(TimeSeriesStrategy):
 
         # 预计算平均成交量
         window = 20
-        self._avg_volume = np.full_like(volumes, np.nan)
-        for idx in range(window, len(volumes)):
-            self._avg_volume[idx] = np.mean(volumes[idx-window:idx])
+        self._avg_volume = fast_avg_volume(volumes, window)  # 200x faster than Python loop
 
         # 聚合 → 4h bars
         n_4h = n // step
@@ -1061,33 +1059,50 @@ python strategies/strong_trend/validate_and_iterate.py
 
 **不要直接 200 trials 全范围搜索。** 分两阶段效率更高：
 
-**第一阶段 — 粗调（50 trials）：**
+**第一阶段 — 粗调（30 trials）：**
 - 大步长（period 步长 5，阈值步长 0.05）
 - 快速锁定参数大致范围
-- TPE 前 20-30 trials 基本是随机探索，粗调阶段消化这部分成本
+- 内置 probe 机制：先跑 5 个 trials，如果全部报错（-999）则跳过该策略
 
 ```bash
-# 粗调：大范围、大步长、少 trials
-python optimizer.py --strategy v1 --trials 50 \
-    --param adx_threshold:15:40:5 \
-    --param atr_stop_mult:2.0:5.0:0.5
+# 粗调：大范围、大步长、30 trials（含 5 trial probe）
+python optimizer.py --strategy v1 --trials 30 --phase coarse
+
+# 批量粗调
+python optimizer.py --strategy v1-v50 --trials 30 --phase coarse
+
+# 全部粗调
+python optimizer.py --strategy all --trials 30 --phase coarse
 ```
 
-**第二阶段 — 精调（100 trials）：**
-- 在粗调最优附近缩小范围、细步长
+**第二阶段 — 精调（50 trials）：**
+- 在粗调最优附近缩小范围至 30%、步长减半
 - 精确找到最优参数
 
 ```bash
-# 精调：窄范围、小步长、多 trials
-# 假设粗调最优 adx_threshold=25, atr_stop_mult=3.5
-python optimizer.py --strategy v1 --trials 100 \
-    --param adx_threshold:20:30:1 \
-    --param atr_stop_mult:2.5:4.5:0.25
+# 精调：自动读取粗调结果，窄范围、细步长
+python optimizer.py --strategy v1 --trials 50 --phase fine
 ```
 
-### 早停与唯一淘汰标准
+### 优化效率注意事项
 
-**早停机制：** 粗调阶段如果前 50 trials 最优 Sharpe < 0，可跳过精调阶段直接用粗调最优参数（负 Sharpe 策略在 portfolio 中可能作为 hedge 有价值）。
+**速度瓶颈分析：**
+- 数据加载：每个策略 ~3-5 秒（StrategyOptimizer 内部只加载一次）
+- ML 指标计算：每个 trial 的 `on_init_arrays` 都要重算（参数变了），HMM/K-Means 等较慢
+- 回测本身：daily ~4s/trial，4h ~4.5s/trial，1h ~7s/trial
+
+**并行建议：**
+- 不同策略之间用多进程并行（2-3 个进程，不要超过 CPU 核数的 50%）
+- 同一策略内 Optuna 不建议并行（n_jobs=1），因为 TPE 采样是顺序依赖的
+
+### 早停与淘汰标准
+
+**Probe 早停机制（optimizer.py 内置）：**
+- 每个策略先跑 5 个 probe trials
+- 如果 5 个 trials 全部返回 -999（策略代码报错），立即跳过，不浪费剩余 trials
+- 节省大量时间（有 bug 的策略不需要跑完全部 30 trials）
+
+**Sharpe 负值不跳过：** 粗调 Sharpe < 0 的策略直接用粗调最优参数，不进精调（节省时间），但保留在策略池中（portfolio 可能用作 hedge）。
 
 **优化阶段唯一淘汰标准：** 训练集交易次数不达标（见统计显著性标准表）则淘汰。Sharpe 为负不淘汰——portfolio 构建时负 Sharpe + 负相关的策略可能比正 Sharpe + 高相关的更有价值。
 
@@ -1571,15 +1586,19 @@ for strategy in portfolio:
 
 重平衡机制后续讨论确定。
 
-### 活跃度过滤（all_time 策略必用）
+### 活跃度过滤（所有 portfolio 必用）
 
-对于 `all_time/` 策略，某些 Optuna 参数组合会导致策略在测试期几乎不交易（0 收益）。这些"僵尸策略"如果被纳入 portfolio，会稀释资金利用率。
+**构建 portfolio 时不允许有僵尸策略。** 僵尸策略（测试期几乎不交易、收益接近 0）会导致：
+1. 与其他策略的相关性为 NaN（方差为 0 无法计算 correlation）
+2. 被错误地当作"对冲策略"选入 portfolio（因为 NaN 相关性被视为 0 相关）
+3. 稀释资金利用率，占用权重但不产生收益
 
-**必须在策略选择前加活跃度过滤：**
+**所有策略类型都必须加活跃度过滤：**
 
 ```bash
-# --min-activity 0.001 表示 abs(return) > 0.1% 才算活跃
-python strategies/all_time/ag/build_portfolio.py --min-activity 0.001
+# 所有 portfolio 构建都加 --min-activity
+python portfolio/builder.py --symbol AG --min-activity 0.001  # strong_trend
+python strategies/all_time/ag/build_portfolio.py --min-activity 0.001  # all_time
 ```
 
 ```python
@@ -1589,7 +1608,9 @@ active = [d for d in all_data
           and abs(d["primary_return"] or 0) > min_activity]
 ```
 
-**经验值：** `all_time/` 建议 `--min-activity 0.001`（0.1%），`strong_trend/` 一般不需要（默认 0）。
+**经验值：** 所有策略类型统一使用 `--min-activity 0.001`（abs(return) > 0.1%）。
+
+**教训（AG v26 事件）：** v26 (TTM Squeeze + ADX + Force Index) 在 AG 测试期仅 4 笔交易、收益 -0.19%，日收益率几乎全为 0。被 portfolio builder 选为 "hedge"（因 NaN 相关性），占 9.3% 权重。加入活跃度过滤后被正确剔除，portfolio 从 7 策略变 6 策略，Sharpe 反而从 3.05 提升到 3.08。
 
 ### Portfolio 构建工具使用
 
@@ -1752,10 +1773,10 @@ daily_returns = daily_equity.pct_change()
 
 **当前 Portfolio 评分：**
 
-| Portfolio | 分数 | 等级 | 主要弱点 |
-|-----------|:----:|:----:|---------|
-| LC HRP (碳酸锂) | **87.6** | **A** | 最大权重 21.6% |
-| AG HRP (白银) | **71.5** | **B** | 组合/单策略比 0.79, 相关性 0.45 |
+| Portfolio | Sharpe | MaxDD | 策略数 | 相关性 | 主要改进 |
+|-----------|:------:|:-----:|:-----:|:-----:|---------|
+| **AG Strong Trend** | **3.08** | **-3.52%** | 6 | 0.118 | Sharpe 2.43→3.08, MaxDD -5.92%→-3.52%, 相关性 0.45→0.12 |
+| **LC Strong Trend** | **3.23** | **-0.75%** | 4 | 0.022 | Sharpe 2.91→3.23, MaxDD -3.07%→-0.75%, Portfolio/Best 1.29x |
 
 **运行评分：**
 
