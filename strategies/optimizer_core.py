@@ -205,127 +205,155 @@ MIN_TRADES_BY_FREQ = {
 }
 
 
-def _drawdown_penalty(mean_abs_dd):
-    """Non-linear drawdown penalty with escalating tiers.
+# ── Dimension Scoring Functions (each returns 0-10) ──
 
-    Designed so that moderate drawdowns barely hurt, but large drawdowns
-    become increasingly painful — matching real-world risk tolerance.
+def _score_sharpe(sharpe):
+    """Score Sharpe using tanh curve — smooth, no hard benchmark.
 
-    Tiers:
-        |MaxDD| <= 15%  →  0          (acceptable for trend strategies)
-        15% < dd <= 25% →  0.3 per 1% over 15%   (light warning)
-        25% < dd <= 35% →  above + 0.8 per 1% over 25%   (serious concern)
-        dd > 35%        →  above + 2.0 per 1% over 35%   (deal-breaker)
+    Uses 10 * tanh(0.7 * sharpe) for natural diminishing returns:
+    low Sharpe improvements are heavily rewarded, high Sharpe gains taper off.
 
     Examples:
-        dd=10% → 0.0
-        dd=20% → 0.015   (barely noticeable)
-        dd=30% → 0.070   (meaningful reduction)
-        dd=40% → 0.170   (heavy penalty, needs Sharpe>2 to compensate)
-        dd=50% → 0.370   (almost certainly rejected)
+        Sharpe 0.0 → 0.0     Sharpe 0.5 → 3.4
+        Sharpe 1.0 → 6.0     Sharpe 1.5 → 7.8
+        Sharpe 2.0 → 8.9     Sharpe 3.0 → 9.7
+        Sharpe ≤ 0  → 0.0
 
-    Returns:
-        float: penalty value (always >= 0)
+    Returns: float 0-10
     """
-    dd = mean_abs_dd  # already positive (abs)
-    penalty = 0.0
-
-    if dd <= 0.15:
+    if sharpe <= 0:
         return 0.0
-
-    # Tier 1: 15% - 25% (light)
-    t1 = min(dd, 0.25) - 0.15
-    penalty += 0.3 * t1
-
-    if dd <= 0.25:
-        return penalty
-
-    # Tier 2: 25% - 35% (serious)
-    t2 = min(dd, 0.35) - 0.25
-    penalty += 0.8 * t2
-
-    if dd <= 0.35:
-        return penalty
-
-    # Tier 3: > 35% (deal-breaker)
-    t3 = dd - 0.35
-    penalty += 2.0 * t3
-
-    return penalty
+    return float(10.0 * np.tanh(0.7 * sharpe))
 
 
-def _concentration_penalty(mean_concentration):
-    """Penalty for profit concentration (over-reliance on few lucky days).
+def _score_risk(max_dd):
+    """Score risk control based on MaxDD. Lower drawdown = higher score.
 
-    A concentration of 0.6 means 60% of Sharpe comes from the top 10%
-    of days — one bad week could wipe it out.
+    Piecewise linear:
+        |dd| ≤  5% → 10      |dd| = 10% → 8
+        |dd| = 15% → 6       |dd| = 20% → 4
+        |dd| = 30% → 2       |dd| ≥ 40% → 0
 
-    Tiers:
-        concentration <= 0.5  →  0          (healthy distribution)
-        0.5 < conc <= 0.7     →  0.3 per 0.1 over 0.5   (warning)
-        conc > 0.7            →  0.6 per 0.1 over 0.7   (fragile)
-
-    Examples:
-        conc=0.3 → 0.0     (well distributed)
-        conc=0.5 → 0.0     (borderline OK)
-        conc=0.6 → 0.03    (light penalty)
-        conc=0.7 → 0.06    (noticeable)
-        conc=0.8 → 0.12    (significant — needs Sharpe>1.5 to survive)
-        conc=0.9 → 0.18    (very fragile)
-
-    Returns:
-        float: penalty value (always >= 0)
+    Returns: float 0-10
     """
-    c = mean_concentration
-    if c <= 0.5:
+    dd = abs(max_dd) if max_dd is not None else 0.0
+    if dd <= 0.05:
+        return 10.0
+    if dd >= 0.40:
         return 0.0
+    # Linear interpolation: 10 at 5%, 0 at 40%
+    return float(max(0.0, 10.0 - (dd - 0.05) / 0.35 * 10.0))
 
-    penalty = 0.0
 
-    # Tier 1: 0.5 - 0.7 (warning)
-    t1 = min(c, 0.7) - 0.5
-    penalty += 0.3 * t1
+def _score_quality(concentration):
+    """Score profit quality based on concentration. Lower = better.
 
-    if c <= 0.7:
-        return penalty
+    Piecewise linear:
+        conc ≤ 0.3 → 10      conc = 0.5 → 7
+        conc = 0.7 → 4       conc ≥ 0.95 → 0
 
-    # Tier 2: > 0.7 (fragile)
-    t2 = c - 0.7
-    penalty += 0.6 * t2
+    Returns: float 0-10
+    """
+    if concentration is None:
+        return 5.0  # neutral when no data
+    c = max(0.0, min(1.0, concentration))
+    if c <= 0.30:
+        return 10.0
+    if c >= 0.95:
+        return 0.0
+    # Linear: 10 at 0.3, 0 at 0.95
+    return float(max(0.0, 10.0 - (c - 0.30) / 0.65 * 10.0))
 
-    return penalty
+
+def _score_stability(monthly_win_rate):
+    """Score stability based on monthly win rate.
+
+    Piecewise linear:
+        wr ≥ 65% → 10     wr = 55% → 7
+        wr = 45% → 4      wr ≤ 30% → 0
+
+    Returns: float 0-10
+    """
+    if monthly_win_rate is None:
+        return 5.0  # neutral when no data
+    wr = max(0.0, min(1.0, monthly_win_rate))
+    if wr >= 0.65:
+        return 10.0
+    if wr <= 0.30:
+        return 0.0
+    # Linear: 0 at 30%, 10 at 65%
+    return float(max(0.0, (wr - 0.30) / 0.35 * 10.0))
+
+
+def _compute_monthly_win_rate(equity_curve):
+    """Compute monthly win rate from equity curve.
+
+    A month is a 'win' if the equity at month-end > equity at month-start.
+
+    Returns: float 0-1 (fraction of winning months), or None if insufficient data.
+    """
+    try:
+        eq = np.asarray(equity_curve, dtype=np.float64)
+        if hasattr(equity_curve, "values"):
+            eq = equity_curve.values.astype(np.float64)
+
+        if len(eq) < 30:
+            return None
+
+        # Sample roughly monthly (every 20-22 trading days)
+        step = 21
+        monthly_values = eq[::step]
+        if len(monthly_values) < 3:
+            return None
+
+        monthly_returns = np.diff(monthly_values) / np.maximum(np.abs(monthly_values[:-1]), 1e-9)
+        monthly_returns = monthly_returns[np.isfinite(monthly_returns)]
+        if len(monthly_returns) < 3:
+            return None
+
+        win_rate = float(np.sum(monthly_returns > 0) / len(monthly_returns))
+        return win_rate
+
+    except Exception:
+        return None
+
+
+# ── Dimension Weights ──
+
+W_SHARPE = 0.60
+W_RISK = 0.15
+W_QUALITY = 0.15
+W_STABILITY = 0.10
 
 
 def composite_objective(results, min_valid=1, freq=None):
-    """Compute composite objective from backtest results.
+    """Weighted multi-dimensional objective function (0-10 scale).
 
-    Multi-symbol formula (len(results) > 1):
-        mean_sharpe + 0.3 * min_sharpe - dd_penalty - concentration_penalty
+    Scores each dimension 0-10, then computes weighted sum:
 
-    Single-symbol formula (len(results) == 1):
-        sharpe - dd_penalty - concentration_penalty
+        score = 0.60 × S_sharpe + 0.15 × S_risk + 0.15 × S_quality + 0.10 × S_stability
 
-    Components:
-    - **Consistency bonus** (multi-symbol only): 0.3 * min_sharpe — rewards
-      parameter sets that work across ALL symbols.
-    - **Drawdown penalty** (non-linear escalating tiers):
-        |MaxDD| <= 15% → 0, 15-25% → light, 25-35% → serious, >35% → deal-breaker
-    - **Concentration penalty**: penalizes strategies whose profit depends on
-      the top 10% of days. If removing those days collapses the Sharpe,
-      the strategy is fragile.
-        concentration <= 0.5 → 0, 0.5-0.7 → warning, >0.7 → fragile
-    - **Trade count filter**: results below the frequency-based minimum are
-      excluded entirely (daily >= 30, 4h >= 50, etc.)
+    Dimensions:
+    - **S_sharpe (60%)**: tanh curve — rewards Sharpe with diminishing returns,
+      no fixed benchmark. Sharpe 1.0 → 6.0, Sharpe 2.0 → 8.9.
+    - **S_risk (15%)**: MaxDD scoring — |dd|≤5% → 10, |dd|=20% → 4, |dd|≥40% → 0.
+    - **S_quality (15%)**: profit concentration — conc≤0.3 → 10, conc=0.7 → 4, conc≥0.95 → 0.
+    - **S_stability (10%)**: monthly win rate — wr≥65% → 10, wr=45% → 4, wr≤30% → 0.
+      Falls back to 5 (neutral) when equity curve is unavailable.
+
+    For multi-symbol evaluation, S_sharpe uses the mean Sharpe scaled by
+    a consistency factor (penalizes when any symbol has negative Sharpe).
+
+    Trade count filter: results below frequency-based minimum are excluded.
 
     Args:
-        results: list of dicts, each with key 'sharpe' (required)
-                 and optionally 'max_drawdown', 'n_trades', 'profit_concentration'.
-        min_valid: minimum number of valid results after filtering.
-        freq: strategy frequency (e.g. 'daily', '4h') for trade count threshold.
-              None disables the trade count filter.
+        results: list of dicts with keys 'sharpe', and optionally
+                 'max_drawdown', 'n_trades', 'profit_concentration', 'monthly_win_rate'.
+        min_valid: minimum valid results after filtering.
+        freq: strategy frequency for trade count threshold.
 
     Returns:
-        float: composite score, or -10.0 if insufficient valid results.
+        float: weighted score (0-10 range), or -10.0 if insufficient valid results.
     """
     min_trades = MIN_TRADES_BY_FREQ.get(freq, 0) if freq else 0
 
@@ -333,7 +361,6 @@ def composite_objective(results, min_valid=1, freq=None):
     for r in results:
         if r.get("sharpe", -999) <= -900:
             continue
-        # Trade count filter: skip results below statistical significance
         if min_trades > 0 and r.get("n_trades") is not None:
             if r["n_trades"] < min_trades:
                 continue
@@ -342,34 +369,60 @@ def composite_objective(results, min_valid=1, freq=None):
     if len(valid) < min_valid:
         return -10.0
 
+    # ── S_sharpe (60%) ──
     sharpes = [r["sharpe"] for r in valid]
     mean_sharpe = float(np.mean(sharpes))
 
-    # Non-linear drawdown penalty (escalating tiers)
-    dd_penalty = 0.0
+    if len(valid) > 1:
+        # Multi-symbol: penalize if any symbol has negative Sharpe
+        min_sharpe = float(np.min(sharpes))
+        if min_sharpe < 0:
+            # Scale down: if worst symbol is very negative, reduce effective Sharpe
+            consistency = max(0.5, 1.0 + 0.3 * (min_sharpe / max(abs(mean_sharpe), 0.01)))
+            effective_sharpe = mean_sharpe * min(1.0, consistency)
+        else:
+            effective_sharpe = mean_sharpe
+    else:
+        effective_sharpe = mean_sharpe
+
+    s_sharpe = _score_sharpe(effective_sharpe)
+
+    # ── S_risk (15%) ──
     drawdowns = [r["max_drawdown"] for r in valid if r.get("max_drawdown") is not None]
     if drawdowns:
         mean_abs_dd = float(np.mean([abs(d) for d in drawdowns]))
-        dd_penalty = _drawdown_penalty(mean_abs_dd)
+        s_risk = _score_risk(mean_abs_dd)
+    else:
+        s_risk = 5.0  # neutral
 
-    # Profit concentration penalty (graceful: only applied when data available)
-    conc_penalty = 0.0
+    # ── S_quality (15%) ──
     concentrations = [
         r["profit_concentration"]
         for r in valid
         if r.get("profit_concentration") is not None
     ]
     if concentrations:
-        mean_conc = float(np.mean(concentrations))
-        conc_penalty = _concentration_penalty(mean_conc)
+        s_quality = _score_quality(float(np.mean(concentrations)))
+    else:
+        s_quality = 5.0  # neutral
 
-    if len(valid) == 1:
-        # Single-symbol: no consistency bonus (would just be 1.3x scaling)
-        return mean_sharpe - dd_penalty - conc_penalty
+    # ── S_stability (10%) ──
+    win_rates = [
+        r["monthly_win_rate"]
+        for r in valid
+        if r.get("monthly_win_rate") is not None
+    ]
+    if win_rates:
+        s_stability = _score_stability(float(np.mean(win_rates)))
+    else:
+        s_stability = 5.0  # neutral
 
-    # Multi-symbol: add consistency bonus rewarding cross-symbol robustness
-    min_sharpe = float(np.min(sharpes))
-    return mean_sharpe + 0.3 * min_sharpe - dd_penalty - conc_penalty
+    return float(
+        W_SHARPE * s_sharpe
+        + W_RISK * s_risk
+        + W_QUALITY * s_quality
+        + W_STABILITY * s_stability
+    )
 
 
 # =====================================================================
@@ -534,6 +587,7 @@ def run_single_backtest(
         "n_trades": None,
         "total_return": None,
         "profit_concentration": None,
+        "monthly_win_rate": None,
     }
     try:
         from alphaforge.data.market import MarketDataLoader
@@ -575,13 +629,15 @@ def run_single_backtest(
         )
         total_return = getattr(result, "total_return", None)
 
-        # Profit concentration: try to extract equity curve
+        # Extract equity curve for quality/stability metrics
         profit_conc = None
+        monthly_wr = None
         equity_curve = getattr(result, "equity_curve", None)
         if equity_curve is None:
             equity_curve = getattr(result, "equity", None)
         if equity_curve is not None:
             profit_conc = _compute_profit_concentration(equity_curve)
+            monthly_wr = _compute_monthly_win_rate(equity_curve)
 
         return {
             "sharpe": sharpe,
@@ -589,6 +645,7 @@ def run_single_backtest(
             "n_trades": int(n_trades) if n_trades is not None else None,
             "total_return": float(total_return) if total_return is not None else None,
             "profit_concentration": profit_conc,
+            "monthly_win_rate": monthly_wr,
         }
     except Exception:
         return FAIL
