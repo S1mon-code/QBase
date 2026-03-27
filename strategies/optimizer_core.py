@@ -205,18 +205,73 @@ MIN_TRADES_BY_FREQ = {
 }
 
 
+def _drawdown_penalty(mean_abs_dd):
+    """Non-linear drawdown penalty with escalating tiers.
+
+    Designed so that moderate drawdowns barely hurt, but large drawdowns
+    become increasingly painful — matching real-world risk tolerance.
+
+    Tiers:
+        |MaxDD| <= 15%  →  0          (acceptable for trend strategies)
+        15% < dd <= 25% →  0.3 per 1% over 15%   (light warning)
+        25% < dd <= 35% →  above + 0.8 per 1% over 25%   (serious concern)
+        dd > 35%        →  above + 2.0 per 1% over 35%   (deal-breaker)
+
+    Examples:
+        dd=10% → 0.0
+        dd=20% → 0.015   (barely noticeable)
+        dd=30% → 0.070   (meaningful reduction)
+        dd=40% → 0.170   (heavy penalty, needs Sharpe>2 to compensate)
+        dd=50% → 0.370   (almost certainly rejected)
+
+    Returns:
+        float: penalty value (always >= 0)
+    """
+    dd = mean_abs_dd  # already positive (abs)
+    penalty = 0.0
+
+    if dd <= 0.15:
+        return 0.0
+
+    # Tier 1: 15% - 25% (light)
+    t1 = min(dd, 0.25) - 0.15
+    penalty += 0.3 * t1
+
+    if dd <= 0.25:
+        return penalty
+
+    # Tier 2: 25% - 35% (serious)
+    t2 = min(dd, 0.35) - 0.25
+    penalty += 0.8 * t2
+
+    if dd <= 0.35:
+        return penalty
+
+    # Tier 3: > 35% (deal-breaker)
+    t3 = dd - 0.35
+    penalty += 2.0 * t3
+
+    return penalty
+
+
 def composite_objective(results, min_valid=1, freq=None):
     """Compute composite objective from backtest results.
 
     Multi-symbol formula (len(results) > 1):
-        mean_sharpe + 0.3 * min_sharpe - 0.5 * max(0, mean_abs_dd - 0.20)
+        mean_sharpe + 0.3 * min_sharpe - drawdown_penalty(mean_abs_dd)
 
     Single-symbol formula (len(results) == 1):
-        sharpe - 0.5 * max(0, |max_dd| - 0.20)
+        sharpe - drawdown_penalty(|max_dd|)
 
     The consistency bonus (0.3 * min_sharpe) only applies to multi-symbol
     evaluation, where it rewards parameter sets that work across ALL symbols.
     For single-symbol it would just scale Sharpe by 1.3x with no real meaning.
+
+    Drawdown penalty is non-linear with escalating tiers:
+        |MaxDD| <= 15%  →  no penalty
+        15% - 25%       →  light (0.3 per 1%)
+        25% - 35%       →  serious (0.8 per 1%)
+        > 35%           →  deal-breaker (2.0 per 1%)
 
     Trade count filter: if ``freq`` is provided, results with fewer trades
     than the frequency-based threshold are excluded as statistically
@@ -250,12 +305,12 @@ def composite_objective(results, min_valid=1, freq=None):
     sharpes = [r["sharpe"] for r in valid]
     mean_sharpe = float(np.mean(sharpes))
 
-    # Drawdown penalty: penalize when avg |MaxDD| exceeds 20%
+    # Non-linear drawdown penalty (escalating tiers)
     dd_penalty = 0.0
     drawdowns = [r["max_drawdown"] for r in valid if r.get("max_drawdown") is not None]
     if drawdowns:
         mean_abs_dd = float(np.mean([abs(d) for d in drawdowns]))
-        dd_penalty = 0.5 * max(0.0, mean_abs_dd - 0.20)
+        dd_penalty = _drawdown_penalty(mean_abs_dd)
 
     if len(valid) == 1:
         # Single-symbol: no consistency bonus (would just be 1.3x scaling)
