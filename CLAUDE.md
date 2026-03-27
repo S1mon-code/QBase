@@ -1143,11 +1143,18 @@ reporter.generate(result, 'reports/strong_trend/ag/v20.html')
 
 #### 单策略报告
 
+**必须传 `bar_data` 和 `freq` 才有 K 线图 + 进出场标记。不传就没有 K 线。**
+
 ```python
 from alphaforge.report import HTMLReportGenerator
 
 reporter = HTMLReportGenerator()
-reporter.generate(result, 'reports/strong_trend/ag/v20.html')
+reporter.generate(
+    result,
+    'reports/strong_trend/ag/v20.html',
+    bar_data={'AG': bars},  # 必须传这个才有 K-line
+    freq='daily',           # K 线频率
+)
 ```
 
 #### Portfolio 报告（新 API）
