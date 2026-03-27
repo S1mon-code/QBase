@@ -6,6 +6,9 @@ from strategies.all_time.ag.strategy_utils import fast_avg_volume
 
 import numpy as np
 from alphaforge.strategy.base import TimeSeriesStrategy
+from alphaforge.data.contract_specs import ContractSpecManager
+
+_SPEC_MANAGER = ContractSpecManager()
 from indicators.ml.boosting_signal import gradient_boost_signal
 from indicators.momentum.rsi import rsi
 from indicators.trend.adx import adx
@@ -56,7 +59,7 @@ class StrategyV115(TimeSeriesStrategy):
 
     def on_bar(self, context):
         i = context.bar_index; price = context.close_raw; side, lots = context.position
-        if hasattr(context.current_bar, 'is_rollover') and context.current_bar.is_rollover: return
+        if context.is_rollover: return
         if not np.isnan(self._avg_volume[i]) and context.volume < self._avg_volume[i] * 0.1: return
         av = self._atr[i]; sig = self._gbm[i]
         if np.isnan(av) or av <= 0 or np.isnan(sig): return
@@ -82,8 +85,7 @@ class StrategyV115(TimeSeriesStrategy):
             if a > 0: context.buy(a); self.position_scale += 1; self.bars_since_last_scale = 0
 
     def _calc_lots(self, context, av):
-        from alphaforge.data.contract_specs import ContractSpecManager
-        spec = ContractSpecManager().get(context.symbol)
+        spec = _SPEC_MANAGER.get(context.symbol)
         sd = self.atr_stop_mult * av * spec.multiplier
         if sd <= 0: return 0
         rl = int(context.equity * 0.02 / sd); m = context.close_raw * spec.multiplier * spec.margin_rate
