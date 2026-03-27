@@ -254,32 +254,72 @@ def _drawdown_penalty(mean_abs_dd):
     return penalty
 
 
+def _concentration_penalty(mean_concentration):
+    """Penalty for profit concentration (over-reliance on few lucky days).
+
+    A concentration of 0.6 means 60% of Sharpe comes from the top 10%
+    of days — one bad week could wipe it out.
+
+    Tiers:
+        concentration <= 0.5  →  0          (healthy distribution)
+        0.5 < conc <= 0.7     →  0.3 per 0.1 over 0.5   (warning)
+        conc > 0.7            →  0.6 per 0.1 over 0.7   (fragile)
+
+    Examples:
+        conc=0.3 → 0.0     (well distributed)
+        conc=0.5 → 0.0     (borderline OK)
+        conc=0.6 → 0.03    (light penalty)
+        conc=0.7 → 0.06    (noticeable)
+        conc=0.8 → 0.12    (significant — needs Sharpe>1.5 to survive)
+        conc=0.9 → 0.18    (very fragile)
+
+    Returns:
+        float: penalty value (always >= 0)
+    """
+    c = mean_concentration
+    if c <= 0.5:
+        return 0.0
+
+    penalty = 0.0
+
+    # Tier 1: 0.5 - 0.7 (warning)
+    t1 = min(c, 0.7) - 0.5
+    penalty += 0.3 * t1
+
+    if c <= 0.7:
+        return penalty
+
+    # Tier 2: > 0.7 (fragile)
+    t2 = c - 0.7
+    penalty += 0.6 * t2
+
+    return penalty
+
+
 def composite_objective(results, min_valid=1, freq=None):
     """Compute composite objective from backtest results.
 
     Multi-symbol formula (len(results) > 1):
-        mean_sharpe + 0.3 * min_sharpe - drawdown_penalty(mean_abs_dd)
+        mean_sharpe + 0.3 * min_sharpe - dd_penalty - concentration_penalty
 
     Single-symbol formula (len(results) == 1):
-        sharpe - drawdown_penalty(|max_dd|)
+        sharpe - dd_penalty - concentration_penalty
 
-    The consistency bonus (0.3 * min_sharpe) only applies to multi-symbol
-    evaluation, where it rewards parameter sets that work across ALL symbols.
-    For single-symbol it would just scale Sharpe by 1.3x with no real meaning.
-
-    Drawdown penalty is non-linear with escalating tiers:
-        |MaxDD| <= 15%  →  no penalty
-        15% - 25%       →  light (0.3 per 1%)
-        25% - 35%       →  serious (0.8 per 1%)
-        > 35%           →  deal-breaker (2.0 per 1%)
-
-    Trade count filter: if ``freq`` is provided, results with fewer trades
-    than the frequency-based threshold are excluded as statistically
-    unreliable (e.g. daily needs >= 30 trades).
+    Components:
+    - **Consistency bonus** (multi-symbol only): 0.3 * min_sharpe — rewards
+      parameter sets that work across ALL symbols.
+    - **Drawdown penalty** (non-linear escalating tiers):
+        |MaxDD| <= 15% → 0, 15-25% → light, 25-35% → serious, >35% → deal-breaker
+    - **Concentration penalty**: penalizes strategies whose profit depends on
+      the top 10% of days. If removing those days collapses the Sharpe,
+      the strategy is fragile.
+        concentration <= 0.5 → 0, 0.5-0.7 → warning, >0.7 → fragile
+    - **Trade count filter**: results below the frequency-based minimum are
+      excluded entirely (daily >= 30, 4h >= 50, etc.)
 
     Args:
         results: list of dicts, each with key 'sharpe' (required)
-                 and optionally 'max_drawdown', 'n_trades'.
+                 and optionally 'max_drawdown', 'n_trades', 'profit_concentration'.
         min_valid: minimum number of valid results after filtering.
         freq: strategy frequency (e.g. 'daily', '4h') for trade count threshold.
               None disables the trade count filter.
@@ -312,13 +352,24 @@ def composite_objective(results, min_valid=1, freq=None):
         mean_abs_dd = float(np.mean([abs(d) for d in drawdowns]))
         dd_penalty = _drawdown_penalty(mean_abs_dd)
 
+    # Profit concentration penalty (graceful: only applied when data available)
+    conc_penalty = 0.0
+    concentrations = [
+        r["profit_concentration"]
+        for r in valid
+        if r.get("profit_concentration") is not None
+    ]
+    if concentrations:
+        mean_conc = float(np.mean(concentrations))
+        conc_penalty = _concentration_penalty(mean_conc)
+
     if len(valid) == 1:
         # Single-symbol: no consistency bonus (would just be 1.3x scaling)
-        return mean_sharpe - dd_penalty
+        return mean_sharpe - dd_penalty - conc_penalty
 
     # Multi-symbol: add consistency bonus rewarding cross-symbol robustness
     min_sharpe = float(np.min(sharpes))
-    return mean_sharpe + 0.3 * min_sharpe - dd_penalty
+    return mean_sharpe + 0.3 * min_sharpe - dd_penalty - conc_penalty
 
 
 # =====================================================================
@@ -403,6 +454,60 @@ def resample_bars(bars, step):
     )
 
 
+def _compute_profit_concentration(equity_curve):
+    """Compute profit concentration ratio from an equity curve.
+
+    Measures what fraction of total gross profit comes from the top 10%
+    of days. A strategy where 80%+ of profit comes from a handful of
+    days is fragile — remove those days and there's nothing left.
+
+    Method:
+    1. Compute daily PnL from equity curve
+    2. Sum all profitable days → total_profit
+    3. Take the top 10% of ALL days by PnL
+    4. concentration = sum(top_10%_pnl) / total_profit
+
+    For a well-diversified strategy (normal returns, Sharpe~1):
+        concentration ≈ 0.3 - 0.5 (healthy)
+    For a spike-dependent strategy:
+        concentration ≈ 0.8 - 1.0 (fragile)
+
+    Returns:
+        float in [0, 1]: 0 = evenly distributed, 1 = all profit from top 10%.
+        None if equity curve is too short or invalid.
+    """
+    try:
+        eq = np.asarray(equity_curve, dtype=np.float64)
+        if hasattr(equity_curve, "values"):
+            eq = equity_curve.values.astype(np.float64)
+
+        if len(eq) < 30:
+            return None
+
+        # Daily PnL (absolute, not percentage — avoids compounding distortion)
+        daily_pnl = np.diff(eq)
+        daily_pnl = daily_pnl[np.isfinite(daily_pnl)]
+        if len(daily_pnl) < 30:
+            return None
+
+        # Total gross profit (sum of all profitable days)
+        total_profit = float(np.sum(daily_pnl[daily_pnl > 0]))
+        if total_profit <= 0:
+            return None  # no profitable days, concentration not meaningful
+
+        # Top 10% of ALL days by PnL (descending)
+        n_top = max(1, int(len(daily_pnl) * 0.10))
+        sorted_desc = np.sort(daily_pnl)[::-1]
+        top_10_pnl = float(np.sum(sorted_desc[:n_top]))
+
+        # Clamp to [0, 1]
+        concentration = max(0.0, min(1.0, top_10_pnl / total_profit))
+        return concentration
+
+    except Exception:
+        return None
+
+
 def run_single_backtest(
     strategy,
     symbol,
@@ -421,12 +526,14 @@ def run_single_backtest(
             max_drawdown (float|None): Maximum drawdown (negative)
             n_trades (int|None): Total trade count
             total_return (float|None): Total return
+            profit_concentration (float|None): 0=even, 1=concentrated in top 10% days
     """
     FAIL = {
         "sharpe": -999.0,
         "max_drawdown": None,
         "n_trades": None,
         "total_return": None,
+        "profit_concentration": None,
     }
     try:
         from alphaforge.data.market import MarketDataLoader
@@ -468,11 +575,20 @@ def run_single_backtest(
         )
         total_return = getattr(result, "total_return", None)
 
+        # Profit concentration: try to extract equity curve
+        profit_conc = None
+        equity_curve = getattr(result, "equity_curve", None)
+        if equity_curve is None:
+            equity_curve = getattr(result, "equity", None)
+        if equity_curve is not None:
+            profit_conc = _compute_profit_concentration(equity_curve)
+
         return {
             "sharpe": sharpe,
             "max_drawdown": float(max_dd) if max_dd is not None else None,
             "n_trades": int(n_trades) if n_trades is not None else None,
             "total_return": float(total_return) if total_return is not None else None,
+            "profit_concentration": profit_conc,
         }
     except Exception:
         return FAIL
