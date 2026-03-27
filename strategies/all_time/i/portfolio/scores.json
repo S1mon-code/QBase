@@ -1,0 +1,79 @@
+{
+  "I i HRP": {
+    "composite_score": 55.7,
+    "grade": "C",
+    "dimension_scores": {
+      "return_risk": 4.74,
+      "quality": 6.85,
+      "practical": 6.0,
+      "stability": 5.07
+    },
+    "metrics": {
+      "sharpe": {
+        "value": "0.58",
+        "score": 1.9
+      },
+      "calmar": {
+        "value": "0.31",
+        "score": 0.3
+      },
+      "max_drawdown": {
+        "value": "0.62%",
+        "score": 10
+      },
+      "dd_duration": {
+        "value": "505d",
+        "score": 1.5
+      },
+      "cvar_95": {
+        "value": "-0.0005",
+        "score": 10
+      },
+      "avg_correlation": {
+        "value": "0.021",
+        "score": 10
+      },
+      "dd_overlap": {
+        "value": "0.117",
+        "score": 8.5
+      },
+      "portfolio_vs_best": {
+        "value": "1.096",
+        "score": 8
+      },
+      "positive_ratio": {
+        "value": "11/120",
+        "score": 0.9
+      },
+      "strategy_count": {
+        "value": "7",
+        "score": 8
+      },
+      "max_weight": {
+        "value": "20.0%",
+        "score": 6.5
+      },
+      "freq_diversity": {
+        "value": "2 freqs (4h, daily)",
+        "score": 5.5
+      },
+      "bootstrap_ci": {
+        "value": "1.75",
+        "score": 4
+      },
+      "return_consistency": {
+        "value": "ret=0.2% sh=0.58",
+        "score": 3
+      },
+      "equity_stability": {
+        "value": "dd=0.6% cal=0.3",
+        "score": 5.2
+      },
+      "tail_ratio": {
+        "value": "1.06",
+        "score": 7
+      }
+    },
+    "fallbacks": []
+  }
+}
