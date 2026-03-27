@@ -1214,10 +1214,20 @@ reporter.generate_portfolio_report(
 
 #### 当前 Portfolio 报告
 
-| Portfolio | Sharpe | Return | MaxDD | 路径 |
-|-----------|:------:|:------:|:-----:|------|
-| AG Strong Trend | 3.08 | 43.34% | -3.52% | `reports/strong_trend/ag/portfolio.html` |
-| LC Strong Trend | 2.47 | 15.77% | -2.95% | `reports/strong_trend/lc/portfolio.html` |
+**Strong Trend 使用统一通用 Portfolio（Portfolio C），同一组策略和权重跑任何品种：**
+
+| 权重 | 策略 | 指标组合 | 频率 |
+|:---:|------|---------|:---:|
+| 25% | v12 | Aroon + PPO + Volume Momentum | daily |
+| 20% | v8 | LinReg + Choppiness + OBV | daily |
+| 20% | v11 | Vortex + ROC + OI Momentum | daily |
+| 15% | v34 | McGinley + PPO + OI Momentum | daily |
+| 20% | v31 | TEMA + Fisher + OBV | 4h |
+
+| 品种 | Sharpe | Return | MaxDD | 路径 |
+|------|:------:|:------:|:-----:|------|
+| AG | 2.58 | 66.13% | -12.80% | `reports/strong_trend/ag/portfolio.html` |
+| LC | 2.37 | 19.19% | -3.99% | `reports/strong_trend/lc/portfolio.html` |
 
 ### 频率体系
 
@@ -2020,12 +2030,12 @@ daily_returns = daily_equity.pct_change()
 
 **当前 Portfolio 评分：**
 
-| Portfolio | Sharpe | Return | MaxDD | 策略数 | 说明 |
-|-----------|:------:|:------:|:-----:|:-----:|------|
-| **AG Strong Trend** | **3.08** | **43.34%** | **-3.52%** | 6 | 相关性 0.118, Calmar 9.17 |
-| **LC Strong Trend** | **2.47** | **15.77%** | **-2.95%** | 5 | 平衡型（Sharpe/收益/回撤 trade-off）|
-| **AG All-Time** | 优化完成 | — | — | 158 valid | 待构建 Portfolio |
-| **Medium Trend** | 优化完成 | — | — | 41 positive | 待构建 Portfolio, 5min/10min 待优化 |
+| Portfolio | 品种 | Sharpe | Return | MaxDD | 策略数 | 说明 |
+|-----------|------|:------:|:------:|:-----:|:-----:|------|
+| **Strong Trend (通用 C)** | AG | **2.58** | **66.13%** | -12.80% | 5 | 通用组合，同一权重跑任何品种 |
+| **Strong Trend (通用 C)** | LC | **2.37** | **19.19%** | -3.99% | 5 | 同上 |
+| **AG All-Time** | AG | 优化完成 | — | — | 158 valid | 待构建 Portfolio |
+| **Medium Trend** | 多品种 | 优化中 | — | — | 200 策略 | V4 迁移完成，全频率优化中 |
 
 **运行评分：**
 
