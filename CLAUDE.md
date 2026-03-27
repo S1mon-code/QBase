@@ -887,6 +887,128 @@ class MultiTFTrend(TimeSeriesStrategy):
 
 **注意：** 多周期不是强制的。单周期策略（如 v1-v20 强趋势策略）完全有效。多周期是进阶技术，用于提升 alpha 或降低回撤。
 
+### AlphaForge V4 性能优化（必须遵守）
+
+**当前版本：V4.3.1** — 5min 回测从 77s → 0.56s（137x 加速），QBase 实测 140-200x 加速。
+
+#### P0 必须改（不改就慢 100x）
+
+**1. `context.is_rollover` 替代 `context.current_bar.is_rollover`**
+
+```python
+# ❌ 旧方式（每 bar 创建 17 字段 Bar namedtuple）
+if hasattr(context.current_bar, 'is_rollover') and context.current_bar.is_rollover:
+
+# ✅ 新方式（直接数组访问，零对象创建）
+if context.is_rollover:
+```
+
+同样可用：`context.origin_symbol`（替代 `context.current_bar.origin_symbol`）。
+
+**2. `ContractSpecManager()` 缓存到模块级别**
+
+```python
+# ❌ 旧方式（每次交易读 YAML — 6000 笔 = 6000 次文件 IO）
+def _calc_lots(self, context, atr_val):
+    from alphaforge.data.contract_specs import ContractSpecManager
+    spec = ContractSpecManager().get(context.symbol)
+
+# ✅ 新方式（模块级别单例，只读一次）
+from alphaforge.data.contract_specs import ContractSpecManager
+_SPEC_MANAGER = ContractSpecManager()
+
+class MyStrategy(TimeSeriesStrategy):
+    def _calc_lots(self, context, atr_val):
+        spec = _SPEC_MANAGER.get(context.symbol)
+```
+
+**全局替换命令：**
+```bash
+# 1. 替换 is_rollover
+grep -rl "context.current_bar.is_rollover" strategies/ | xargs sed -i '' \
+  's/hasattr(context.current_bar, '\''is_rollover'\'') and context.current_bar.is_rollover/context.is_rollover/g'
+
+# 2. ContractSpecManager 需手动改为模块级缓存
+grep -rn "ContractSpecManager()" strategies/ --include="*.py"
+```
+
+#### P1 推荐改
+
+**3. `signal_mask()` 向量化预筛选（稀疏策略额外 10-50x 加速）**
+
+```python
+from alphaforge.indicators import crossover, crossunder
+
+class MyStrategy(TimeSeriesStrategy):
+    def signal_mask(self, context, bars):
+        """只在信号 bar 调用 on_bar，跳过 95%+ 无信号 bar"""
+        return crossover(self._sma_fast, self._sma_slow) | crossunder(self._sma_fast, self._sma_slow)
+```
+
+规则：返回 `None` = 不启用 | `np.ndarray[bool]` = 启用 | **有持仓时始终调用 on_bar** | Mask 应保守
+
+**4. `on_init_arrays_static()` — ML 指标只算一次**
+
+```python
+class MyStrategy(TimeSeriesStrategy):
+    def on_init_arrays_static(self, context, bars):
+        """Optuna 优化前只调一次，放重的 ML 指标"""
+        features = np.column_stack([rsi_arr, adx_arr, atr_arr])
+        self._regime = kmeans_regime(features, period=120)  # ~3s，只算一次
+
+    def on_init_arrays(self, context, bars):
+        """每个 trial 调。self._regime 已从缓存注入。"""
+        self._sma = sma(closes, self.fast_period)  # 参数相关，每次重算
+```
+
+效果：ML 指标 3s × 200 trials = 600s → 只算 1 次 = 3s。
+
+**5. Numba 加速指标库**
+
+```python
+from alphaforge.indicators import sma, ema, rsi, atr, macd, bollinger_bands, supertrend, crossover, crossunder
+```
+
+全部 `@njit(cache=True)`，C 速度。QBase 自己的 `indicators/` 库仍可用。
+
+**6. 零拷贝数组访问**
+
+```python
+closes = context.get_close_array_view(20)  # 只读 view，零拷贝（不可修改）
+```
+
+#### Portfolio 新功能
+
+```python
+config = PortfolioConfig(
+    total_capital=5_000_000,
+    allocations=[...],
+    n_workers=4,                        # 并行回测
+    min_capital_per_strategy=500_000,   # 防小权重开不了仓
+)
+```
+
+#### BacktestConfig 新选项
+
+```python
+config = BacktestConfig(
+    dynamic_margin=True,        # 交割月阶梯保证金（T-3:+3%, T-2:+5%, T-1:+8%）
+    time_varying_spread=True,   # 盘口时段价差（开盘/收盘加宽）
+)
+```
+
+已配置动态保证金：I、RB、CU、AG、M。
+
+#### QBase 实测性能
+
+| 策略 | 类型 | Before V4 | After V4 | 加速 |
+|------|------|:---:|:---:|:---:|
+| v1 | 纯 5min | 5.58s | 0.04s | **140x** |
+| v121 | 多周期 (daily+5min) | 1.34s | 0.03s | **45x** |
+| v14 | 跨品种 (AG+AU) | 1.07s | 0.02s | **54x** |
+
+结果完全一致，纯性能提升零行为变更。
+
 ### AlphaForge Context API
 
 ```python

@@ -5,10 +5,13 @@ import conftest
 
 import numpy as np
 from alphaforge.strategy.base import TimeSeriesStrategy
+from alphaforge.data.contract_specs import ContractSpecManager
 from indicators.trend.supertrend import supertrend
 from indicators.momentum.rsi import rsi
 from indicators.volatility.atr import atr
 from strategies.all_time.ag.strategy_utils import fast_avg_volume
+
+_SPEC_MANAGER = ContractSpecManager()
 
 SCALE_FACTORS = [1.0, 0.5, 0.25]
 MAX_SCALE = 3
@@ -94,7 +97,7 @@ class StrategyV121(TimeSeriesStrategy):
         price = context.close_raw
         side, lots = context.position
 
-        if hasattr(context.current_bar, 'is_rollover') and context.current_bar.is_rollover:
+        if context.is_rollover:
             return
         if not np.isnan(self._avg_volume[i]) and context.volume < self._avg_volume[i] * 0.1:
             return
@@ -153,8 +156,7 @@ class StrategyV121(TimeSeriesStrategy):
                 self.bars_since_last_scale = 0
 
     def _calc_lots(self, context, atr_val):
-        from alphaforge.data.contract_specs import ContractSpecManager
-        spec = ContractSpecManager().get(context.symbol)
+        spec = _SPEC_MANAGER.get(context.symbol)
         stop_dist = self.atr_stop_mult * atr_val * spec.multiplier
         if stop_dist <= 0:
             return 0
