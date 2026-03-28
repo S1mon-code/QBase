@@ -38,6 +38,9 @@ from strategies.optimizer_core import (
     run_single_backtest,
     optimize_two_phase,
     optimize_multi_seed,
+    build_result_entry,
+    detect_strategy_status,
+    is_strategy_dead,
 )
 
 # =========================================================================
@@ -95,7 +98,33 @@ def evaluate_strategy(version, params, data_dir, scoring_mode="tanh"):
 
 def optimize_strategy(version, n_trials=80, verbose=True, use_multi_seed=False):
     """Optimize a single strategy version."""
-    strategy_cls = load_strategy_class(version)
+    import time
+
+    # Skip dead strategies
+    results_path = os.path.join(
+        QBASE_ROOT, "strategies", "strong_trend", "optimization_results.json"
+    )
+    if is_strategy_dead(results_path, version):
+        if verbose:
+            print(f"  Skipping {version}: marked dead/error in results")
+        return None
+
+    try:
+        strategy_cls = load_strategy_class(version)
+    except (ImportError, ModuleNotFoundError) as e:
+        print(f"  ERROR: {version} import failed: {e}")
+        return build_result_entry(
+            version=version, freq="daily", best_params={},
+            sharpe=-999.0, score=-999.0, status="import_error",
+        )
+    except Exception as e:
+        print(f"  ERROR: {version} load failed: {e}")
+        return build_result_entry(
+            version=version, freq="daily", best_params={},
+            sharpe=-999.0, score=-999.0, status="error",
+        )
+
+    freq = getattr(strategy_cls, 'freq', 'daily')
     param_specs = auto_discover_params(strategy_cls)
 
     if not param_specs:
@@ -111,6 +140,7 @@ def optimize_strategy(version, n_trials=80, verbose=True, use_multi_seed=False):
         print(f"{'='*60}")
 
     data_dir = DATA_DIR
+    t0 = time.time()
 
     def objective_fn(params, scoring_mode="tanh"):
         return evaluate_strategy(version, params, data_dir, scoring_mode=scoring_mode)
@@ -134,15 +164,26 @@ def optimize_strategy(version, n_trials=80, verbose=True, use_multi_seed=False):
             study_name=f"strong_trend_{version}",
         )
 
-    return {
-        "version": version,
-        "best_sharpe": result["best_value"],
-        "best_params": result["best_params"],
-        "n_trials": result.get("n_trials_total", result.get("n_trials", n_trials)),
-        "robustness": result.get("robustness"),
-        "is_consistent": result.get("is_consistent"),
-        "phase": result.get("phase"),
-    }
+    elapsed = time.time() - t0
+    best_value = result["best_value"]
+    n_total = result.get("n_trials_total", result.get("n_trials", n_trials))
+    phase = result.get("phase", "two_phase")
+
+    # best_value is the composite score (0-10 scale)
+    output = build_result_entry(
+        version=version,
+        freq=freq,
+        best_params=result["best_params"],
+        sharpe=best_value,      # legacy: composite score stored as best_sharpe
+        score=best_value,       # also store as best_score
+        n_trials=n_total,
+        phase=phase,
+        robustness=result.get("robustness"),
+        elapsed=elapsed,
+        is_consistent=result.get("is_consistent"),
+    )
+    output["status"] = detect_strategy_status(output)
+    return output
 
 
 def save_results(results: list, output_path: str = None):

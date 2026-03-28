@@ -8,10 +8,14 @@ Provides:
 4. Parameter robustness checking (plateau vs spike detection)
 5. Multi-seed validation
 6. Unified backtest runner with freq mapping and bar resampling
+7. Unified result schema (build_result_entry, detect_strategy_status)
 
 Used by:
 - strategies/strong_trend/optimizer.py
 - strategies/all_time/ag/optimizer.py
+- strategies/all_time/i/optimizer.py
+- strategies/boss/optimizer.py
+- strategies/medium_trend/optimizer.py
 """
 import sys
 from pathlib import Path
@@ -171,16 +175,32 @@ def narrow_param_space(param_specs, best_params, shrink_ratio=0.3):
 
     Each parameter's range is shrunk to ±(shrink_ratio/2) of original range
     centered on the best value, clamped to original bounds.
+
+    Boundary protection: when best value is within 20% of a parameter boundary,
+    uses a wider range (40% of original) anchored at that boundary to avoid
+    getting trapped in a dead zone at the edge.
     """
     narrowed = []
     for spec in param_specs:
         name = spec["name"]
         orig_low, orig_high = spec["low"], spec["high"]
+        orig_range = orig_high - orig_low
+
         if name in best_params:
             val = best_params[name]
-            half_range = (orig_high - orig_low) * shrink_ratio / 2
+            half_range = orig_range * shrink_ratio / 2
             new_low = max(orig_low, val - half_range)
             new_high = min(orig_high, val + half_range)
+
+            # Boundary protection: if best is within 20% of boundary,
+            # use a wider range centered on the boundary to avoid dead zone
+            if (val - orig_low) < orig_range * 0.2:  # near low boundary
+                new_low = orig_low
+                new_high = min(orig_high, orig_low + orig_range * 0.4)
+            elif (orig_high - val) < orig_range * 0.2:  # near high boundary
+                new_high = orig_high
+                new_low = max(orig_low, orig_high - orig_range * 0.4)
+
             new_step = spec["step"] / 2 if spec["step"] else spec["step"]
             narrowed.append({**spec, "low": new_low, "high": new_high, "step": new_step})
         else:
@@ -844,6 +864,22 @@ def optimize_two_phase(
             "early_stopped": False,
         }
 
+    # ── Probe validation: verify coarse best params before fine phase ──
+    coarse_probe_score = objective_fn(coarse_best_params, scoring_mode="tanh")
+    if coarse_probe_score <= -5.0:
+        if verbose:
+            print(f"  Skipping fine phase: coarse best params invalid (score={coarse_probe_score:.4f})")
+        return {
+            "best_params": coarse_best_params,
+            "best_value": coarse_best_value,
+            "coarse_best": coarse_best_value,
+            "fine_best": None,
+            "robustness": None,
+            "n_trials": coarse_trials,
+            "phase": "coarse_only",
+            "early_stopped": False,
+        }
+
     # ── Phase 2: Fine-tune ──
     if verbose:
         print(f"  Phase 2: Fine-tune ({fine_trials} trials)...")
@@ -1032,3 +1068,131 @@ def optimize_multi_seed(
         "n_trials_total": sum(r["n_trials"] for r in seed_results),
         "early_stopped": False,
     }
+
+
+# =====================================================================
+# 7. Unified Result Schema
+# =====================================================================
+
+# All required fields in a standardized optimization result entry.
+UNIFIED_SCHEMA_FIELDS = {
+    "version", "freq", "best_sharpe", "best_score", "best_params",
+    "n_trials", "phase", "status", "robustness", "elapsed_seconds",
+}
+
+
+def build_result_entry(
+    version: str,
+    freq: str,
+    best_params: dict,
+    sharpe: float = None,
+    score: float = None,
+    n_trials: int = 0,
+    phase: str = "two_phase",
+    robustness: dict = None,
+    elapsed: float = 0.0,
+    status: str = "active",
+    **extra_fields,
+) -> dict:
+    """Build a standardized optimization result entry.
+
+    All optimizers should call this to produce consistent output format.
+    Extra fields (e.g. early_stopped, multi_seed, cross_seed_std) are
+    preserved as-is for backward compatibility.
+
+    Args:
+        version: Strategy version (e.g. "v1", "v12").
+        freq: Strategy frequency ("daily", "4h", "1h", "5min").
+        best_params: Optimized parameter dict.
+        sharpe: Raw Sharpe ratio (best_sharpe).
+        score: Composite score 0-10 (best_score).
+        n_trials: Total optimization trials.
+        phase: Optimization phase ("coarse_only", "two_phase", "multi_seed", "probe_failed").
+        robustness: Robustness check result dict, or None.
+        elapsed: Wall-clock seconds.
+        status: "active", "dead", "error", "import_error".
+        **extra_fields: Additional fields preserved for backward compatibility.
+
+    Returns:
+        dict with all unified schema fields plus any extras.
+    """
+    entry = {
+        "version": version,
+        "freq": freq,
+        "best_sharpe": round(sharpe, 4) if sharpe is not None else None,
+        "best_score": round(score, 4) if score is not None else None,
+        "best_params": best_params,
+        "n_trials": n_trials,
+        "phase": phase,
+        "status": status,
+        "robustness": robustness,
+        "elapsed_seconds": round(elapsed, 1),
+    }
+    # Preserve extra fields for backward compatibility
+    entry.update(extra_fields)
+    return entry
+
+
+def detect_strategy_status(result: dict) -> str:
+    """Detect if a strategy is dead/error based on optimization results.
+
+    Returns:
+        "error" — if sharpe or score indicates complete failure (-999 etc.)
+        "import_error" — if the result contains an import error marker
+        "dead" — if the strategy produced 0 trades or negligible results
+        "active" — otherwise
+    """
+    # Check for explicit error markers
+    if result.get("error"):
+        error_msg = str(result["error"]).lower()
+        if "import" in error_msg or "module" in error_msg:
+            return "import_error"
+        return "error"
+
+    sharpe = result.get("best_sharpe")
+    score = result.get("best_score")
+
+    # Check for sentinel failure values
+    if sharpe is not None and sharpe <= -900:
+        return "error"
+    if score is not None and score <= -900:
+        return "error"
+
+    # Check for empty params (probe failed / no trades)
+    if not result.get("best_params"):
+        return "dead"
+
+    return "active"
+
+
+def is_strategy_dead(results_file: str, version: str) -> bool:
+    """Check if a strategy is marked dead/error in existing results.
+
+    Used by optimizer loops to skip dead strategies on re-runs.
+
+    Args:
+        results_file: Path to optimization_results.json.
+        version: Strategy version string (e.g. "v1").
+
+    Returns:
+        True if the strategy should be skipped.
+    """
+    import json
+    from pathlib import Path
+
+    path = Path(results_file)
+    if not path.exists():
+        return False
+
+    try:
+        with open(path) as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, Exception):
+        return False
+
+    for entry in data:
+        if entry.get("version") == version:
+            status = entry.get("status", "")
+            if status in ("dead", "error", "import_error"):
+                return True
+    return False

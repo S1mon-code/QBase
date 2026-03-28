@@ -38,6 +38,7 @@ from strategies.optimizer_core import (
     composite_objective, run_single_backtest,
     optimize_two_phase, optimize_multi_seed,
     narrow_param_space, map_freq, resample_bars,
+    build_result_entry, detect_strategy_status, is_strategy_dead,
 )
 
 logging.getLogger("alphaforge").setLevel(logging.ERROR)
@@ -149,8 +150,22 @@ def get_strategy_freq(strategy_cls):
 def optimize_single(version, n_trials=50, phase="coarse",
                     seed=42, probe_trials=5, multi_seed=False):
     """Optimize a single strategy using optimizer_core multi-dimensional scoring."""
+    # Skip dead strategies
+    result_file = COARSE_RESULTS_FILE if phase == "coarse" else RESULTS_FILE
+    if is_strategy_dead(str(result_file), version):
+        print(f"  Skipping {version}: marked dead/error in results")
+        return None
+
     try:
         strategy_cls = load_strategy_class(version)
+    except (ImportError, ModuleNotFoundError) as e:
+        print(f"  ERROR: {version} import failed: {e}")
+        return build_result_entry(
+            version=version, freq="daily", best_params={}, phase=phase,
+            sharpe=-999.0, score=-999.0, status="import_error",
+        )
+
+    try:
         freq = get_strategy_freq(strategy_cls)
         param_specs = auto_discover_params(strategy_cls)
 
@@ -207,18 +222,18 @@ def optimize_single(version, n_trials=50, phase="coarse",
                 verbose=True, probe_trials=probe_trials,
             )
             elapsed = time.time() - t0
-            output = {
-                "version": version, "phase": phase, "freq": freq,
-                "best_params": result["best_params"],
-                "best_sharpe": result["best_value"],
-                "n_trials": result["n_trials_total"],
-                "robustness": result.get("robustness"),
-                "early_stopped": result.get("early_stopped", False),
-                "multi_seed": True,
-                "cross_seed_std": result.get("cross_seed_std"),
-                "is_consistent": result.get("is_consistent"),
-                "elapsed_seconds": round(elapsed, 1),
-            }
+            best_value = result["best_value"]
+            output = build_result_entry(
+                version=version, freq=freq, best_params=result["best_params"],
+                sharpe=best_value, score=best_value,
+                n_trials=result["n_trials_total"],
+                phase=phase, robustness=result.get("robustness"),
+                elapsed=elapsed,
+                early_stopped=result.get("early_stopped", False),
+                multi_seed=True,
+                cross_seed_std=result.get("cross_seed_std"),
+                is_consistent=result.get("is_consistent"),
+            )
         else:
             result = optimize_two_phase(
                 objective_fn, param_specs,
@@ -229,17 +244,19 @@ def optimize_single(version, n_trials=50, phase="coarse",
                 verbose=True, probe_trials=probe_trials,
             )
             elapsed = time.time() - t0
-            output = {
-                "version": version, "phase": phase, "freq": freq,
-                "best_params": result["best_params"],
-                "best_sharpe": result["best_value"],
-                "n_trials": result["n_trials"],
-                "robustness": result.get("robustness"),
-                "early_stopped": result.get("early_stopped", False),
-                "elapsed_seconds": round(elapsed, 1),
-            }
+            best_value = result["best_value"]
+            output = build_result_entry(
+                version=version, freq=freq, best_params=result["best_params"],
+                sharpe=best_value, score=best_value,
+                n_trials=result["n_trials"],
+                phase=phase, robustness=result.get("robustness"),
+                elapsed=elapsed,
+                early_stopped=result.get("early_stopped", False),
+            )
 
-        print(f"  Best Score: {output['best_sharpe']:.4f}/10")
+        output["status"] = detect_strategy_status(output)
+
+        print(f"  Best Score: {output['best_score']:.4f}/10")
         print(f"  Best params: {output['best_params']}")
         print(f"  Time: {elapsed:.1f}s")
         return output
@@ -247,7 +264,11 @@ def optimize_single(version, n_trials=50, phase="coarse",
     except Exception as e:
         print(f"  ERROR optimizing {version}: {e}")
         traceback.print_exc()
-        return {"version": version, "phase": phase, "error": str(e)}
+        status = "import_error" if "import" in str(e).lower() else "error"
+        return build_result_entry(
+            version=version, freq="daily", best_params={}, phase=phase,
+            sharpe=-999.0, score=-999.0, status=status, error=str(e),
+        )
 
 
 def load_coarse_results():
