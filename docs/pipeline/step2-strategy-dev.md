@@ -543,196 +543,51 @@ class MyStrategy(TimeSeriesStrategy):
 
 允许且鼓励在策略中组合不同周期的信号。典型模式：
 
-**多周期策略模板（30min 主频 + 4h 方向，包含所有必要组件）：**
+### V6.0 多周期 API（推荐）
+
+AlphaForge V6.0 引入了 `resample_freqs` 类属性 + `context.get_resampled_bars()` API，替代手动 reshape：
 
 ```python
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # QBase root
-import conftest
-
-import numpy as np
-from alphaforge.strategy.base import TimeSeriesStrategy
-from indicators.momentum.rsi import rsi
-from indicators.trend.supertrend import supertrend
-from indicators.volatility.atr import atr
-from strategies.all_time.ag.strategy_utils import fast_avg_volume, compute_tradeable_mask
-
-SCALE_FACTORS = [1.0, 0.5, 0.25]
-MAX_SCALE = 3
-
-
 class MultiTFTrend(TimeSeriesStrategy):
-    """
-    策略简介：4h Supertrend 定方向 + 30min RSI 超卖入场的多周期趋势策略。
-
-    使用指标：
-    - Supertrend(10, 3.0) [4h]: 大周期趋势方向过滤
-    - RSI(14) [30min]: 小周期超卖入场信号
-    - ATR(14) [30min]: 止损距离计算
-
-    进场条件（做多）：
-    - 4h Supertrend 方向 = 1（上升趋势）
-    - 30min RSI < 30（超卖回调入场）
-
-    出场条件：
-    - ATR 追踪止损 / 分层止盈 / 4h 趋势反转
-
-    优点：大周期过滤噪音，小周期精确入场，回撤更可控
-    缺点：多周期信号可能错位，warmup 需要更多数据
-    """
     name = "multi_tf_trend"
     freq = "30min"
-    warmup = 960  # 4h Supertrend 需要 step(8) * period(10) * 3 ≈ 240，取更保守值
-
-    # 可调参数
-    rsi_period: int = 14
-    rsi_entry: float = 30.0         # Optuna: 20-40
-    st_period: int = 10
-    st_mult: float = 3.0
-    atr_stop_mult: float = 3.0     # Optuna: 2.0-5.0
-
-    def __init__(self):
-        super().__init__()
-        self._rsi = None
-        self._atr = None
-        self._avg_volume = None
-        self._st_dir_4h = None
-        self._4h_map = None
-
-    def on_init(self, context):
-        self.entry_price = 0.0
-        self.stop_price = 0.0
-        self.highest_since_entry = 0.0
-        self.position_scale = 0
-        self.bars_since_last_scale = 0
-        self._took_profit_3atr = False
-        self._took_profit_5atr = False
+    resample_freqs = ["4h"]  # V6: 声明需要的重采样频率
+    warmup = 960
 
     def on_init_arrays(self, context, bars):
         closes = context.get_full_close_array()
         highs = context.get_full_high_array()
         lows = context.get_full_low_array()
-        volumes = context.get_full_volume_array()
-        n = len(closes)
-        step = 8  # 30min × 8 = 4h
 
         # 30min 指标
         self._rsi = rsi(closes, self.rsi_period)
         self._atr = atr(highs, lows, closes, period=14)
 
-        # 预计算平均成交量
-        window = 20
-        self._avg_volume = fast_avg_volume(volumes, window)  # 200x faster than Python loop
-
-        # 聚合 → 4h bars
-        n_4h = n // step
-        trim = n_4h * step
-        closes_4h = closes[:trim].reshape(n_4h, step)[:, -1]
-        highs_4h = highs[:trim].reshape(n_4h, step).max(axis=1)
-        lows_4h = lows[:trim].reshape(n_4h, step).min(axis=1)
-
+        # V6: 引擎自动重采样，无需手动 reshape
+        bars_4h = context.get_resampled_bars("4h")
         _, self._st_dir_4h = supertrend(
-            highs_4h, lows_4h, closes_4h, self.st_period, self.st_mult)
+            bars_4h.high, bars_4h.low, bars_4h.close,
+            self.st_period, self.st_mult)
 
-        # 映射: 30min bar i → 最近完成的 4h bar index（避免前视偏差）
-        self._4h_map = np.maximum(0, (np.arange(n) + 1) // step - 1)
+        # V6: 引擎提供索引映射（避免前视偏差）
+        self._4h_map = context.get_resampled_index_map("4h")
 
     def on_bar(self, context):
         i = context.bar_index
-        j = self._4h_map[i]
-        price = context.close_raw
-        side, lots = context.position
-
-        # ── 极端行情过滤 ──
-        if hasattr(context.current_bar, 'is_rollover') and context.current_bar.is_rollover:
-            return
-        vol = context.volume
-        if not np.isnan(self._avg_volume[i]) and vol < self._avg_volume[i] * 0.1:
-            return
-
-        # ── 查表 ──
-        rsi_val = self._rsi[i]
-        atr_val = self._atr[i]
+        j = self._4h_map[i]  # 30min bar → 最近完成的 4h bar
         trend_dir = self._st_dir_4h[j]
-        if np.isnan(rsi_val) or np.isnan(atr_val):
-            return
-
-        self.bars_since_last_scale += 1
-
-        # ── 1. 止损检查 ──
-        if side == 1:
-            self.highest_since_entry = max(self.highest_since_entry, price)
-            trailing = self.highest_since_entry - self.atr_stop_mult * atr_val
-            self.stop_price = max(self.stop_price, trailing)
-            if price <= self.stop_price:
-                context.close_long()
-                self._reset_state()
-                return
-
-        # ── 2. 分层止盈 ──
-        if side == 1 and self.entry_price > 0:
-            profit_atr = (price - self.entry_price) / atr_val
-            if profit_atr >= 5.0 and not self._took_profit_5atr:
-                context.close_long(lots=max(1, lots // 3))
-                self._took_profit_5atr = True
-                return
-            elif profit_atr >= 3.0 and not self._took_profit_3atr:
-                context.close_long(lots=max(1, lots // 3))
-                self._took_profit_3atr = True
-                return
-
-        # ── 3. 主退出信号：4h 趋势反转 ──
-        if side == 1 and trend_dir != 1:
-            context.close_long()
-            self._reset_state()
-            return
-
-        # ── 4. 入场 ──
-        if side == 0 and trend_dir == 1 and rsi_val < self.rsi_entry:
-            base_lots = self._calc_lots(context, atr_val)
-            if base_lots > 0:
-                context.buy(base_lots)
-                self.entry_price = price
-                self.stop_price = price - self.atr_stop_mult * atr_val
-                self.highest_since_entry = price
-                self.position_scale = 1
-                self.bars_since_last_scale = 0
-
-        # ── 5. 加仓 ──
-        elif side == 1 and self.position_scale < MAX_SCALE:
-            if (self.bars_since_last_scale >= 10
-                    and price > self.entry_price + atr_val
-                    and trend_dir == 1 and rsi_val < 40):
-                factor = SCALE_FACTORS[min(self.position_scale, len(SCALE_FACTORS)-1)]
-                add = max(1, int(self._calc_lots(context, atr_val) * factor))
-                context.buy(add)
-                self.position_scale += 1
-                self.bars_since_last_scale = 0
-
-    def _calc_lots(self, context, atr_val):
-        from alphaforge.data.contract_specs import ContractSpecManager
-        spec = ContractSpecManager().get(context.symbol)
-        stop_dist = self.atr_stop_mult * atr_val * spec.multiplier
-        if stop_dist <= 0:
-            return 0
-        risk_lots = int(context.equity * 0.02 / stop_dist)
-        margin = context.close_raw * spec.multiplier * spec.margin_rate
-        if margin <= 0:
-            return 0
-        return max(1, min(risk_lots, int(context.equity * 0.30 / margin)))
-
-    def _reset_state(self):
-        self.entry_price = 0.0
-        self.stop_price = 0.0
-        self.highest_since_entry = 0.0
-        self.position_scale = 0
-        self.bars_since_last_scale = 0
-        self._took_profit_3atr = False
-        self._took_profit_5atr = False
+        # ... 其余逻辑不变
 ```
 
-**注意：** 以上是趋势策略模板（只做多）。all_time 多周期策略需额外加入做空逻辑。
+**V6 多周期 vs 旧方式对比：**
+
+| 方面 | 旧方式（手动 reshape） | V6 `resample_freqs` |
+|------|----------------------|---------------------|
+| 声明 | 无 | `resample_freqs = ["4h"]` |
+| 数据获取 | `closes[:trim].reshape(n_4h, step)` | `context.get_resampled_bars("4h")` |
+| 索引映射 | `np.maximum(0, (np.arange(n)+1)//step-1)` | `context.get_resampled_index_map("4h")` |
+| 边界处理 | 手动 trim | 引擎自动处理 |
+| 前视偏差 | 需自行确保 | 引擎保证 |
 
 **常见多周期组合：**
 
@@ -762,9 +617,9 @@ python strategies/all_time/ag/analyze_failures.py
 
 **典型用法：** 在完成一批策略的粗调优化后运行，快速定位最有价值的改进方向，避免在低回报的策略类型上浪费时间。
 
-## AlphaForge V4 性能优化（必须遵守）
+## AlphaForge V6.0 性能优化（必须遵守）
 
-**当前版本：V4.3.1** — 5min 回测从 77s → 0.56s（137x 加速），QBase 实测 140-200x 加速。
+**当前版本：V6.0**（1505 tests） — 5min 回测从 77s → 0.56s（137x 加速），QBase 实测 140-200x 加速。
 
 ### P0 必须改（不改就慢 100x）
 
@@ -863,16 +718,24 @@ config = PortfolioConfig(
 )
 ```
 
-### BacktestConfig 新选项
+### BacktestConfig 新选项（V6.0 扩展至 ~30 参数）
 
 ```python
 config = BacktestConfig(
     dynamic_margin=True,        # 交割月阶梯保证金（T-3:+3%, T-2:+5%, T-1:+8%）
     time_varying_spread=True,   # 盘口时段价差（开盘/收盘加宽）
+    # V6.0 新增
+    margin_check_mode="daily",       # 保证金检查: "bar" | "daily"
+    rollover_window_bars=20,         # 渐进式换仓
+    detect_locked_limit=True,        # 涨跌停锁仓检测
+    volume_adaptive_spread=True,     # 成交量自适应价差
+    asymmetric_impact=True,          # 非对称市场冲击
+    overnight_gap=True,              # 隔夜跳空
+    auction_spread=True,             # 集合竞价价差
 )
 ```
 
-已配置动态保证金：I、RB、CU、AG、M。
+已配置动态保证金：I、RB、CU、AG、M。详见 [AlphaForge API — BacktestConfig](../reference/alphaforge-api.md#backtestconfigv60-扩展至-30-参数)。
 
 ### QBase 实测性能
 
@@ -895,6 +758,11 @@ context.get_full_open_array()       # 完整open
 context.get_full_volume_array()     # 完整volume
 context.get_full_oi_array()         # 完整持仓量
 context.get_full_close_raw_array()  # 完整原始close（未复权）
+
+# === V6.0 多周期 API（on_init_arrays 中可用）===
+# 需先在类上声明: resample_freqs = ["4h"]
+bars_4h = context.get_resampled_bars("4h")       # 重采样后的 BarArray
+idx_map = context.get_resampled_index_map("4h")   # 主频→重采样频率的索引映射
 
 # === on_bar 中可用 ===
 i = context.bar_index               # 当前bar在完整数组中的索引（关键！）

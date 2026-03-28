@@ -47,6 +47,7 @@
 - 不同品种涨跌停幅度不同（一般 4%-8%，通过 `spec.price_limit` 获取）
 - 策略不应在涨跌停附近下单（成交概率低）
 - 连续涨/跌停可能锁仓，无法平仓
+- **V6.0 涨跌停锁仓检测：** `detect_locked_limit=True` 启用后，引擎自动检测涨跌停锁仓状态，拒绝在锁仓期间的平仓指令（更贴近真实市场）
 
 | 品种 | 典型涨跌停板 | 备注 |
 |------|:----------:|------|
@@ -66,9 +67,16 @@
 - AlphaForge 的数据已做复权处理：
   - **`close`** 是复权价（用于指标计算）
   - **`close_raw`** 是原始价（用于成交计算/下单）
-- `context.is_rollover` 标记展期日（V4 写法，不要用 `context.current_bar.is_rollover`）
+- `context.is_rollover` 标记展期日（不要用 `context.current_bar.is_rollover`）
 - `context.origin_symbol` 显示实际合约代码（如 "AG2506"）
 - 回测引擎自动处理展期日的持仓转移，成本已包含在滑点模型中
+- **V6.0 渐进式换仓：** `rollover_window_bars=20` 支持分多 bar 完成换仓，替代单 bar 瞬时换仓。大仓位换仓时减少市场冲击：
+
+```python
+config = BacktestConfig(
+    rollover_window_bars=20,  # 换仓分 20 个 bar 渐进完成
+)
+```
 
 ### 实盘需额外考虑（未来）
 

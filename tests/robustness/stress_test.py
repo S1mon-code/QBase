@@ -243,11 +243,13 @@ def extract_portfolio_daily_returns(
     """
     import pandas as pd
     from attribution.batch import parse_weights_json, load_strategy_class, _detect_strategy_dir
-    from strategies.optimizer_core import create_strategy_with_params, run_single_backtest
+    from strategies.optimizer_core import (
+        create_strategy_with_params, run_single_backtest,
+        map_freq, resample_bars, _build_backtest_config,
+    )
     from alphaforge.data.market import MarketDataLoader
     from alphaforge.data.contract_specs import ContractSpecManager
     from alphaforge.engine.event_driven import EventDrivenBacktester
-    from strategies.optimizer_core import map_freq, resample_bars
     from config import get_data_dir
 
     entries, meta = parse_weights_json(weights_path)
@@ -277,11 +279,20 @@ def extract_portfolio_daily_returns(
             if bars is None or len(bars) < strategy.warmup + 20:
                 continue
 
-            engine = EventDrivenBacktester(
-                spec_manager=ContractSpecManager(),
-                initial_capital=1_000_000,
-                slippage_ticks=1.0,
-            )
+            # V6: Try to use BacktestConfig if available
+            bt_config = _build_backtest_config("basic", 1_000_000, 1.0, None)
+            if bt_config is not None:
+                engine = EventDrivenBacktester(
+                    spec_manager=ContractSpecManager(),
+                    config=bt_config,
+                )
+            else:
+                # Legacy fallback (AlphaForge < V6)
+                engine = EventDrivenBacktester(
+                    spec_manager=ContractSpecManager(),
+                    initial_capital=1_000_000,
+                    slippage_ticks=1.0,
+                )
             result = engine.run(strategy, {symbol: bars}, warmup=strategy.warmup)
 
             eq = getattr(result, "equity_curve", None)

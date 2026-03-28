@@ -245,12 +245,56 @@ python -m attribution.drawdown --portfolio <weights_file>
 
 ---
 
+## AlphaForge V6.0 风险管理增强
+
+V6.0 新增多项回测级风险管理特性，使回测更贴近真实交易环境：
+
+### 保证金管理增强
+
+```python
+config = BacktestConfig(
+    margin_check_mode="daily",       # "bar": 每bar检查 | "daily": 每日结算时检查
+    margin_call_grace_bars=5,        # 保证金追缴宽限期（bar数），0=立即强平
+)
+```
+
+- **`margin_check_mode="daily"`** — 更贴近真实交易所结算机制。日内保证金不足不会立即强平，而是在每日结算时检查
+- **`margin_call_grace_bars`** — 宽限期内允许策略自行减仓，避免因短暂波动被强平
+
+### 涨跌停锁仓检测
+
+```python
+config = BacktestConfig(
+    detect_locked_limit=True,        # 涨跌停锁仓检测
+)
+```
+
+启用后，当持仓品种触及涨跌停且无法平仓时，引擎会标记为锁仓状态。策略可通过此信息调整风险管理行为。
+
+### 隔夜跳空风险
+
+```python
+config = BacktestConfig(
+    overnight_gap=True,              # 隔夜跳空风险模拟
+)
+```
+
+模拟夜盘收盘到日盘开盘间的跳空风险，影响止损触发和盈亏计算。
+
+### Iron Rules 参考
+
+AlphaForge V6.0 定义了 13 条不可违反的回测铁律（Signal Delay、Tick Snap、FIFO、Margin Check、Locked Limit、Partial Fill、Single Direction、Night Session、Forced Liquidation、Nonlinear Impact、Bid-Ask Spread、Rollover Cost、Settlement Mark-to-Market）。详见 [AlphaForge API — Iron Rules](alphaforge-api.md#iron-rulesv60--13-条铁律)。
+
+---
+
 ## 注意事项速查
 
 - 所有策略必须使用预计算模式（on_init_arrays + context.bar_index 查表）
 - 所有价格计算用复权价（context.get_full_close_array），下单用原始价（context.close_raw）
 - 信号在下一个 bar 的 open 执行，不是当前 bar
 - 同品种不可同时持有多空仓位
-- 保证金不足会被拒绝开仓，权益低于维持保证金会被强平
+- 保证金不足会被拒绝开仓，权益低于维持保证金会被强平（V6 支持 `margin_call_grace_bars` 宽限）
 - FIFO 平仓：先平昨仓（便宜），再平今仓（贵）
 - 单笔成交量不超过该 bar 成交量的 10%
+- V6: `margin_check_mode="daily"` 更贴近真实结算
+- V6: `detect_locked_limit=True` 检测涨跌停锁仓

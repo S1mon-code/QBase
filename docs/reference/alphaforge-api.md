@@ -58,9 +58,9 @@ def on_bar(self, context):
 
 ---
 
-## V4 性能优化（必须遵守）
+## V6.0 性能优化（必须遵守）
 
-**当前版本：V4.3.1** — 5min 回测从 77s → 0.56s（137x 加速），QBase 实测 140-200x 加速。
+**当前版本：V6.0**（1505 tests） — 5min 回测从 77s → 0.56s（137x 加速），QBase 实测 140-200x 加速。
 
 ### P0 必须改（不改就慢 100x）
 
@@ -218,7 +218,9 @@ config = PortfolioConfig(
 
 ---
 
-## BacktestConfig 新选项
+## BacktestConfig（V6.0 扩展至 ~30 参数）
+
+### 基础参数（V4 已有）
 
 ```python
 config = BacktestConfig(
@@ -228,6 +230,57 @@ config = BacktestConfig(
 ```
 
 已配置动态保证金：I、RB、CU、AG、M。
+
+### V6.0 新增参数
+
+```python
+config = BacktestConfig(
+    # --- V4 基础参数 ---
+    dynamic_margin=True,
+    time_varying_spread=True,
+
+    # --- V6 新增参数 ---
+    margin_check_mode="daily",       # 保证金检查模式: "bar" (每bar) | "daily" (每日结算)
+    margin_call_grace_bars=5,        # 保证金追缴宽限期（bar数）
+    rollover_window_bars=20,         # 渐进式换仓窗口（替代单bar换仓）
+    detect_locked_limit=True,        # 涨跌停锁仓检测
+    volume_adaptive_spread=True,     # 成交量自适应价差
+    asymmetric_impact=True,          # 非对称市场冲击（大单vs小单）
+    overnight_gap=True,              # 隔夜跳空风险模拟
+    auction_spread=True,             # 集合竞价价差扩大
+    broker=BrokerConfig(...),        # 券商配置（见下方 BrokerConfig 章节）
+)
+```
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `margin_check_mode` | str | `"bar"` | `"bar"`: 每bar检查保证金; `"daily"`: 每日结算时检查（更贴近真实交易所） |
+| `margin_call_grace_bars` | int | `0` | 保证金追缴宽限期，0=立即强平 |
+| `rollover_window_bars` | int | `1` | 换仓窗口，>1 时渐进式换仓（分多bar完成） |
+| `detect_locked_limit` | bool | `False` | 启用涨跌停锁仓检测，锁仓时拒绝平仓 |
+| `volume_adaptive_spread` | bool | `False` | 价差随成交量动态调整（低量时价差扩大） |
+| `asymmetric_impact` | bool | `False` | 大单市场冲击更大（非线性） |
+| `overnight_gap` | bool | `False` | 模拟隔夜跳空风险 |
+| `auction_spread` | bool | `False` | 集合竞价时段价差扩大 |
+| `broker` | BrokerConfig | `None` | 券商级别配置 |
+
+### Industrial-Grade 推荐配置
+
+生产级回测建议使用以下配置，最大程度接近真实交易环境：
+
+```python
+config = BacktestConfig(
+    volume_adaptive_spread=True,
+    dynamic_margin=True,
+    time_varying_spread=True,
+    rollover_window_bars=20,
+    margin_check_mode="daily",
+    asymmetric_impact=True,
+    detect_locked_limit=True,
+)
+```
+
+此配置启用了所有 V6 关键仿真特性，回测结果更接近实盘表现。
 
 ---
 
@@ -380,9 +433,9 @@ reporter.generate_portfolio_report(
 | 15min | ✅ | |
 | 30min | ✅ | |
 | 60min | ✅ | |
+| 1h | ✅ | V6.0 原生支持（不再需要用 60min） |
 | daily | ✅ | |
-| 1h | 用 60min | 别名 |
-| 4h | 60min x 4 重采样 | `resample_bars(bars, 4)` |
+| 4h | 60min x 4 重采样 | `resample_bars(bars, 4)` 或 V6 `resample_freqs` |
 | 20min | 10min x 2 重采样 | `resample_bars(bars, 2)` |
 
 **支持任意频率：** `<N>min`（如 `1min`, `5min`, `20min`）、`<N>h`（如 `1h`, `4h`）、`daily`
@@ -490,6 +543,133 @@ result = engine.run(strategy, {symbol: bars}, warmup=strategy.warmup)
 | **零拷贝 view** | 减少内存分配 | `get_close_array_view(n)` |
 | **频率重采样** | 减少 bar 数 | 4h = 60min x 4 |
 | **warmup 设合理值** | 避免浪费 bar | max(lookback) + 20 |
+
+---
+
+## BrokerConfig（V6.0 新增）
+
+券商级别配置，模拟真实交易环境中的佣金结构：
+
+```python
+from alphaforge.engine.broker import BrokerConfig
+
+broker = BrokerConfig(
+    commission_markup=1.1,          # 佣金加成（1.1 = 交易所手续费 × 1.1）
+    volume_tiers=[                  # 成交量分级佣金
+        (0, 0.00005),              # 0-1000手: 万分之0.5
+        (1000, 0.00004),           # 1000手以上: 万分之0.4
+    ],
+    close_today_override={          # 平今仓手续费覆盖（品种级别）
+        "AG": 0.00001,             # AG 平今万分之0.1
+        "AU": 0.0,                 # AU 平今免手续费
+    },
+)
+
+config = BacktestConfig(
+    broker=broker,
+    # ... 其他参数
+)
+```
+
+---
+
+## ContractSpecManager V6.0 新字段
+
+V6.0 为 `ContractSpecManager` 新增了更精细的市场微观结构参数：
+
+```python
+spec = ContractSpecManager().get("AG")
+
+# V4 已有字段
+spec.multiplier          # 合约乘数
+spec.tick_size           # 最小变动价位
+spec.margin_rate         # 保证金率
+spec.commission_open     # 开仓手续费率
+
+# V6 新增字段
+spec.impact_exponent     # 市场冲击指数（非线性冲击模型的指数）
+spec.spread_elasticity   # 价差弹性（成交量对价差的影响系数）
+spec.max_spread_mult     # 最大价差倍数（价差上限 = tick_size × max_spread_mult）
+spec.max_open_lots_per_day  # 每日最大开仓手数限制
+```
+
+---
+
+## Paper Trading（V6.0 新增）
+
+AlphaForge V6.0 内置模拟盘引擎，支持策略从回测到实盘的过渡验证。
+
+### PaperTradingEngine API
+
+```python
+from alphaforge.paper import PaperTradingEngine
+
+engine = PaperTradingEngine(
+    strategy=my_strategy,
+    symbols=["AG"],
+    freq="daily",
+    initial_capital=1_000_000,
+)
+engine.start()  # 开始接收实时行情并执行策略
+```
+
+### CLI 命令
+
+```bash
+# 启动模拟盘
+af paper --strategy strategies/strong_trend/v12.py --symbols AG --freq daily
+
+# 查看模拟盘状态
+af paper-status
+
+# 停止模拟盘
+af paper-stop
+```
+
+### 策略生命周期中的位置
+
+```
+回测开发 → 参数优化 → 样本外验证 → **模拟盘 (af paper)** → 小资金实盘 → 正式实盘
+```
+
+模拟盘是策略上线前的必要验证步骤。运行 1 个月以上，确认实时表现与回测一致后，方可进入小资金实盘。
+
+---
+
+## Iron Rules（V6.0 — 13 条铁律）
+
+AlphaForge V6.0 定义了 13 条不可违反的回测铁律，确保回测结果的真实性：
+
+| # | 铁律 | 说明 |
+|---|------|------|
+| 1 | **Signal Delay** | 信号在当前 bar 产生，下一 bar 的 open 执行。不可绕过 |
+| 2 | **Tick Snap** | 成交价必须对齐到 tick_size 的整数倍 |
+| 3 | **FIFO** | 平仓遵循先进先出：先平昨仓（手续费低），再平今仓（手续费高） |
+| 4 | **Margin Check** | 保证金不足时拒绝开仓 |
+| 5 | **Locked Limit** | 涨跌停时拒绝成交（V6 新增 `detect_locked_limit` 检测锁仓） |
+| 6 | **Partial Fill** | 单笔成交量不超过该 bar 成交量的 10% |
+| 7 | **Single Direction** | 同品种同时间只能持有单一方向（不可同时多空） |
+| 8 | **Night Session** | 夜盘归属下一个交易日，`trading_day` 已正确处理 |
+| 9 | **Forced Liquidation** | 权益低于维持保证金时强制平仓 |
+| 10 | **Nonlinear Impact** | 大单市场冲击非线性增长（V6 `asymmetric_impact`） |
+| 11 | **Bid-Ask Spread** | 买卖价差模拟，时段/成交量自适应（V6 `volume_adaptive_spread`） |
+| 12 | **Rollover Cost** | 换仓成本已包含在模型中（V6 支持 `rollover_window_bars` 渐进换仓） |
+| 13 | **Settlement Mark-to-Market** | 每日结算盯市，结算价重新计算保证金和盈亏 |
+
+---
+
+## Common Pitfalls（V6.0 更新）
+
+| 陷阱 | 说明 | 正确做法 |
+|------|------|---------|
+| 用 `context.current_bar.is_rollover` | 每 bar 创建 namedtuple，慢 100x | 用 `context.is_rollover` |
+| `ContractSpecManager()` 在方法内实例化 | 每笔交易读 YAML | 模块级单例 `_SPEC_MANAGER` |
+| 手动 reshape 做多周期 | 容易出错，不处理边界 | V6: `resample_freqs` + `context.get_resampled_bars()` |
+| 用 `"60min"` 代替 `"1h"` | V6 之前的遗留写法 | V6 原生支持 `"1h"` |
+| 不启用 `volume_adaptive_spread` | 回测滑点不真实 | 生产级回测必须启用 |
+| 单 bar 换仓 | 大仓位换仓冲击大 | V6: `rollover_window_bars=20` 渐进换仓 |
+| 忽略涨跌停锁仓 | 持仓被锁无法平仓 | V6: `detect_locked_limit=True` |
+| 不做模拟盘就上实盘 | 回测与实盘偏差大 | V6: `af paper` 模拟盘验证 |
 
 ---
 

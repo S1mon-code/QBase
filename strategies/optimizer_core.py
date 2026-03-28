@@ -218,8 +218,8 @@ def narrow_param_space(param_specs, best_params, shrink_ratio=0.3):
 MIN_TRADES_BY_FREQ = {
     "daily": 10,
     "4h": 20,
-    "1h": 30,
-    "60min": 30,
+    "1h": 30,      # V6: natively supported
+    "60min": 30,    # Legacy alias for 1h
     "30min": 50,
     "15min": 80,
     "10min": 80,
@@ -463,18 +463,19 @@ def composite_objective(results, min_valid=1, freq=None, scoring_mode="tanh"):
 def map_freq(freq):
     """Map strategy frequency to (AlphaForge load freq, resample factor).
 
-    AlphaForge native: 1min, 5min, 10min, 15min, 30min, 60min, daily.
+    AlphaForge V6 native: 1min, 5min, 10min, 15min, 30min, 60min, 1h, daily.
+    Note: V6 supports "1h" natively — no need to map to "60min".
     Non-native frequencies are loaded at a base freq and resampled.
 
     Returns:
         (load_freq, resample_factor) where factor=1 means no resample.
     """
-    NATIVE = {"1min", "5min", "10min", "15min", "30min", "60min", "daily"}
+    # V6: "1h" is now natively supported alongside "60min"
+    NATIVE = {"1min", "5min", "10min", "15min", "30min", "60min", "1h", "daily"}
     if freq in NATIVE:
         return freq, 1
 
     RESAMPLE_MAP = {
-        "1h": ("60min", 1),
         "20min": ("10min", 2),
         "4h": ("60min", 4),
     }
@@ -488,6 +489,12 @@ def resample_bars(bars, step):
     """Resample BarArray by grouping every ``step`` bars.
 
     E.g. step=4 converts 60min bars to 4h bars.
+
+    .. deprecated:: V6
+        AlphaForge V6 supports native multi-TF via ``resample_freqs`` and
+        ``context.get_resampled_bars()``.  This manual resample is kept for
+        backward compatibility with existing optimizer/attribution code that
+        loads bars outside of a strategy context.
     """
     from alphaforge.data.bardata import BarArray
 
@@ -592,6 +599,51 @@ def _compute_profit_concentration(equity_curve):
         return None
 
 
+def _build_backtest_config(config_mode, initial_capital, slippage_ticks, backtest_config):
+    """Build a BacktestConfig for V6, falling back to legacy kwargs.
+
+    Args:
+        config_mode: "basic" (legacy positional args), "industrial" (V6 recommended),
+                     or "custom" (caller provides a BacktestConfig instance).
+        initial_capital: Used for "basic" and "industrial" modes.
+        slippage_ticks: Used for "basic" and "industrial" modes.
+        backtest_config: A pre-built BacktestConfig instance (only used when
+                         config_mode="custom").
+
+    Returns:
+        A BacktestConfig instance, or None if V6 BacktestConfig is not available
+        (graceful fallback to legacy constructor).
+    """
+    try:
+        from alphaforge.engine.config import BacktestConfig
+    except ImportError:
+        # AlphaForge version < 6 — BacktestConfig not available
+        return None
+
+    if config_mode == "custom" and backtest_config is not None:
+        return backtest_config
+
+    if config_mode == "industrial":
+        return BacktestConfig(
+            initial_capital=initial_capital,
+            slippage_ticks=slippage_ticks,
+            volume_adaptive_spread=True,
+            dynamic_margin=True,
+            time_varying_spread=True,
+            rollover_window_bars=20,
+            margin_check_mode="daily",
+            margin_call_grace_bars=3,
+            asymmetric_impact=True,
+            detect_locked_limit=True,
+        )
+
+    # "basic" mode — minimal config, mirrors legacy behaviour
+    return BacktestConfig(
+        initial_capital=initial_capital,
+        slippage_ticks=slippage_ticks,
+    )
+
+
 def run_single_backtest(
     strategy,
     symbol,
@@ -601,8 +653,25 @@ def run_single_backtest(
     data_dir=None,
     initial_capital=1_000_000,
     slippage_ticks=1.0,
+    config_mode="basic",
+    backtest_config=None,
 ):
     """Run a single backtest and return a result dict.
+
+    Args:
+        strategy: Strategy instance.
+        symbol: Trading symbol string.
+        start: Start date string.
+        end: End date string.
+        freq: Frequency string ("daily", "1h", "4h", etc.).
+        data_dir: Data directory override.
+        initial_capital: Initial capital (used when config_mode != "custom").
+        slippage_ticks: Slippage in ticks (used when config_mode != "custom").
+        config_mode: "basic" (default, legacy), "industrial" (V6 recommended
+                     settings for realistic simulation), or "custom" (use the
+                     provided ``backtest_config`` instance directly).
+        backtest_config: A pre-built ``BacktestConfig`` instance.  Only used
+                         when ``config_mode="custom"``.
 
     Returns:
         dict with keys:
@@ -611,6 +680,7 @@ def run_single_backtest(
             n_trades (int|None): Total trade count
             total_return (float|None): Total return
             profit_concentration (float|None): 0=even, 1=concentrated in top 10% days
+            monthly_win_rate (float|None): Monthly win rate
     """
     FAIL = {
         "sharpe": -999.0,
@@ -640,11 +710,22 @@ def run_single_backtest(
         if bars is None or len(bars) < strategy.warmup + 20:
             return FAIL
 
-        engine = EventDrivenBacktester(
-            spec_manager=ContractSpecManager(),
-            initial_capital=initial_capital,
-            slippage_ticks=slippage_ticks,
+        # V6: Try to use BacktestConfig if available
+        bt_config = _build_backtest_config(
+            config_mode, initial_capital, slippage_ticks, backtest_config,
         )
+        if bt_config is not None:
+            engine = EventDrivenBacktester(
+                spec_manager=ContractSpecManager(),
+                config=bt_config,
+            )
+        else:
+            # Legacy fallback (AlphaForge < V6)
+            engine = EventDrivenBacktester(
+                spec_manager=ContractSpecManager(),
+                initial_capital=initial_capital,
+                slippage_ticks=slippage_ticks,
+            )
         result = engine.run(strategy, {symbol: bars}, warmup=strategy.warmup)
 
         sharpe = float(result.sharpe)

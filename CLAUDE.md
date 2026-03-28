@@ -1,6 +1,6 @@
 # QBase — Agent 开发指南
 
-QBase 是量化策略研究工作区。320 个指标 + 350+ 策略，回测引擎由 AlphaForge 提供。468 个单元测试覆盖全链路。
+QBase 是量化策略研究工作区。320 个指标 + 350+ 策略，回测引擎由 AlphaForge V6.0 提供。1505 个单元测试覆盖全链路。
 
 ## 项目结构
 
@@ -26,7 +26,7 @@ QBase/
 ├── screener/            # 品种筛选器
 ├── research_log/        # 实验记录 + 归因报告
 ├── reports/             # HTML 回测报告
-├── tests/               # 单元测试（468 tests）
+├── tests/               # 单元测试（1505 tests）
 │   └── robustness/      # 鲁棒性测试（滑点敏感性 + Monte Carlo 压力测试）
 ├── docs/
 │   ├── pipeline/        # 流水线各阶段详细文档
@@ -75,10 +75,12 @@ def on_bar(self, context):
     val = self._indicator[context.bar_index]  # O(1) 查表
 ```
 
-### AlphaForge V4 必须遵守
+### AlphaForge V6.0 必须遵守
 
 1. **`context.is_rollover`** — 不要用 `context.current_bar.is_rollover`
 2. **`ContractSpecManager` 模块级缓存** — 不要在 `_calc_lots` 中每次 import
+3. **多周期用 `resample_freqs`** — 不要手动 reshape，用 `context.get_resampled_bars("4h")` + `context.get_resampled_index_map("4h")`
+4. **`"1h"` 原生支持** — 不再需要用 `"60min"`，直接用 `"1h"`
 
 ### 核心原则
 
@@ -141,7 +143,7 @@ python strategies/walk_forward.py --strategy strong_trend/v12 --symbol AG
 # 失败模式分析
 python strategies/all_time/ag/analyze_failures.py
 
-# 测试（468 tests）
+# 测试（1505 tests）
 pytest tests/
 
 # 滑点敏感性测试（LOW/MODERATE/HIGH 判定）
