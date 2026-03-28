@@ -15,7 +15,8 @@
 7. **一致性奖励** — 重优化时目标函数加入 `min_sharpe * 0.3` bonus，奖励所有品种都盈利的参数
 8. **Walk-Forward Validator** — 独立工具 (`strategies/walk_forward.py`) 做滚动窗口验证。每个窗口独立优化（30 trials coarse-only）+ 样本外测试。要求 Win Rate ≥ 50%，Mean Sharpe > 0。结果存入 `research_log/walk_forward/`
 9. **失败模式分析** — `strategies/all_time/ag/analyze_failures.py` 按策略类别统计失败率，识别常见失败模式（信号过稀、参数边界、死区等），指导后续开发方向
-10. **367 个单元测试** — 覆盖指标计算、策略逻辑、优化器行为、归因分析等全链路（从最初的 46 个扩展到 367 个）
+10. **468 个单元测试** — 覆盖指标计算、策略逻辑、优化器行为、归因分析、鲁棒性测试等全链路（从最初的 46 个扩展到 468 个）
+11. **Portfolio 选择稳定性测试** — `portfolio/stability_test.py` 通过数据扰动（随机去掉 10% 数据重复 N 次）检验策略选择的稳定性。策略按入选频率分为 CORE（>80%）/SATELLITE（50-80%）/EDGE（<50%）。EDGE 策略占比过高说明 Portfolio 选择过拟合于特定数据子集
 
 ---
 

@@ -311,8 +311,21 @@ strategy.on_stop(context)              # 4. 清理
 |------|------|---------|------|
 | **Simple** | `template_simple.py` | **90% 的策略** | 单周期、标准止损/止盈/加仓，推荐首选 |
 | **Full** | `template_full.py` | 复杂策略 | 多周期、自定义退出逻辑、regime 切换等高级场景 |
+| **Mean Reversion** | `template_mean_reversion.py` | 均值回归策略 | RSI 超买超卖 + 利润目标 + 固定止损 + 时间止损 |
+| **Volatility Target** | `template_volatility_target.py` | 波动率管理策略 | 波动率缩放仓位 + 百分比止损，适合波动率驱动的策略 |
+| **Time-Based** | `template_time_based.py` | 纯时间退出策略 | 固定持仓周期退出 + 紧急止损，适合事件驱动或季节性策略 |
 
-大部分策略应使用 `template_simple.py`，它已包含所有必要组件（ATR 止损、分层止盈、金字塔加仓、极端行情过滤）。只有在需要多周期信号、自定义退出逻辑或 regime 切换等复杂功能时，才使用 `template_full.py`。
+**5 个模板共覆盖所有常见策略类型。** 选择指南：
+
+| 你想做的 | 选择模板 |
+|---------|---------|
+| 趋势跟踪（大部分场景） | **Simple** |
+| 多周期信号 / regime 切换 | **Full** |
+| RSI/BB 均值回归 / 超买超卖 | **Mean Reversion** |
+| 波动率目标 / vol-scaling 仓位 | **Volatility Target** |
+| 固定持仓天数 / 事件驱动 | **Time-Based** |
+
+大部分策略应使用 `template_simple.py`，它已包含所有必要组件（ATR 止损、分层止盈、金字塔加仓、极端行情过滤）。只有在需要多周期信号、自定义退出逻辑或 regime 切换等复杂功能时，才使用 `template_full.py`。均值回归、波动率目标和时间退出模板各自针对特定策略类型做了专门优化。
 
 **标准策略模板（单周期，包含所有必要组件）：**
 

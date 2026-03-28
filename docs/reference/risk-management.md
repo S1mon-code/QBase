@@ -172,8 +172,59 @@ if context.is_rollover:
 | MaxDD Duration | 最大回撤恢复天数 | < 30 天 |
 | Bootstrap CI | 1000 次重采样 Sharpe 分布 | 95% 下界 > 0 |
 | Profit Concentration | Top 10% 天 PnL / 总利润 | < 0.5 |
+| Simulated CVaR 95% | Monte Carlo 压力测试最差 5% 均损 | > -3% (日) |
+| Simulated MaxDD | Monte Carlo 回撤分布中位数 | < 回测 MaxDD × 1.5 |
+| Slippage Sensitivity | 2x 滑点下 Sharpe 衰减 | < 30% (LOW/MODERATE) |
 
 **利润集中度**是最容易被忽略的风险指标。如果 80% 利润来自 10% 的交易日，去掉那几天就没有 alpha。策略看起来 Sharpe 很高但实际非常脆弱。
+
+---
+
+## 鲁棒性测试工具
+
+### 滑点敏感性测试
+
+评估策略在不同滑点水平（1x/2x/3x 基准滑点）下的 Sharpe 衰减，判定为 LOW/MODERATE/HIGH：
+
+```bash
+python tests/robustness/slippage_test.py --strategy <strategy> --symbol <symbol>
+```
+
+- **LOW** — Sharpe 下降 < 15%，策略对滑点不敏感
+- **MODERATE** — Sharpe 下降 15-30%，需要收紧权重上限至 10%
+- **HIGH** — Sharpe 下降 > 30%，策略不适合实盘或需大幅降权
+
+**与仓位管理的关系：** HIGH 敏感性的策略在低流动性品种上尤其危险，应结合流动性分级（见下方）综合评估。
+
+### Monte Carlo 压力测试
+
+1000 次 Bootstrap 重采样，输出模拟 CVaR、模拟最大回撤分布，判定为 ROBUST/ACCEPTABLE/FRAGILE：
+
+```bash
+python tests/robustness/stress_test.py --strategy <strategy> --symbol <symbol>
+```
+
+**关键输出指标：**
+
+| 指标 | 含义 | 健康范围 |
+|------|------|---------|
+| 模拟 CVaR 95% | 压力场景下最差 5% 平均损失 | > -3% (日) |
+| 模拟 MaxDD 中位数 | Bootstrap 回撤分布中位数 | < 回测 MaxDD 的 1.5x |
+| 模拟 MaxDD 95 分位 | 极端场景回撤 | < -20% |
+
+### Portfolio 选择稳定性测试
+
+通过数据扰动评估策略在 Portfolio 中的稳定性，分类为 CORE/SATELLITE/EDGE：
+
+```bash
+python portfolio/stability_test.py --portfolio <weights_file>
+```
+
+- **CORE** — >80% 扰动中被选入，是组合的可靠成员
+- **SATELLITE** — 50-80% 扰动中被选入，权重应保守设置
+- **EDGE** — <50% 扰动中被选入，考虑移除
+
+**作为风险管理工具：** EDGE 策略过多的 Portfolio 在市场环境变化时容易解体。建议 CORE 策略权重合计 > 50%。
 
 ---
 

@@ -639,6 +639,66 @@ python -m attribution.drawdown --portfolio <weights_file>
 
 ---
 
+## 鲁棒性测试（Portfolio 上线前必做）
+
+Portfolio 构建完成后、最终评估前，必须通过以下鲁棒性测试：
+
+### 滑点敏感性测试（必须）
+
+测试 Portfolio 中每个策略在不同滑点水平下的表现衰减：
+
+```bash
+python tests/robustness/slippage_test.py --strategy <strategy> --symbol <symbol>
+```
+
+**判定标准：**
+
+| 判定 | 含义 | 动作 |
+|------|------|------|
+| **LOW** | 2x 滑点下 Sharpe 下降 < 15% | 正常使用 |
+| **MODERATE** | 2x 滑点下 Sharpe 下降 15-30% | 可用，但权重上限收紧至 10% |
+| **HIGH** | 2x 滑点下 Sharpe 下降 > 30% | 从 Portfolio 中移除或大幅降权 |
+
+### Monte Carlo 压力测试（必须）
+
+对 Portfolio 整体做 1000 次 Bootstrap 重采样，评估在各种随机序列下的稳健性：
+
+```bash
+python tests/robustness/stress_test.py --strategy <strategy> --symbol <symbol>
+```
+
+**判定标准：**
+
+| 判定 | 含义 | 动作 |
+|------|------|------|
+| **ROBUST** | 95% CI 下界 > 0，CVaR 可控 | 可以上线 |
+| **ACCEPTABLE** | 95% CI 下界接近 0，CVaR 偏高 | 可用，需要更严格的 Portfolio 止损 |
+| **FRAGILE** | 95% CI 跨零或 CVaR 极端 | 不能上线，需要简化或重构 |
+
+### 选择稳定性测试（推荐）
+
+测试 Portfolio 策略选择在数据扰动下的稳定性，将每个策略分类为 CORE/SATELLITE/EDGE：
+
+```bash
+# 独立运行
+python portfolio/stability_test.py --portfolio <weights_file>
+
+# 或在 builder 中集成运行
+python portfolio/builder.py --symbol AG --stability-test 100
+```
+
+**策略分类：**
+
+| 分类 | 含义 | 说明 |
+|------|------|------|
+| **CORE** | 在 >80% 的扰动中被选入 | 组合的核心成员，权重可信 |
+| **SATELLITE** | 在 50-80% 的扰动中被选入 | 有价值但不稳定，权重应保守 |
+| **EDGE** | 在 <50% 的扰动中被选入 | 边缘策略，考虑移除或大幅降权 |
+
+如果 Portfolio 中 EDGE 策略占比 > 30%，说明组合选择不稳定，需要扩大策略池或简化选择标准。
+
+---
+
 ## Portfolio Checklist
 
 1. 所有候选策略已完成 Step 1-4.5
@@ -648,6 +708,9 @@ python -m attribution.drawdown --portfolio <weights_file>
 5. 检查 Bootstrap CI — 95% 下界 > 0
 6. 检查 regime 覆盖 — 组合不应全依赖同一 regime
 7. Portfolio Sharpe > 最佳单策略的 80%
-8. 评分 ≥ 75 分 (B+)（via scorer.py）
-9. 保存权重到 `strategies/<category>/portfolio/weights_<symbol>.json`
-10. Commit: `[portfolio] <category> <symbol> portfolio weights`
+8. **滑点敏感性测试** — 所有策略判定不为 HIGH（`slippage_test.py`）
+9. **Monte Carlo 压力测试** — 整体判定不为 FRAGILE（`stress_test.py`）
+10. **选择稳定性测试**（推荐） — EDGE 策略占比 < 30%（`stability_test.py`）
+11. 评分 ≥ 75 分 (B+)（via scorer.py）
+12. 保存权重到 `strategies/<category>/portfolio/weights_<symbol>.json`
+13. Commit: `[portfolio] <category> <symbol> portfolio weights`
