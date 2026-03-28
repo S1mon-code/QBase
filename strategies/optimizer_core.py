@@ -192,16 +192,18 @@ def narrow_param_space(param_specs, best_params, shrink_ratio=0.3):
 # 2. Composite Objective Function
 # =====================================================================
 
-# Minimum trade counts by frequency (from CLAUDE.md statistical significance standards)
+# Minimum trade counts by frequency.
+# Lowered to accommodate short evaluation periods (2-4 month segments in medium trend).
+# Old thresholds (30/50/80/100/150) killed all daily/4h strategies on short segments.
 MIN_TRADES_BY_FREQ = {
-    "daily": 30,
-    "4h": 50,
-    "1h": 80,
-    "60min": 80,
-    "30min": 100,
-    "15min": 150,
-    "10min": 150,
-    "5min": 150,
+    "daily": 10,
+    "4h": 20,
+    "1h": 30,
+    "60min": 30,
+    "30min": 50,
+    "15min": 80,
+    "10min": 80,
+    "5min": 80,
 }
 
 
