@@ -170,7 +170,7 @@ def optimize_single(version, n_trials=50, phase="coarse",
         t0 = time.time()
         data_dir = get_data_dir()
 
-        def objective_fn(params):
+        def objective_fn(params, scoring_mode="tanh"):
             """Evaluate across multiple training segments using composite_objective."""
             strategy = create_strategy_with_params(strategy_cls, params)
             results = []
@@ -186,7 +186,7 @@ def optimize_single(version, n_trials=50, phase="coarse",
             if len(results) < max(3, len(segments) // 3):
                 return -10.0
 
-            return composite_objective(results, min_valid=3, freq=freq)
+            return composite_objective(results, min_valid=3, freq=freq, scoring_mode=scoring_mode)
 
         if phase == "fine":
             coarse = load_coarse_results()
