@@ -149,12 +149,12 @@ def get_strategy_freq(strategy_cls):
 
 
 def optimize_single(version, n_trials=50, phase="coarse",
-                    seed=42, probe_trials=5, multi_seed=False):
+                    seed=42, probe_trials=5, multi_seed=False, force=False):
     """Optimize a single strategy using optimizer_core multi-dimensional scoring."""
     # Skip dead strategies
     result_file = COARSE_RESULTS_FILE if phase == "coarse" else RESULTS_FILE
-    if is_strategy_dead(str(result_file), version):
-        print(f"  Skipping {version}: marked dead/error in results")
+    if not force and is_strategy_dead(str(result_file), version):
+        print(f"  Skipping {version}: marked dead/error in results (use --force to re-run)")
         return None
 
     try:
@@ -320,6 +320,7 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--multi-seed", action="store_true",
                         help="Run multi-seed optimization (3 seeds) for robustness")
+    parser.add_argument("--force", action="store_true", help="Force re-optimization, ignore existing results")
     args = parser.parse_args()
 
     versions = parse_strategy_range(args.strategy)
@@ -342,11 +343,12 @@ def main():
     for version in versions:
         if not (MT_DIR / f"{version}.py").exists():
             continue
-        if version in already_done:
-            print(f"  Skipping {version}: already optimized")
+        if version in already_done and not args.force:
+            print(f"  Skipping {version}: already optimized (use --force to re-run)")
             continue
         r = optimize_single(version, n_trials=args.trials, phase=args.phase,
-                           seed=args.seed, multi_seed=args.multi_seed)
+                           seed=args.seed, multi_seed=args.multi_seed,
+                           force=args.force)
         if r:
             results.append(r)
 

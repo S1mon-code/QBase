@@ -60,10 +60,10 @@ def load_strategy_class(version):
     raise ValueError(f"No TimeSeriesStrategy subclass found in {filepath}")
 
 
-def optimize_single(version, n_trials=80, seed=42, probe_trials=5, multi_seed=False):
+def optimize_single(version, n_trials=80, seed=42, probe_trials=5, multi_seed=False, force=False):
     # Skip dead strategies
-    if is_strategy_dead(str(RESULTS_FILE), version):
-        print(f"  Skipping {version}: marked dead/error in results")
+    if not force and is_strategy_dead(str(RESULTS_FILE), version):
+        print(f"  Skipping {version}: marked dead/error in results (use --force to re-run)")
         return None
 
     try:
@@ -195,6 +195,7 @@ def main():
     parser.add_argument("--trials", type=int, default=80)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--multi-seed", action="store_true")
+    parser.add_argument("--force", action="store_true", help="Force re-optimization, ignore existing results")
     args = parser.parse_args()
 
     if args.strategy == "all":
@@ -210,7 +211,7 @@ def main():
     results = []
     for ver in versions:
         r = optimize_single(ver, n_trials=args.trials, seed=args.seed,
-                           multi_seed=args.multi_seed)
+                           multi_seed=args.multi_seed, force=args.force)
         results.append(r)
 
     save_results(results)

@@ -111,7 +111,7 @@ def evaluate_strategy(version, params, data_dir, scoring_mode="tanh"):
     return composite_objective(results, min_valid=3, freq=freq, scoring_mode=scoring_mode)
 
 
-def optimize_strategy(version, n_trials=80, verbose=True, use_multi_seed=False):
+def optimize_strategy(version, n_trials=80, verbose=True, use_multi_seed=False, force=False):
     """Optimize a single strategy version."""
     import time
 
@@ -119,9 +119,9 @@ def optimize_strategy(version, n_trials=80, verbose=True, use_multi_seed=False):
     results_path = os.path.join(
         QBASE_ROOT, "strategies", "strong_trend", "optimization_results.json"
     )
-    if is_strategy_dead(results_path, version):
+    if not force and is_strategy_dead(results_path, version):
         if verbose:
-            print(f"  Skipping {version}: marked dead/error in results")
+            print(f"  Skipping {version}: marked dead/error in results (use --force to re-run)")
         return None
 
     try:
@@ -247,6 +247,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--trials", type=int, default=80, help="Optuna trials per strategy")
     parser.add_argument("--quiet", action="store_true", help="Suppress progress output")
+    parser.add_argument("--force", action="store_true", help="Force re-optimization, ignore existing results")
     parser.add_argument(
         "--multi-seed", action="store_true",
         help="Enable multi-seed validation (3 seeds, 3x compute — for final top candidates)"
@@ -272,7 +273,7 @@ if __name__ == "__main__":
     all_results = []
     for ver in versions:
         result = optimize_strategy(ver, n_trials=args.trials, verbose=verbose,
-                                   use_multi_seed=use_multi_seed)
+                                   use_multi_seed=use_multi_seed, force=args.force)
         all_results.append(result)
         if result:
             tag = ""
