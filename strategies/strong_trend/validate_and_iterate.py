@@ -27,6 +27,7 @@ from optuna.samplers import TPESampler
 
 from strategies.strong_trend.optimizer import (
     create_strategy_with_params,
+    load_strategy_class,
     run_single_backtest,
     suggest_params,
     PARAM_SPACES,
@@ -268,3 +269,15 @@ if __name__ == "__main__":
     print(f"{'=' * 70}")
     test_results = validate_all()
     write_report(test_results)
+
+    # Attribution analysis (Step 4.5)
+    print(f"\n{'=' * 70}")
+    print("ATTRIBUTION ANALYSIS")
+    print(f"{'=' * 70}")
+
+    from attribution.report import run_full_attribution
+    run_full_attribution(
+        test_results=test_results,
+        load_strategy_fn=load_strategy_class,
+        test_sets=TEST_SETS,
+    )
