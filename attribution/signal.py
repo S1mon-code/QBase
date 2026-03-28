@@ -64,3 +64,139 @@ def run_backtest_full(strategy, symbol, start, end, freq="daily", data_dir=None)
         return result
     except Exception:
         return None
+
+
+def _discover_indicator_arrays(strategy) -> list[dict]:
+    """Auto-discover indicator arrays from a strategy instance.
+
+    Scans for numpy array attributes with '_' prefix, excluding known
+    non-indicator arrays (_atr is used for stop-loss, not signals).
+    """
+    EXCLUDE = {'_atr', '_avg_volume', '_4h_map', '_tradeable_mask'}
+    discovered = []
+    for attr_name in dir(strategy):
+        if not attr_name.startswith('_') or attr_name.startswith('__'):
+            continue
+        if attr_name in EXCLUDE:
+            continue
+        val = getattr(strategy, attr_name, None)
+        if isinstance(val, np.ndarray) and val.ndim == 1 and len(val) > 0:
+            median_val = float(np.nanmedian(val))
+            discovered.append({
+                'name': attr_name.lstrip('_').replace('_', ' ').title(),
+                'array_attr': attr_name,
+                'neutral_value': median_val,
+                'role': 'unknown',
+            })
+    return discovered
+
+
+def run_signal_attribution(
+    strategy_cls,
+    params: dict,
+    symbol: str,
+    start: str,
+    end: str,
+    freq: str = "daily",
+    indicator_config: list[dict] | None = None,
+    data_dir: str | None = None,
+) -> SignalAttributionResult:
+    """Run ablation test for each indicator in the strategy.
+
+    For each indicator, replaces its precomputed array with a neutral value
+    and re-runs the backtest. The difference in Sharpe measures that
+    indicator's contribution.
+    """
+    from strategies.optimizer_core import create_strategy_with_params
+
+    # 1. Baseline run
+    baseline_strategy = create_strategy_with_params(strategy_cls, params)
+    baseline_result = run_backtest_full(baseline_strategy, symbol, start, end, freq, data_dir)
+    if baseline_result is None:
+        return SignalAttributionResult(
+            strategy_version=getattr(strategy_cls, 'name', str(strategy_cls)),
+            symbol=symbol, period=f"{start} ~ {end}",
+            baseline_sharpe=-999.0, baseline_trades=0,
+        )
+
+    baseline_sharpe = float(baseline_result.sharpe)
+    baseline_trades = int(baseline_result.n_trades)
+
+    # 2. Determine indicator config
+    if indicator_config is None:
+        indicator_config = getattr(strategy_cls, 'INDICATOR_CONFIG', None)
+    if indicator_config is None:
+        indicator_config = _discover_indicator_arrays(baseline_strategy)
+
+    if len(indicator_config) <= 1:
+        return SignalAttributionResult(
+            strategy_version=getattr(strategy_cls, 'name', str(strategy_cls)),
+            symbol=symbol, period=f"{start} ~ {end}",
+            baseline_sharpe=baseline_sharpe, baseline_trades=baseline_trades,
+            dominant_indicator=indicator_config[0]['name'] if indicator_config else "",
+        )
+
+    # 3. Ablation: for each indicator, neutralize and re-run
+    contributions = {}
+    for indicator in indicator_config:
+        # Create fresh strategy, run backtest to populate arrays
+        ablated_strategy = create_strategy_with_params(strategy_cls, params)
+        ablated_result_temp = run_backtest_full(
+            ablated_strategy, symbol, start, end, freq, data_dir,
+        )
+        if ablated_result_temp is None:
+            continue
+
+        # Replace the target array with neutral value
+        original_array = getattr(ablated_strategy, indicator['array_attr'], None)
+        if original_array is None or not isinstance(original_array, np.ndarray):
+            continue
+
+        neutral_array = np.full_like(original_array, indicator['neutral_value'])
+        setattr(ablated_strategy, indicator['array_attr'], neutral_array)
+
+        # Patch on_init_arrays to no-op so our modified array survives
+        ablated_strategy.on_init_arrays = lambda ctx, bars: None
+
+        ablated_result = run_backtest_full(
+            ablated_strategy, symbol, start, end, freq, data_dir,
+        )
+        if ablated_result is None:
+            ablated_sharpe = -999.0
+        else:
+            ablated_sharpe = float(ablated_result.sharpe)
+            if np.isnan(ablated_sharpe) or np.isinf(ablated_sharpe):
+                ablated_sharpe = -999.0
+
+        contribution = baseline_sharpe - ablated_sharpe
+        if ablated_sharpe <= -900:
+            contribution = baseline_sharpe
+
+        contributions[indicator['name']] = {
+            'ablated_sharpe': round(ablated_sharpe, 3),
+            'contribution': round(contribution, 3),
+            'pct_contribution': round(
+                contribution / max(abs(baseline_sharpe), 0.01) * 100, 1
+            ),
+            'role': indicator.get('role', 'unknown'),
+        }
+
+    # 4. Determine dominant and redundant
+    dominant = ""
+    redundant = []
+    if contributions:
+        dominant = max(contributions, key=lambda k: contributions[k]['contribution'])
+        for name, c in contributions.items():
+            if abs(c['pct_contribution']) < 5.0:
+                redundant.append(name)
+
+    return SignalAttributionResult(
+        strategy_version=getattr(strategy_cls, 'name', str(strategy_cls)),
+        symbol=symbol,
+        period=f"{start} ~ {end}",
+        baseline_sharpe=round(baseline_sharpe, 3),
+        baseline_trades=baseline_trades,
+        contributions=contributions,
+        dominant_indicator=dominant,
+        redundant_indicators=redundant,
+    )

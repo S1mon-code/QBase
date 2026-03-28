@@ -44,6 +44,12 @@ class StrongTrendV12(TimeSeriesStrategy):
     # ----- Position sizing -----
     contract_multiplier: float = 100.0  # Default for most commodities
 
+    INDICATOR_CONFIG = [
+        {'name': 'Aroon Oscillator', 'array_attr': '_aroon_osc', 'neutral_value': 100, 'role': 'trend'},
+        {'name': 'PPO Histogram', 'array_attr': '_ppo_hist', 'neutral_value': 1.0, 'role': 'momentum'},
+        {'name': 'Volume Momentum', 'array_attr': '_vol_mom', 'neutral_value': 2.0, 'role': 'volume'},
+    ]
+
     def __init__(self):
         super().__init__()
         self._aroon_up = None

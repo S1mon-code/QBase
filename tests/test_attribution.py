@@ -53,3 +53,43 @@ class TestRunBacktestFull:
         strategy = create_strategy_with_params(strategy_cls, {})
         result = run_backtest_full(strategy, "INVALID_SYMBOL", "2025-01-01", "2026-03-01")
         assert result is None
+
+
+class TestSignalAttribution:
+    """Test signal ablation engine."""
+
+    def test_ablation_produces_different_sharpes(self):
+        """Ablating an important indicator should change the Sharpe."""
+        from attribution.signal import run_signal_attribution
+
+        strategy_cls = _load_strategy_class("v12")
+        params = {
+            "aroon_period": 20, "ppo_fast": 19, "ppo_slow": 29,
+            "vol_mom_period": 25, "atr_trail_mult": 4.814,
+        }
+        result = run_signal_attribution(
+            strategy_cls, params, "AG", "2025-01-01", "2026-03-01", freq="daily",
+        )
+        assert result.baseline_sharpe > 0
+        assert len(result.contributions) == 3
+        max_contrib = max(c['contribution'] for c in result.contributions.values())
+        assert max_contrib > 0.1, "At least one indicator should matter"
+        assert result.dominant_indicator != ""
+
+    def test_auto_discovery_without_config(self):
+        """Auto-discovery should find indicator arrays when no INDICATOR_CONFIG."""
+        from attribution.signal import _discover_indicator_arrays, run_backtest_full
+        from strategies.optimizer_core import create_strategy_with_params
+
+        strategy_cls = _load_strategy_class("v12")
+        params = {
+            "aroon_period": 20, "ppo_fast": 19, "ppo_slow": 29,
+            "vol_mom_period": 25, "atr_trail_mult": 4.814,
+        }
+        strategy = create_strategy_with_params(strategy_cls, params)
+        run_backtest_full(strategy, "AG", "2025-01-01", "2026-03-01", freq="daily")
+
+        discovered = _discover_indicator_arrays(strategy)
+        array_names = [d['array_attr'] for d in discovered]
+        assert '_atr' not in array_names, "_atr (stop-loss) should be excluded"
+        assert len(discovered) >= 3, "Should discover at least 3 indicator arrays"
