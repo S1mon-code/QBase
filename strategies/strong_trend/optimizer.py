@@ -41,6 +41,8 @@ from strategies.optimizer_core import (
     build_result_entry,
     detect_strategy_status,
     is_strategy_dead,
+    save_results_atomic,
+    auto_calibrate_params,
 )
 
 # =========================================================================
@@ -144,6 +146,14 @@ def optimize_strategy(version, n_trials=80, verbose=True, use_multi_seed=False):
         print(f"  WARNING: No tunable params for {version}")
         return None
 
+    # Auto-calibrate: widen ranges if default params produce zero trades
+    first_symbol = TRAINING_SYMBOLS[0]
+    first_start, first_end = TRAINING_PERIODS[first_symbol]
+    param_specs = auto_calibrate_params(
+        strategy_cls, param_specs, first_symbol, first_start, first_end,
+        freq=freq, data_dir=DATA_DIR,
+    )
+
     if verbose:
         print(f"\n{'='*60}")
         print(f"Optimizing {version} ({STRATEGY_CLASSES[version]})")
@@ -200,7 +210,7 @@ def optimize_strategy(version, n_trials=80, verbose=True, use_multi_seed=False):
 
 
 def save_results(results: list, output_path: str = None):
-    """Save optimization results to JSON."""
+    """Save optimization results to JSON with file locking."""
     if output_path is None:
         output_path = os.path.join(
             QBASE_ROOT, "strategies", "strong_trend", "optimization_results.json"
@@ -220,9 +230,7 @@ def save_results(results: list, output_path: str = None):
             }
         clean.append(entry)
 
-    with open(output_path, "w") as f:
-        json.dump(clean, f, indent=2)
-    print(f"\nResults saved to {output_path}")
+    save_results_atomic(output_path, clean)
 
 
 # =========================================================================
@@ -250,6 +258,14 @@ if __name__ == "__main__":
 
     if args.strategy == "all":
         versions = [f"v{i}" for i in range(1, 201)]
+    elif "," in args.strategy:
+        versions = [v.strip() for v in args.strategy.split(",")]
+    elif "-" in args.strategy and args.strategy.count("-") == 1:
+        # Range: v51-v75 → [v51, v52, ..., v75]
+        parts = args.strategy.split("-")
+        start = int(parts[0].replace("v", ""))
+        end = int(parts[1].replace("v", ""))
+        versions = [f"v{i}" for i in range(start, end + 1)]
     else:
         versions = [args.strategy]
 

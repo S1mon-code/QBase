@@ -37,6 +37,8 @@ from strategies.optimizer_core import (
     build_result_entry,
     detect_strategy_status,
     is_strategy_dead,
+    save_results_atomic,
+    auto_calibrate_params,
 )
 
 
@@ -60,6 +62,8 @@ PUBLIC_FUNCTIONS = {
     "build_result_entry": build_result_entry,
     "detect_strategy_status": detect_strategy_status,
     "is_strategy_dead": is_strategy_dead,
+    "save_results_atomic": save_results_atomic,
+    "auto_calibrate_params": auto_calibrate_params,
 }
 
 # The 5 optimizer files

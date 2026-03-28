@@ -39,6 +39,7 @@ from strategies.optimizer_core import (
     optimize_two_phase, optimize_multi_seed,
     narrow_param_space, map_freq, resample_bars,
     build_result_entry, detect_strategy_status, is_strategy_dead,
+    save_results_atomic, auto_calibrate_params,
 )
 
 logging.getLogger("alphaforge").setLevel(logging.ERROR)
@@ -177,13 +178,20 @@ def optimize_single(version, n_trials=50, phase="coarse",
             print(f"  WARNING: No tunable params for {version}")
             return None
 
+        # Auto-calibrate: widen ranges if default params produce zero trades
+        segments = get_optim_segments(freq)
+        data_dir = get_data_dir()
+        first_sym, first_start, first_end = segments[0]
+        param_specs = auto_calibrate_params(
+            strategy_cls, param_specs, first_sym, first_start, first_end,
+            freq=freq, data_dir=data_dir, initial_capital=DEFAULT_CAPITAL,
+        )
+
         print(f"  Parameters: {[(p['name'], round(p['low'],2), round(p['high'],2)) for p in param_specs]}")
 
-        segments = get_optim_segments(freq)
         print(f"  Training on {len(segments)} segments (freq={freq})")
 
         t0 = time.time()
-        data_dir = get_data_dir()
 
         _INTRADAY_FREQS = frozenset({"4h", "1h", "60min", "30min", "15min", "10min", "5min"})
 
@@ -289,20 +297,8 @@ def load_coarse_results():
 
 
 def save_results(results, filepath):
-    existing = []
-    if filepath.exists():
-        try:
-            with open(filepath) as f:
-                existing = json.load(f)
-        except Exception:
-            existing = []
-    existing_map = {r["version"]: r for r in existing}
-    for r in results:
-        existing_map[r["version"]] = r
-    merged = sorted(existing_map.values(), key=lambda r: int(r["version"][1:]))
-    with open(filepath, 'w') as f:
-        json.dump(merged, f, indent=2, default=str)
-    print(f"\nResults saved to {filepath} ({len(merged)} total, {len(results)} new)")
+    """Save optimization results with file locking."""
+    save_results_atomic(str(filepath), results)
 
 
 def parse_strategy_range(s):

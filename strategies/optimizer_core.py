@@ -1246,6 +1246,125 @@ def detect_strategy_status(result: dict) -> str:
     return "active"
 
 
+def save_results_atomic(results_file, new_results):
+    """Atomically append/update results to JSON file with file locking.
+
+    Uses fcntl.flock to prevent race conditions when multiple optimizer
+    processes write to the same results file simultaneously.
+
+    Args:
+        results_file: Path to the JSON results file (str or Path).
+        new_results: List of result dicts to merge into the file.
+                     Each must have a 'version' key.
+    """
+    import fcntl
+    import json
+    import os
+
+    results_file = str(results_file)
+    lock_file = results_file + ".lock"
+
+    with open(lock_file, 'w') as lock_fh:
+        fcntl.flock(lock_fh, fcntl.LOCK_EX)  # Exclusive lock
+        try:
+            # Read existing
+            existing = []
+            if os.path.exists(results_file):
+                try:
+                    with open(results_file) as f:
+                        existing = json.load(f)
+                except (json.JSONDecodeError, Exception):
+                    existing = []
+
+            # Merge: update existing entries, append new ones
+            existing_versions = {r['version']: i for i, r in enumerate(existing)}
+            for result in new_results:
+                if result is None:
+                    continue
+                ver = result['version']
+                if ver in existing_versions:
+                    existing[existing_versions[ver]] = result  # Update
+                else:
+                    existing.append(result)  # Append
+
+            # Sort by version number
+            try:
+                existing.sort(key=lambda r: int(r["version"][1:]))
+            except (ValueError, KeyError):
+                pass  # Keep current order if versions aren't standard vN format
+
+            # Write atomically (write to temp, rename)
+            tmp_file = results_file + ".tmp"
+            with open(tmp_file, 'w') as f:
+                json.dump(existing, f, indent=2, default=str)
+            os.replace(tmp_file, results_file)
+        finally:
+            fcntl.flock(lock_fh, fcntl.LOCK_UN)
+
+    print(f"\nResults saved to {results_file} ({len(existing)} total, "
+          f"{sum(1 for r in new_results if r is not None)} new/updated)")
+
+
+def auto_calibrate_params(strategy_cls, param_specs, symbol, start, end,
+                          freq="daily", data_dir=None, initial_capital=1_000_000):
+    """If default params produce zero trades, widen search ranges.
+
+    Runs a single backtest with the strategy's default parameters. If it
+    produces zero trades, threshold-type parameters likely have unrealistic
+    defaults, so the search ranges are widened aggressively.
+
+    Args:
+        strategy_cls: Strategy class (not instance).
+        param_specs: List of param spec dicts from auto_discover_params.
+        symbol: Symbol to test on (first training symbol).
+        start: Start date string (or None for all available data).
+        end: End date string.
+        freq: Frequency string.
+        data_dir: Data directory.
+        initial_capital: Initial capital for backtest.
+
+    Returns:
+        param_specs (possibly widened).
+    """
+    strategy = strategy_cls()
+    result = run_single_backtest(
+        strategy, symbol, start, end,
+        freq=freq, data_dir=data_dir,
+        initial_capital=initial_capital,
+        config_mode="basic",
+    )
+
+    n_trades = result.get('n_trades')
+    if n_trades is not None and n_trades > 0:
+        return param_specs  # Default params work, ranges are fine
+
+    # Zero trades — widen threshold ranges
+    widened = []
+    any_widened = False
+    for spec in param_specs:
+        name = spec['name']
+        # Widen threshold/mult params more aggressively
+        if any(kw in name.lower() for kw in ('threshold', 'thresh', 'entry', 'exit')):
+            new_low = spec['low'] * 0.1  # Much wider
+            new_high = spec['high'] * 2.0
+            if spec['dtype'] == 'int':
+                new_low = max(1, int(new_low))
+                new_high = int(new_high)
+            widened.append({**spec, 'low': new_low, 'high': new_high})
+            any_widened = True
+        else:
+            widened.append(spec)
+
+    if any_widened:
+        print(f"  AUTO-CALIBRATE: default params → 0 trades, widened threshold ranges")
+        for orig, new in zip(param_specs, widened):
+            if orig['low'] != new['low'] or orig['high'] != new['high']:
+                print(f"    {orig['name']}: [{orig['low']:.4f}, {orig['high']:.4f}] → "
+                      f"[{new['low']:.4f}, {new['high']:.4f}]")
+
+    return widened
+
+
 def is_strategy_dead(results_file: str, version: str) -> bool:
     """Check if a strategy is marked dead/error in existing results.
 
