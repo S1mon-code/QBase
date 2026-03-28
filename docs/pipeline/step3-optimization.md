@@ -11,16 +11,23 @@
 所有优化逻辑统一由 `optimizer_core.py` 提供，各优化器调用它：
 
 ```
-optimizer_core.py (共享基础设施)
-├── 参数自动发现 (auto_discover_params)
-├── 复合目标函数 (composite_objective)
-├── 两阶段优化   (optimize_two_phase: 粗调→精调→稳健性检查)
-├── 多种子验证   (optimize_multi_seed: 3种子→取中位数)
-├── 稳健性检查   (check_robustness: 邻域采样→高原/尖峰判断)
-└── 统一回测接口 (run_single_backtest: 频率映射+bar重采样)
+optimizer_core.py (共享基础设施, 25 函数, ~1200 行)
+├── 参数自动发现    (auto_discover_params)
+├── 复合目标函数    (composite_objective)
+├── 两阶段优化      (optimize_two_phase: 粗调→探针验证→精调→稳健性检查)
+├── 多种子验证      (optimize_multi_seed: 3种子→取中位数)
+├── 稳健性检查      (check_robustness: 邻域采样→高原/尖峰判断)
+├── 统一回测接口    (run_single_backtest: 频率映射+bar重采样)
+├── 统一结果构建    (build_result_entry: 统一 JSON schema)
+├── 策略状态检测    (detect_strategy_status: active/dead/error/import_error)
+├── 死策略跳过      (is_strategy_dead: 重跑时跳过已确认死亡的策略)
+└── 边界保护        (narrow_param_space: 参数靠近边界时自动扩展范围)
 
-strategies/strong_trend/optimizer.py  → 调用 optimizer_core（多品种评估）
-strategies/all_time/ag/optimizer.py   → 调用 optimizer_core（单品种评估）
+strategies/strong_trend/optimizer.py     → 调用 optimizer_core（多品种评估）
+strategies/all_time/ag/optimizer.py      → 调用 optimizer_core（单品种评估）
+strategies/all_time/i/optimizer.py       → 调用 optimizer_core（单品种评估）
+strategies/medium_trend/optimizer.py     → 调用 optimizer_core（多品种评估）
+strategies/all_time/ag/boss_optimizer.py → Boss 优化器（scoring_mode 已修复）
 ```
 
 ---
@@ -185,18 +192,24 @@ S_sharpe = min(10, sharpe * 10 / 3)
 
 ## 两阶段优化（optimize_two_phase）
 
-默认优化流程，自动执行粗调->精调->稳健性检查三步：
+默认优化流程，自动执行粗调->探针验证->精调->稳健性检查四步：
 
 ```
-Phase 1: 粗调 (coarse)          Phase 2: 精调 (fine)         Phase 3: 稳健性
-───────────────────────        ──────────────────────       ──────────────────
-全范围 TPE 搜索                 围绕粗调最优 ±15% 范围       最优参数 ±15% 邻域
-30 trials (含 5 probe)          50 trials                    max(20, n_params*5) 采样
-  |                               |                           |
-  ├─ probe 全失败 → 早停          ├─ 取 coarse vs fine 较优    ├─ >=60% 邻居 > 最优50%
-  └─ Sharpe <= -5 → 跳过精调     └─ 步长减半，精确寻优          → PLATEAU (稳健)
-                                                               → SPIKE (噪音)
+Phase 1: 粗调 (coarse)     Probe 验证            Phase 2: 精调 (fine)         Phase 3: 稳健性
+───────────────────────   ──────────────────     ──────────────────────       ──────────────────
+全范围 TPE 搜索            粗调最优参数验证        围绕粗调最优 ±15% 范围       最优参数 ±15% 邻域
+30 trials (含 5 probe)     检测是否在死区          50 trials                    max(20, n_params*5) 采样
+  |                          |                      |                           |
+  ├─ probe 全失败 → 早停     ├─ dead → 跳过精调     ├─ 取 coarse vs fine 较优    ├─ >=60% 邻居 > 最优50%
+  └─ Sharpe <= -5 → 验证    └─ active → 继续       └─ 步长减半，精确寻优          → PLATEAU (稳健)
+                                                                                 → SPIKE (噪音)
 ```
+
+### Probe 验证（精调前置检查）
+
+粗调完成后、进入精调前，先对粗调最优参数做一次 `detect_strategy_status()` 检查。如果粗调最优参数处于"死区"（strategy status = dead），则跳过精调阶段，避免浪费算力。
+
+**解决的问题：** I All-Time 策略池中大量策略粗调最优 Sharpe 极低（如 -3.0），精调在这些参数附近搜索毫无意义。Probe 验证在精调前拦截这些情况。
 
 ### Strong Trend 用法
 
@@ -250,6 +263,57 @@ python strategies/all_time/ag/optimizer.py --strategy v1 --trials 50 --multi-see
 - 跨种子一致性检查：`std < 50% * mean` -> CONSISTENT，否则 -> INCONSISTENT
 
 **3x 算力成本**，不建议对全部策略开启。
+
+---
+
+## 边界保护（narrow_param_space）
+
+精调阶段围绕粗调最优参数 ±15% 缩小搜索范围。但如果最优参数靠近原始搜索空间的边界，±15% 会被截断，导致精调空间不对称或过窄。
+
+**边界保护机制：** `narrow_param_space` 检测参数是否在原始范围边界附近（距边界 < 总范围的 10%），如果是，自动向边界外扩展搜索范围，确保精调有足够的探索空间。
+
+```
+原始范围: [2.0, 5.5]
+粗调最优: 5.3 (靠近上边界)
+无保护:   [4.5, 5.5]  ← 被截断，只向下搜索
+有保护:   [4.5, 5.8]  ← 向上扩展，双向搜索
+```
+
+---
+
+## 新增核心函数
+
+### build_result_entry() — 统一 JSON Schema 构建器
+
+所有 5 个优化器现在通过 `build_result_entry()` 生成统一格式的结果 JSON，确保输出字段一致：
+
+```python
+entry = build_result_entry(
+    version="v12",
+    best_params={...},
+    best_sharpe=2.45,
+    best_score=7.83,
+    status="active",         # active/dead/error/import_error
+    n_trials=80,
+    phase="two_phase",
+    robustness={...},
+)
+```
+
+### detect_strategy_status() — 策略状态自动分类
+
+根据优化结果自动判定策略状态：
+
+| 状态 | 条件 | 含义 |
+|------|------|------|
+| `active` | Sharpe > 阈值且有有效交易 | 正常策略，可进入精调/portfolio |
+| `dead` | Sharpe 极低或交易次数不足 | 策略在该品种/频率上无效 |
+| `error` | 回测过程中抛出异常 | 代码错误，需修复 |
+| `import_error` | 策略类无法导入 | 文件/依赖问题 |
+
+### is_strategy_dead() — 重跑时跳过死策略
+
+读取已有优化结果文件，如果策略的 status 为 `dead`，在批量重跑时自动跳过，节省算力。适用于增量优化场景（新增策略后只跑新策略 + 非 dead 策略）。
 
 ---
 
@@ -314,23 +378,38 @@ done
 ## 优化器位置与配置
 
 ```
-strategies/optimizer_core.py             # 共享优化基础设施（目标函数/两阶段/稳健性/多种子）
+strategies/optimizer_core.py             # 共享优化基础设施（25 函数, ~1200 行）
 strategies/strong_trend/optimizer.py     # 强趋势优化器（多品种评估）
 strategies/all_time/ag/optimizer.py      # AG 全时间优化器（单品种评估）
-strategies/medium_trend/optimizer.py     # 中趋势优化器（待开发）
+strategies/all_time/ag/boss_optimizer.py # AG Boss 优化器（scoring_mode bug 已修复）
+strategies/all_time/i/optimizer.py       # I 全时间优化器（单品种评估）
+strategies/medium_trend/optimizer.py     # 中趋势优化器（全频率优化中）
 ```
 
 ### 优化结果保存
 
-- `optimization_results.json` — 每个策略的最优参数、Sharpe、稳健性标记
-- 粗调结果保存在 `optimization_coarse.json`（All-Time AG）
+- `optimization_results.json` — 每个策略的最优参数、Sharpe、Score、状态、稳健性标记
+- 粗调结果保存在 `optimization_coarse.json`（All-Time AG/I）
 
-### 输出字段
+### 统一输出字段（所有 5 个优化器）
 
-- `version`, `best_sharpe`, `best_params`, `n_trials` — 基本信息
+所有优化器通过 `build_result_entry()` 输出统一 JSON schema：
+
+- `version`, `best_sharpe`, `best_score`, `best_params`, `n_trials` — 基本信息
+- `status` — 策略状态（`active` / `dead` / `error` / `import_error`）
 - `robustness` — `{is_robust, neighbor_mean, neighbor_std, above_threshold_pct}`
 - `is_consistent` — 多种子一致性（仅 `--multi-seed` 时）
 - `phase` — 优化阶段（`two_phase` / `coarse_only` / `probe_failed`）
+
+**注意：** `best_sharpe` 和 `best_score` 都会输出。`best_sharpe` 是纯 Sharpe Ratio，`best_score` 是复合目标函数得分（含风险、质量、稳定性权重）。Portfolio 构建时通常参考 `best_score`。
+
+### 当前优化成果
+
+| 策略池 | 策略数 | 精调数 | Sharpe 范围 | Score 范围 | 说明 |
+|--------|:-----:|:-----:|:-----------:|:----------:|------|
+| AG All-Time | 100 | Top 50 | 2.22 - 7.43 | — | 精调完成 |
+| Medium Trend | 200 | Top 45 | — | 1.93 - 9.26 | 43/45 robust |
+| I All-Time | 200 | 进行中 | — | — | probe 验证已修复 |
 
 ---
 

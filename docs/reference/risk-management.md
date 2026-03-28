@@ -177,6 +177,23 @@ if context.is_rollover:
 
 ---
 
+## 回撤归因工具
+
+Portfolio 回撤发生时，使用回撤归因工具快速定位原因：
+
+```bash
+python -m attribution.drawdown --portfolio <weights_file>
+```
+
+**输出：**
+- 按回撤事件分解，显示哪些策略在回撤中亏损最多
+- 回撤主要发生在哪种 regime 下（强趋势/弱趋势/高波动等）
+- 帮助决定是否需要调整权重、添加对冲策略或触发退役流程
+
+结合 `attribution.decay`（alpha 衰减检测）可判断回撤是暂时的还是策略失效的信号。
+
+---
+
 ## 注意事项速查
 
 - 所有策略必须使用预计算模式（on_init_arrays + context.bar_index 查表）

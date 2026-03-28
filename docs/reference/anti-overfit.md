@@ -14,6 +14,8 @@
 6. **Walk-forward** — 对关键策略做滚动验证（5年训练 → 1年测试），确认参数稳定性
 7. **一致性奖励** — 重优化时目标函数加入 `min_sharpe * 0.3` bonus，奖励所有品种都盈利的参数
 8. **Walk-Forward Validator** — 独立工具 (`strategies/walk_forward.py`) 做滚动窗口验证。每个窗口独立优化（30 trials coarse-only）+ 样本外测试。要求 Win Rate ≥ 50%，Mean Sharpe > 0。结果存入 `research_log/walk_forward/`
+9. **失败模式分析** — `strategies/all_time/ag/analyze_failures.py` 按策略类别统计失败率，识别常见失败模式（信号过稀、参数边界、死区等），指导后续开发方向
+10. **367 个单元测试** — 覆盖指标计算、策略逻辑、优化器行为、归因分析等全链路（从最初的 46 个扩展到 367 个）
 
 ---
 
@@ -253,6 +255,50 @@ concentration = sum(top_10%_days_PnL) / total_profit
 8. **daily 频率占据 Top 10 中 9 席** — 高频不一定更好
 9. **多周期策略不推荐** — 增加复杂度但未增加 alpha
 10. **1 个强指标 > 3 个弱指标** — 简单优先原则的实证
+
+---
+
+## Walk-Forward Validator 使用指南
+
+独立工具 `strategies/walk_forward.py`，对关键策略做滚动窗口验证：
+
+```bash
+# 基本用法
+python strategies/walk_forward.py --strategy strong_trend/v12 --symbol AG
+
+# 自定义窗口
+python strategies/walk_forward.py --strategy all_time/ag/v1 --symbol AG \
+    --train-years 5 --test-years 1 --start 2015 --end 2026
+```
+
+**流程：**
+1. 按滚动窗口切分数据（默认 5 年训练 + 1 年测试）
+2. 每个窗口独立运行 30 trials coarse-only 优化
+3. 用优化参数在该窗口的测试段上回测
+4. 汇总所有窗口结果
+
+**通过标准：**
+- Win Rate >= 50%（超过半数窗口测试集 Sharpe > 0）
+- Mean Sharpe > 0（平均测试集 Sharpe 为正）
+
+**结果保存：** `research_log/walk_forward/{strategy}_{symbol}.json`
+
+---
+
+## 失败模式分析
+
+当策略池中大量策略表现不佳时，使用 `analyze_failures.py` 做系统性分析：
+
+```bash
+python strategies/all_time/ag/analyze_failures.py
+```
+
+**功能：**
+- 按策略类别统计失败率（趋势/均值回归/突破/多周期/自适应）
+- 识别常见失败模式（信号过稀、参数边界、Sharpe 负值等）
+- 指导后续开发方向（哪类策略值得继续、哪些应放弃）
+
+**与防过拟合的关系：** 失败分析帮助识别"结构性无效"的策略类型（如某些均值回归策略在趋势品种上天然无效），避免通过过度优化来"拯救"本质无效的策略。
 
 ---
 

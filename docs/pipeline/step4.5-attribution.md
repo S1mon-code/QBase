@@ -129,6 +129,50 @@ generate_attribution_report(signal, regime, "research_log/attribution/v12_AG.md"
 
 ---
 
+## 批量归因与高级分析工具
+
+### 批量归因（Batch Attribution）
+
+对 Portfolio 中的所有策略一次性运行归因分析：
+
+```bash
+python -m attribution.batch --portfolio strategies/all_time/ag/portfolio/weights_ag.json
+```
+
+自动对 Portfolio 中每个策略运行信号归因 + 行情归因，生成汇总报告。
+
+### Regime 覆盖矩阵（Coverage Matrix）
+
+检查 Portfolio 在各 regime 下的覆盖情况，自动检测 RED FLAG（所有策略都依赖同一 regime）：
+
+```bash
+python -m attribution.coverage --portfolio strategies/all_time/ag/portfolio/weights_ag.json
+```
+
+**输出：** regime × strategy 矩阵，标注每个策略在每种 regime 下的 PnL 正负。如果某个 regime 列全为负，标记为 **RED FLAG**。
+
+### 回撤归因（Drawdown Attribution）
+
+分析回撤期间各策略和 regime 的贡献，定位回撤的主要来源：
+
+```bash
+python -m attribution.drawdown --portfolio strategies/all_time/ag/portfolio/weights_ag.json
+```
+
+**输出：** 按回撤事件分解，显示哪些策略在回撤中亏损最多、回撤主要发生在哪种 regime 下。
+
+### Alpha 衰减检测（Alpha Decay）
+
+通过滚动 IC（Information Coefficient）检测策略 alpha 是否随时间衰减：
+
+```bash
+python -m attribution.decay --strategy v12 --symbol AG
+```
+
+**输出：** 滚动 IC 时间序列，如果 IC 持续下降，表明策略 alpha 正在衰减，需要关注或考虑退役。
+
+---
+
 ## 归因后的决策
 
 ### 策略简化

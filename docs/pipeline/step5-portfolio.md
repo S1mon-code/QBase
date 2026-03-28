@@ -599,6 +599,21 @@ python portfolio/scorer.py
 3. 确保组合在至少 2/3 的 regime 类型下有正 PnL 的策略
 4. 如发现 regime 盲区，补充相应策略
 
+**现已有自动化工具支持：**
+
+```bash
+# 批量归因：对 Portfolio 中所有策略运行信号+行情归因
+python -m attribution.batch --portfolio <weights_file>
+
+# Regime 覆盖矩阵：自动检测 RED FLAG（某 regime 下无正 PnL 策略）
+python -m attribution.coverage --portfolio <weights_file>
+
+# 回撤归因：分析回撤期间各策略和 regime 的贡献
+python -m attribution.drawdown --portfolio <weights_file>
+```
+
+这些工具应在 Portfolio 构建完成后、最终评估前运行，作为 Tier 2 质量门槛的一部分。
+
 ---
 
 ## 权重文件格式

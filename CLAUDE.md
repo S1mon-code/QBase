@@ -1,20 +1,23 @@
 # QBase — Agent 开发指南
 
-QBase 是量化策略研究工作区。320 个指标 + 350+ 策略，回测引擎由 AlphaForge 提供。
+QBase 是量化策略研究工作区。320 个指标 + 350+ 策略，回测引擎由 AlphaForge 提供。367 个单元测试覆盖全链路。
 
 ## 项目结构
 
 ```
 QBase/
 ├── indicators/          # 320个指标（10大类，纯numpy函数）
-├── attribution/         # 归因分析（信号ablation + 行情regime）
+├── attribution/         # 归因分析（信号ablation + 行情regime + batch/coverage/drawdown/decay）
 ├── portfolio/           # Portfolio 构建（穷举/贪心 + HRP + Bootstrap）
 ├── strategies/
-│   ├── optimizer_core.py    # 共享优化基础设施
+│   ├── optimizer_core.py    # 共享优化基础设施（25函数, ~1200行）
+│   ├── walk_forward.py      # Walk-Forward 滚动验证工具
+│   ├── template_simple.py   # 简单策略模板（90%场景）
+│   ├── template_full.py     # 完整策略模板（复杂场景）
 │   ├── strong_trend/        # 50个强趋势策略 (v1-v50)
-│   ├── all_time/ag/         # AG 100个全时间策略
+│   ├── all_time/ag/         # AG 100个全时间策略（含 analyze_failures.py）
 │   ├── all_time/i/          # I 200个全时间策略
-│   ├── medium_trend/        # 待开发
+│   ├── medium_trend/        # 200个中趋势策略（V4迁移完成）
 │   └── mean_reversion/      # 待开发
 ├── trend/               # 行情时段数据（RALLIES.md, MEDIUM_TRENDS.md）
 ├── screener/            # 品种筛选器
@@ -116,7 +119,25 @@ from attribution.report import generate_attribution_report
 # ...
 "
 
-# 测试
+# 批量归因（Portfolio 全策略）
+python -m attribution.batch --portfolio <weights_file>
+
+# Regime 覆盖矩阵（RED FLAG 检测）
+python -m attribution.coverage --portfolio <weights_file>
+
+# 回撤归因
+python -m attribution.drawdown --portfolio <weights_file>
+
+# Alpha 衰减检测
+python -m attribution.decay --strategy v12 --symbol AG
+
+# Walk-Forward 验证
+python strategies/walk_forward.py --strategy strong_trend/v12 --symbol AG
+
+# 失败模式分析
+python strategies/all_time/ag/analyze_failures.py
+
+# 测试（367 tests）
 pytest tests/
 ```
 
