@@ -24,6 +24,7 @@ Usage:
 import sys
 import os
 import json
+import inspect
 import importlib
 import importlib.util
 import warnings
@@ -143,13 +144,26 @@ def load_strategy_class_from_path(strategy_path):
             "Expected a class with a 'warmup' attribute."
         )
 
-    # Prefer class names containing "Strategy" or the longest name
-    for name, cls in candidates:
+    # Filter out abstract classes — they can't be instantiated
+    concrete = [
+        (name, cls) for name, cls in candidates
+        if not inspect.isabstract(cls)
+    ]
+
+    # If we have concrete classes, prefer those; otherwise fall back to all
+    pool = concrete if concrete else candidates
+
+    # If only one concrete class, return it directly
+    if len(pool) == 1:
+        return pool[0][1], pool[0][0]
+
+    # Prefer class names containing "Strategy" or the module stem
+    for name, cls in pool:
         if "Strategy" in name or "strategy" in name:
             return cls, name
 
     # Fallback: return the last candidate (typically the main class)
-    return candidates[-1][1], candidates[-1][0]
+    return pool[-1][1], pool[-1][0]
 
 
 # =====================================================================

@@ -49,4 +49,4 @@ Total round-trip trades analyzed: 9
 - Strategy has strong regime dependency: win rate ranges from 0% to 100% across trend regimes.
 
 ---
-*Generated: 2026-03-28 11:05*
+*Generated: 2026-03-28 12:17*
