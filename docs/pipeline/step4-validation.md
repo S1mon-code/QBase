@@ -84,6 +84,45 @@
 
 ---
 
+## 推荐验证方法：Walk-Forward Validation
+
+Walk-Forward 是最严格的样本外验证方法。它模拟真实交易中"用历史优化参数→未来检验"的过程。
+
+### 三段式数据分割（新策略必须遵守）
+
+```
+全部数据
+├── 训练集 (60%)    → 策略参数优化（Optuna）
+├── 验证集 (20%)    → 策略选择 + 权重优化
+└── 测试集 (20%)    → 最终评估（只读，不改任何东西）
+```
+
+### Walk-Forward 滚动验证
+
+对关键策略做滚动窗口验证（推荐 5年训练 → 1年测试）：
+
+```bash
+python strategies/walk_forward.py \
+    --strategy strategies/strong_trend/v12.py \
+    --symbol AG \
+    --train-years 5 --test-years 1 \
+    --start 2015 --end 2026 \
+    --freq daily
+
+# 快速测试模式 (10 trials/window)
+python strategies/walk_forward.py --strategy v12.py --symbol AG --quick
+```
+
+每个窗口独立优化参数（30 trials coarse-only），然后在下一年测试。关注：
+
+- **Mean Sharpe** — 所有窗口的平均测试 Sharpe
+- **Win Rate** — 正 Sharpe 窗口占比（要求 ≥ 50%）
+- **Worst Window** — 最差窗口的 Sharpe（识别 regime 盲区）
+
+结果保存到 `research_log/walk_forward/{strategy}_{symbol}.json`。
+
+---
+
 ## 结果解读（仅标注，不淘汰）
 
 | 训练集 vs 测试集 | 解读 | 标注 |
