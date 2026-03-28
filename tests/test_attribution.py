@@ -8,6 +8,7 @@ sys.path.insert(0, QBASE_ROOT)
 import conftest  # noqa: F401
 
 import numpy as np
+import pandas as pd
 import pytest
 
 # Strategy class names mapping (mirrors strong_trend/optimizer.py)
@@ -93,3 +94,67 @@ class TestSignalAttribution:
         array_names = [d['array_attr'] for d in discovered]
         assert '_atr' not in array_names, "_atr (stop-loss) should be excluded"
         assert len(discovered) >= 3, "Should discover at least 3 indicator arrays"
+
+
+class TestTradePairing:
+    """Test trade pairing logic."""
+
+    def test_simple_long_roundtrip(self):
+        """A buy followed by sell should produce one round-trip."""
+        from attribution.regime import pair_trades
+
+        trades_df = pd.DataFrame([
+            {'datetime': '2025-01-10', 'side': 'buy', 'lots': 5, 'price': 100.0},
+            {'datetime': '2025-01-20', 'side': 'sell', 'lots': 5, 'price': 110.0},
+        ])
+        pairs = pair_trades(trades_df)
+        assert len(pairs) == 1
+        assert pairs[0]['side'] == 1
+        assert pairs[0]['entry_price'] == 100.0
+        assert pairs[0]['exit_price'] == 110.0
+        assert pairs[0]['pnl_pct'] == pytest.approx(0.10, rel=0.01)
+
+    def test_partial_close(self):
+        """Partial close should produce two round-trips."""
+        from attribution.regime import pair_trades
+
+        trades_df = pd.DataFrame([
+            {'datetime': '2025-01-10', 'side': 'buy', 'lots': 10, 'price': 100.0},
+            {'datetime': '2025-01-15', 'side': 'sell', 'lots': 5, 'price': 105.0},
+            {'datetime': '2025-01-20', 'side': 'sell', 'lots': 5, 'price': 110.0},
+        ])
+        pairs = pair_trades(trades_df)
+        assert len(pairs) == 2
+        assert pairs[0]['lots'] == 5
+        assert pairs[1]['lots'] == 5
+
+    def test_empty_trades(self):
+        """Empty DataFrame should return empty list."""
+        from attribution.regime import pair_trades
+
+        trades_df = pd.DataFrame(columns=['datetime', 'side', 'lots', 'price'])
+        pairs = pair_trades(trades_df)
+        assert pairs == []
+
+
+class TestRegimeAttribution:
+    """Test regime attribution on real strategy."""
+
+    def test_produces_regime_stats(self):
+        """Regime attribution should produce stats for all three dimensions."""
+        from attribution.regime import run_regime_attribution
+
+        strategy_cls = _load_strategy_class("v12")
+        params = {
+            "aroon_period": 20, "ppo_fast": 19, "ppo_slow": 29,
+            "vol_mom_period": 25, "atr_trail_mult": 4.814,
+        }
+        result = run_regime_attribution(
+            strategy_cls, params, "AG", "2025-01-01", "2026-03-01", freq="daily",
+        )
+        assert result.total_trades > 0
+        assert len(result.by_trend) > 0
+        assert len(result.by_volatility) > 0
+        assert len(result.by_activity) > 0
+        assert result.best_regime != ""
+        assert result.worst_regime != ""
