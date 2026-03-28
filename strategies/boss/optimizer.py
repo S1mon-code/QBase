@@ -91,13 +91,23 @@ def optimize_single(version, n_trials=80, seed=42, probe_trials=5, multi_seed=Fa
         t0 = time.time()
         data_dir = get_data_dir()
 
+        _INTRADAY_FREQS = frozenset({"4h", "1h", "60min", "30min", "15min", "10min", "5min"})
+
         def objective_fn(params, scoring_mode="tanh"):
             strategy = create_strategy_with_params(strategy_cls, params)
+            # V6: Select backtest mode based on frequency and phase
+            # Coarse phase (tanh) always uses basic (speed priority)
+            # Fine phase (linear): daily → basic, 4h+ → industrial
+            if scoring_mode == "linear":
+                config_mode = "industrial" if freq in _INTRADAY_FREQS else "basic"
+            else:
+                config_mode = "basic"
             results = []
             for symbol in TRAINING_SYMBOLS:
                 start, end = TRAINING_PERIODS[symbol]
                 r = run_single_backtest(strategy, symbol, start, end,
-                                        freq=freq, data_dir=data_dir)
+                                        freq=freq, data_dir=data_dir,
+                                        config_mode=config_mode)
                 if r['sharpe'] > -900:
                     results.append(r)
             if len(results) < 3:

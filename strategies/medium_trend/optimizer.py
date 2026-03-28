@@ -185,15 +185,25 @@ def optimize_single(version, n_trials=50, phase="coarse",
         t0 = time.time()
         data_dir = get_data_dir()
 
+        _INTRADAY_FREQS = frozenset({"4h", "1h", "60min", "30min", "15min", "10min", "5min"})
+
         def objective_fn(params, scoring_mode="tanh"):
             """Evaluate across multiple training segments using composite_objective."""
             strategy = create_strategy_with_params(strategy_cls, params)
+            # V6: Select backtest mode based on frequency and phase
+            # Coarse phase (tanh) always uses basic (speed priority)
+            # Fine phase (linear): daily → basic, 4h+ → industrial
+            if scoring_mode == "linear":
+                config_mode = "industrial" if freq in _INTRADAY_FREQS else "basic"
+            else:
+                config_mode = "basic"
             results = []
             for sym, start, end in segments:
                 r = run_single_backtest(
                     strategy, sym, start, end,
                     freq=freq, data_dir=data_dir,
                     initial_capital=DEFAULT_CAPITAL,
+                    config_mode=config_mode,
                 )
                 if r['sharpe'] > -900:
                     results.append(r)

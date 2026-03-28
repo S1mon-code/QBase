@@ -63,7 +63,7 @@ TRAINING_PERIODS = {
 }
 
 # Strategy class names mapping
-STRATEGY_CLASSES = {f"v{i}": f"StrongTrendV{i}" for i in range(1, 51)}
+STRATEGY_CLASSES = {f"v{i}": f"StrongTrendV{i}" for i in range(1, 201)}
 STRATEGY_CLASSES["v3"] = "DonchianADXChandelierStrategy"  # v3 has non-standard name
 
 
@@ -78,16 +78,29 @@ def load_strategy_class(version: str):
     return getattr(mod, class_name)
 
 
+_INTRADAY_FREQS = frozenset({"4h", "1h", "60min", "30min", "15min", "10min", "5min"})
+
+
 def evaluate_strategy(version, params, data_dir, scoring_mode="tanh"):
     """Evaluate strategy across all training symbols with composite objective."""
     strategy_cls = load_strategy_class(version)
     strategy = create_strategy_with_params(strategy_cls, params)
     freq = strategy.freq
 
+    # V6: Select backtest mode based on frequency and phase
+    # Coarse phase (tanh) always uses basic (speed priority)
+    # Fine phase (linear): daily → basic, 4h+ → industrial
+    if scoring_mode == "linear":
+        config_mode = "industrial" if freq in _INTRADAY_FREQS else "basic"
+    else:
+        config_mode = "basic"
+
     results = []
     for symbol in TRAINING_SYMBOLS:
         start, end = TRAINING_PERIODS[symbol]
-        r = run_single_backtest(strategy, symbol, start, end, freq=freq, data_dir=data_dir)
+        r = run_single_backtest(strategy, symbol, start, end,
+                                freq=freq, data_dir=data_dir,
+                                config_mode=config_mode)
         if r['sharpe'] > -900:
             results.append(r)
 
@@ -222,7 +235,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Optimize strong trend strategies")
     parser.add_argument(
         "--strategy", default="v1",
-        help="Strategy version (v1-v50) or 'all' for all strategies"
+        help="Strategy version (v1-v200) or 'all' for all strategies"
     )
     parser.add_argument("--trials", type=int, default=80, help="Optuna trials per strategy")
     parser.add_argument("--quiet", action="store_true", help="Suppress progress output")
@@ -236,7 +249,7 @@ if __name__ == "__main__":
     use_multi_seed = args.multi_seed
 
     if args.strategy == "all":
-        versions = [f"v{i}" for i in range(1, 51)]
+        versions = [f"v{i}" for i in range(1, 201)]
     else:
         versions = [args.strategy]
 
