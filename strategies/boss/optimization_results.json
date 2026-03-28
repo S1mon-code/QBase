@@ -1,0 +1,192 @@
+[
+  {
+    "version": "v1",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 6.086653399953274,
+      "ema_fast": 50,
+      "ema_slow": 127,
+      "vol_mom_thresh": 2.5861318524399333
+    },
+    "best_score": 2.25,
+    "n_trials": 83,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 2.25,
+      "neighbor_std": 0.0,
+      "above_threshold_pct": 1.0
+    },
+    "elapsed_seconds": 30.5
+  },
+  {
+    "version": "v2",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.2171314856742335,
+      "don_entry": 38,
+      "don_exit": 26
+    },
+    "best_score": 2.25,
+    "n_trials": 83,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 2.25,
+      "neighbor_std": 0.0,
+      "above_threshold_pct": 1.0
+    },
+    "elapsed_seconds": 34.9
+  },
+  {
+    "version": "v3",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 10.60270239575925,
+      "bb_period": 12,
+      "bb_std": 0.7548848526057669,
+      "width_lookback": 14
+    },
+    "best_score": 4.675387592457731,
+    "n_trials": 83,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": -3.0467955094470502,
+      "neighbor_std": 6.9749232092533635,
+      "above_threshold_pct": 0.45
+    },
+    "elapsed_seconds": 29.3
+  },
+  {
+    "version": "v4",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 4.401988270767548,
+      "ema_fast": 35,
+      "ema_slow": 125,
+      "kc_mult": 8.267803074865396,
+      "kc_period": 26
+    },
+    "best_score": 5.513039010687418,
+    "n_trials": 83,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 4.246213832266878,
+      "neighbor_std": 0.8606143329692597,
+      "above_threshold_pct": 0.84
+    },
+    "elapsed_seconds": 38.5
+  },
+  {
+    "version": "v5",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 1.517330050576226,
+      "don_period": 22,
+      "vol_mom_thresh": 1.0265287402831214,
+      "vwap_exit_bars": 6
+    },
+    "best_score": 5.493077229485341,
+    "n_trials": 83,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 0.38652250986009595,
+      "neighbor_std": 6.1128342700064024,
+      "above_threshold_pct": 0.6
+    },
+    "elapsed_seconds": 50.2
+  },
+  {
+    "version": "v6",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.942772229920268,
+      "fi_period": 19,
+      "hma_period": 46
+    },
+    "best_score": 3.9390362914089003,
+    "n_trials": 83,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 3.268564048710027,
+      "neighbor_std": 0.32246515274477083,
+      "above_threshold_pct": 1.0
+    },
+    "elapsed_seconds": 32.3
+  },
+  {
+    "version": "v7",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 3.9453093132324955,
+      "lr_period": 49,
+      "obv_lookback": 18,
+      "r2_threshold": 0.26479145517073804
+    },
+    "best_score": 3.8452233492369414,
+    "n_trials": 83,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 2.697614824986405,
+      "neighbor_std": 0.43582268744391695,
+      "above_threshold_pct": 0.95
+    },
+    "elapsed_seconds": 26.5
+  },
+  {
+    "version": "v8",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 10.819098041915533,
+      "ribbon_base": 3,
+      "width_compress": 0.13999999999999999,
+      "width_expand": 2.236255042609282
+    },
+    "best_score": 3.7306727703267817,
+    "n_trials": 83,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 3.039316298345735,
+      "neighbor_std": 0.4748839265567685,
+      "above_threshold_pct": 1.0
+    },
+    "elapsed_seconds": 52.6
+  },
+  {
+    "version": "v9",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.046638986628271,
+      "bb_period": 23,
+      "kama_flat_mult": 0.020000000000000004,
+      "kama_period": 6
+    },
+    "best_score": 4.606577727519019,
+    "n_trials": 83,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 3.621981019665251,
+      "neighbor_std": 0.48217670223406267,
+      "above_threshold_pct": 1.0
+    },
+    "elapsed_seconds": 39.3
+  },
+  {
+    "version": "v10",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 2.3483979585952315,
+      "bb_period": 39,
+      "sma_fast": 53,
+      "sma_mid": 84,
+      "sma_slow": 187
+    },
+    "best_score": 3.5433665697226173,
+    "n_trials": 83,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 1.6334892221720556,
+      "neighbor_std": 0.5619796734621173,
+      "above_threshold_pct": 0.36
+    },
+    "elapsed_seconds": 38.0
+  }
+]

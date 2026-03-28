@@ -1,7 +1,7 @@
 """
-Boss Strategy v1 — Pullback to Rising EMA
-==========================================
-Wait for a confirmed uptrend, then buy the dip back to EMA(20).
+Boss Strategy v1 — EMA Breakout Momentum
+=========================================
+Enter when price breaks ABOVE a rising EMA cluster with volume confirmation.
 LONG ONLY. Supports scale-in (0-3).
 
 Usage:
@@ -20,7 +20,7 @@ _SPEC_MANAGER = ContractSpecManager()
 
 from indicators.volatility.atr import atr
 from indicators.trend.ema import ema
-from indicators.volume.obv import obv
+from indicators.volume.volume_momentum import volume_momentum
 
 SCALE_FACTORS = [1.0, 0.5, 0.25]
 MAX_SCALE = 3
@@ -28,25 +28,26 @@ MAX_SCALE = 3
 
 class BossV1(TimeSeriesStrategy):
     """
-    策略简介：在确认的上升趋势中，等待价格回调至快速均线附近买入，顺势而为。
-    交易哲学：不追突破，等回调。趋势已确立后，回调到均线支撑是最佳入场时机。
+    策略简介：价格向上突破EMA簇（快线在慢线之上）时入场，配合成交量动量确认。
+    交易哲学：不等回调，突破即入。当价格从下方穿越上升中的EMA(20)且EMA(20)>EMA(50)，
+              表明动能释放，配合成交量动量>阈值确认突破有效性。
     使用指标：
-      - EMA(20): 快速趋势线 + 回调入场参考
-      - EMA(60): 慢速趋势方向过滤
-      - OBV: 资金流向确认（OBV新高=资金持续流入）
-      - ATR(14): 止损距离 + 回调幅度衡量
+      - EMA(20): 快速趋势线，突破入场参考
+      - EMA(50): 慢速趋势方向过滤
+      - Volume Momentum(14): 成交量动量，>阈值表示量能配合
+      - ATR(14): 止损距离
     进场条件（做多）：
-      1. EMA(20) > EMA(60)（趋势向上）
-      2. EMA(20) 当前值 > 3根bar前值（均线上升中）
-      3. 价格在 EMA(20) 附近（距离 < pullback_atr_mult * ATR）
-      4. 价格在 EMA(20) 之上（不买破位的）
-      5. OBV 创20周期新高（资金确认）
+      1. Close > EMA(20)（价格在快线之上）
+      2. Close > EMA(50)（价格在慢线之上）
+      3. EMA(20) > EMA(50)（均线多头排列）
+      4. 最近3根bar内价格曾从下方穿越EMA(20)（刚突破）
+      5. Volume Momentum > vol_mom_thresh（量能确认）
     出场条件：
+      - Close < EMA(50)（跌破慢线，趋势破坏）
       - ATR追踪止损
       - 分层止盈（3ATR / 5ATR）
-      - 价格收盘低于 EMA(60) → 趋势破坏，全部平仓
-    优点：顺势回调入场，胜率较高；OBV过滤虚假回调
-    缺点：强趋势中回调幅度不够可能错过行情；震荡市频繁触发假信号
+    优点：突破入场抓趋势起点；量能过滤减少假突破；条件相对宽松产生更多交易
+    缺点：突破后可能回调导致短期浮亏；震荡市假突破仍会发生
     """
     name = "boss_v1"
     warmup = 200
@@ -54,15 +55,15 @@ class BossV1(TimeSeriesStrategy):
 
     # Tunable parameters (<=5)
     ema_fast: int = 20
-    ema_slow: int = 60
-    pullback_atr_mult: float = 0.5
+    ema_slow: int = 50
+    vol_mom_thresh: float = 1.0
     atr_stop_mult: float = 3.5
 
     def __init__(self):
         super().__init__()
         self._ema_fast = None
         self._ema_slow = None
-        self._obv = None
+        self._vol_mom = None
         self._atr = None
         self._avg_vol = None
 
@@ -83,11 +84,21 @@ class BossV1(TimeSeriesStrategy):
 
         self._ema_fast = ema(closes, self.ema_fast)
         self._ema_slow = ema(closes, self.ema_slow)
-        self._obv = obv(closes, volumes)
+        self._vol_mom = volume_momentum(volumes, period=14)
         self._atr = atr(highs, lows, closes, period=14)
 
+        # Precompute: did close cross above EMA fast from below within last 3 bars?
+        n = len(closes)
+        self._recent_crossover = np.zeros(n, dtype=bool)
+        for j in range(1, n):
+            if closes[j] > self._ema_fast[j] and not np.isnan(self._ema_fast[j]):
+                # Check if any of the last 3 bars had close <= ema_fast
+                for k in range(max(0, j - 3), j):
+                    if not np.isnan(self._ema_fast[k]) and closes[k] <= self._ema_fast[k]:
+                        self._recent_crossover[j] = True
+                        break
+
         # avg volume for filter
-        n = len(volumes)
         cumsum = np.cumsum(np.insert(volumes, 0, 0.0))
         self._avg_vol = np.full(n, np.nan)
         if n >= 20:
@@ -110,8 +121,8 @@ class BossV1(TimeSeriesStrategy):
 
         ema_f = self._ema_fast[i]
         ema_s = self._ema_slow[i]
-        obv_val = self._obv[i]
-        if np.isnan(ema_f) or np.isnan(ema_s) or np.isnan(obv_val):
+        vol_mom = self._vol_mom[i]
+        if np.isnan(ema_f) or np.isnan(ema_s) or np.isnan(vol_mom):
             return
 
         self.bars_since_last_scale += 1
@@ -145,26 +156,19 @@ class BossV1(TimeSeriesStrategy):
                 self._reset_state()
                 return
 
-        # 4. ENTRY: pullback to rising EMA in uptrend
+        # 4. ENTRY: EMA breakout momentum
         if side == 0:
-            # Trend conditions
+            # Price above both EMAs
+            if price <= ema_f or price <= ema_s:
+                return
+            # EMA cluster bullish
             if ema_f <= ema_s:
                 return
-            # EMA(20) must be rising
-            if i < 3:
+            # Recent crossover above EMA fast (within last 3 bars)
+            if not self._recent_crossover[i]:
                 return
-            ema_f_prev = self._ema_fast[i - 3]
-            if np.isnan(ema_f_prev) or ema_f <= ema_f_prev:
-                return
-            # Price near EMA(20) from above
-            dist = price - ema_f
-            if dist < 0 or dist > self.pullback_atr_mult * atr_val:
-                return
-            # OBV making new 20-period high
-            if i < 20:
-                return
-            obv_window = self._obv[max(0, i - 20):i]
-            if obv_val <= np.nanmax(obv_window):
+            # Volume momentum confirmation
+            if vol_mom < self.vol_mom_thresh:
                 return
 
             base_lots = self._calc_lots(context, atr_val)
@@ -191,13 +195,15 @@ class BossV1(TimeSeriesStrategy):
             return False
         if price < self.entry_price + atr_val:
             return False
-        # Strategy-specific: EMA fast still above slow and price near EMA fast
+        # Strategy-specific: EMA cluster still bullish + volume momentum still strong
         ema_f = self._ema_fast[i]
         ema_s = self._ema_slow[i]
-        if ema_f <= ema_s:
+        if np.isnan(ema_f) or np.isnan(ema_s) or ema_f <= ema_s:
             return False
-        dist = price - ema_f
-        if dist < 0 or dist > self.pullback_atr_mult * atr_val * 1.5:
+        if price <= ema_f:
+            return False
+        vol_mom = self._vol_mom[i]
+        if np.isnan(vol_mom) or vol_mom < self.vol_mom_thresh * 0.8:
             return False
         return True
 

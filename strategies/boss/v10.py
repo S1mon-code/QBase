@@ -1,11 +1,11 @@
 """
-Boss Strategy v10 — Vol Regime + SMA Cross
-============================================
-Wait for volatility compression→expansion shift, then follow the SMA signal.
+Boss Strategy v10 — Triple MA + Bollinger Width
+=================================================
+Enter when all 3 MAs align bullish + Bollinger Width expanding + CMF positive.
 LONG ONLY. Supports scale-in (0-3).
 
 Usage:
-    ./run.sh strategies/boss/v10.py --symbols AG --freq daily --start 2022
+    ./run.sh strategies/boss/v10.py --symbols AG --freq 4h --start 2022
 """
 import sys
 from pathlib import Path
@@ -19,9 +19,9 @@ from alphaforge.data.contract_specs import ContractSpecManager
 _SPEC_MANAGER = ContractSpecManager()
 
 from indicators.volatility.atr import atr
-from indicators.volatility.historical_vol import historical_volatility
 from indicators.trend.sma import sma
-from indicators.volume.volume_spike import volume_spike
+from indicators.volatility.bollinger import bollinger_width
+from indicators.volume.cmf import cmf
 
 SCALE_FACTORS = [1.0, 0.5, 0.25]
 MAX_SCALE = 3
@@ -29,43 +29,48 @@ MAX_SCALE = 3
 
 class BossV10(TimeSeriesStrategy):
     """
-    策略简介：波动率政权转换（压缩→扩张）配合SMA金叉，捕捉趋势爆发的起始点。
-    交易哲学：大趋势几乎总是从波动率压缩后爆发。低波动率=市场蓄力，
-              波动率突然扩张+均线多头排列=趋势正式启动。成交量放大确认这不是假突破。
+    策略简介：三重均线多头排列+布林带宽度扩张+CMF资金流确认的趋势跟踪策略。
+    交易哲学：当SMA(20)>SMA(50)>SMA(100)完美排列时趋势明确，
+              布林带宽度扩张表明波动率增加支持趋势延续，
+              CMF>0确认买方资金持续流入。三者共振=高概率趋势信号。
+              4h频率替代daily产生更多交易机会。
     使用指标：
-      - Historical Volatility(20): 历史波动率，检测压缩→扩张
-      - SMA(20) / SMA(60): 均线交叉，确认趋势方向
-      - Volume Spike: 成交量放大确认政权转变
+      - SMA(20): 快速均线
+      - SMA(50): 中速均线
+      - SMA(100): 慢速均线（三线排列确认趋势强度）
+      - Bollinger Width(20): 布林带宽度，扩张表示波动率释放
+      - CMF(20): Chaikin资金流量，>0表示买方主导
       - ATR(14): 止损距离
     进场条件（做多）：
-      1. 波动率扩张（hvol[i] > hvol[i-10] * vol_expand）
-      2. SMA(20) > SMA(60)（均线多头排列）
-      3. SMA(20) 上升中（SMA20[i] > SMA20[i-3]）
-      4. 成交量放大确认（最近3根bar有volume spike）
+      1. SMA(20) > SMA(50) > SMA(100)（三重均线多头排列）
+      2. BB Width[i] > BB Width[i-10]（布林带宽度在扩张）
+      3. Close > SMA(20)（价格在快线之上）
+      4. CMF > 0（资金流入确认）
     出场条件：
-      - SMA(20) < SMA(60)（均线死叉 → 趋势结束）
+      - SMA(20) < SMA(50)（快线跌破中线，趋势弱化）
       - ATR追踪止损
       - 分层止盈（3ATR / 5ATR）
-    优点：波动率政权过滤是最强的趋势起点捕捉工具；多重确认降低假信号
-    缺点：波动率扩张不一定是向上的（需SMA过滤方向）；信号较稀疏
+    优点：三重均线排列过滤大部分噪音；BB Width捕捉波动率扩张；CMF确认资金面
+    缺点：三线排列滞后，可能错过趋势前半段；震荡市均线缠绕频繁触发假信号
     """
     name = "boss_v10"
-    warmup = 200
-    freq = "daily"
+    warmup = 300
+    freq = "4h"
 
     # Tunable parameters (<=5)
-    hvol_period: int = 20
     sma_fast: int = 20
-    sma_slow: int = 60
-    vol_expand: float = 1.3
+    sma_mid: int = 50
+    sma_slow: int = 100
+    bb_period: int = 20
     atr_stop_mult: float = 3.5
 
     def __init__(self):
         super().__init__()
-        self._hvol = None
         self._sma_fast = None
+        self._sma_mid = None
         self._sma_slow = None
-        self._vol_spikes = None
+        self._bb_width = None
+        self._cmf = None
         self._atr = None
         self._avg_vol = None
 
@@ -84,12 +89,14 @@ class BossV10(TimeSeriesStrategy):
         lows = context.get_full_low_array()
         volumes = context.get_full_volume_array()
 
-        self._hvol = historical_volatility(closes, period=self.hvol_period)
         self._sma_fast = sma(closes, self.sma_fast)
+        self._sma_mid = sma(closes, self.sma_mid)
         self._sma_slow = sma(closes, self.sma_slow)
-        self._vol_spikes = volume_spike(volumes, period=20, threshold=2.0)
+        self._bb_width = bollinger_width(closes, period=self.bb_period)
+        self._cmf = cmf(highs, lows, closes, volumes, period=20)
         self._atr = atr(highs, lows, closes, period=14)
 
+        # avg volume
         n = len(volumes)
         cumsum = np.cumsum(np.insert(volumes, 0, 0.0))
         self._avg_vol = np.full(n, np.nan)
@@ -110,10 +117,14 @@ class BossV10(TimeSeriesStrategy):
         if np.isnan(atr_val) or atr_val <= 0:
             return
 
-        hvol_now = self._hvol[i]
         sma_f = self._sma_fast[i]
+        sma_m = self._sma_mid[i]
         sma_s = self._sma_slow[i]
-        if np.isnan(hvol_now) or np.isnan(sma_f) or np.isnan(sma_s):
+        bb_w = self._bb_width[i]
+        cmf_val = self._cmf[i]
+        if np.isnan(sma_f) or np.isnan(sma_m) or np.isnan(sma_s):
+            return
+        if np.isnan(bb_w) or np.isnan(cmf_val):
             return
 
         self.bars_since_last_scale += 1
@@ -140,35 +151,29 @@ class BossV10(TimeSeriesStrategy):
                 self._took_profit_3atr = True
                 return
 
-        # 3. SIGNAL EXIT: SMA death cross → trend over
+        # 3. SIGNAL EXIT: SMA(20) < SMA(50) → trend weakening
         if side == 1:
-            if sma_f < sma_s:
+            if sma_f < sma_m:
                 context.close_long()
                 self._reset_state()
                 return
 
-        # 4. ENTRY: vol expanding + SMA golden cross + SMA rising + volume spike
+        # 4. ENTRY: Triple MA alignment + BB Width expanding + CMF positive
         if side == 0:
+            # Triple MA bullish alignment
+            if not (sma_f > sma_m > sma_s):
+                return
+            # Price above fast SMA
+            if price <= sma_f:
+                return
+            # Bollinger Width expanding (current > 10 bars ago)
             if i < 10:
                 return
-            # Volatility expansion
-            hvol_prev = self._hvol[i - 10]
-            if np.isnan(hvol_prev) or hvol_prev <= 0:
+            bb_w_prev = self._bb_width[i - 10]
+            if np.isnan(bb_w_prev) or bb_w <= bb_w_prev:
                 return
-            if hvol_now < hvol_prev * self.vol_expand:
-                return
-            # SMA golden cross
-            if sma_f <= sma_s:
-                return
-            # SMA(20) rising
-            if i < 3:
-                return
-            sma_f_prev = self._sma_fast[i - 3]
-            if np.isnan(sma_f_prev) or sma_f <= sma_f_prev:
-                return
-            # Volume spike in last 3 bars
-            start_idx = max(0, i - 2)
-            if not np.any(self._vol_spikes[start_idx:i + 1]):
+            # CMF positive (buying pressure)
+            if cmf_val <= 0:
                 return
 
             base_lots = self._calc_lots(context, atr_val)
@@ -195,15 +200,17 @@ class BossV10(TimeSeriesStrategy):
             return False
         if price < self.entry_price + atr_val:
             return False
-        # Strategy-specific: SMA golden cross still valid + vol still elevated
-        if self._sma_fast[i] <= self._sma_slow[i]:
+        # Strategy-specific: triple MA still aligned + CMF still positive
+        sma_f = self._sma_fast[i]
+        sma_m = self._sma_mid[i]
+        sma_s = self._sma_slow[i]
+        if np.isnan(sma_f) or np.isnan(sma_m) or np.isnan(sma_s):
             return False
-        if i >= 10:
-            hvol_prev = self._hvol[i - 10]
-            hvol_now = self._hvol[i]
-            if not np.isnan(hvol_prev) and not np.isnan(hvol_now):
-                if hvol_now < hvol_prev:
-                    return False
+        if not (sma_f > sma_m > sma_s):
+            return False
+        cmf_val = self._cmf[i]
+        if np.isnan(cmf_val) or cmf_val <= 0:
+            return False
         return True
 
     def _calc_add_lots(self, base_lots):

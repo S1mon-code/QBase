@@ -1,11 +1,11 @@
 """
-Boss Strategy v2 — Donchian Turtle Revival
+Boss Strategy v2 — Donchian + Volume Surge
 ===========================================
-Classic turtle breakout with volatility expansion filter.
+Shorter Donchian breakout with volume surge + ATR expansion for more frequent signals.
 LONG ONLY. Supports scale-in (0-3).
 
 Usage:
-    ./run.sh strategies/boss/v2.py --symbols AG --freq daily --start 2022
+    ./run.sh strategies/boss/v2.py --symbols AG --freq 4h --start 2022
 """
 import sys
 from pathlib import Path
@@ -21,6 +21,7 @@ _SPEC_MANAGER = ContractSpecManager()
 from indicators.volatility.atr import atr
 from indicators.trend.donchian import donchian
 from indicators.volume.volume_spike import volume_spike
+from indicators.trend.sma import sma
 
 SCALE_FACTORS = [1.0, 0.5, 0.25]
 MAX_SCALE = 3
@@ -28,40 +29,41 @@ MAX_SCALE = 3
 
 class BossV2(TimeSeriesStrategy):
     """
-    策略简介：经典海龟突破策略的现代改良版，加入波动率扩张过滤和成交量确认。
-    交易哲学：趋势的起点是突破。40年历史证明Donchian突破在强趋势品种上有效。
+    策略简介：短周期Donchian突破+成交量激增+ATR扩张三重确认，4h频率产生更多交易信号。
+    交易哲学：经典海龟突破的激进改良版——缩短通道周期(15)提高信号频率，
+              用成交量激增过滤假突破，用ATR扩张确认波动率支持趋势。
+              4h替代daily大幅增加bar数量和交易机会。
     使用指标：
-      - Donchian(20): 入场通道（上轨突破买入）
-      - Donchian(10): 出场通道（下轨跌破卖出，更快反应）
-      - ATR(14): 波动率扩张过滤 + 止损距离
-      - Volume Spike: 成交量放大确认突破真实性
+      - Donchian(15): 入场通道（上轨突破买入，周期更短=更多信号）
+      - Donchian(10): 出场通道（下轨跌破卖出）
+      - Volume Spike(20, 1.5): 成交量激增检测
+      - ATR(14) + SMA(ATR, 20): ATR扩张确认（ATR > 其20周期均线）
     进场条件（做多）：
-      1. 价格突破 Donchian(20) 上轨
-      2. ATR 扩张中（当前ATR > 5根bar前ATR * atr_expand_mult）
-      3. 最近3根bar内有成交量放大（volume spike）
+      1. Close > Donchian(15) 上轨（价格突破）
+      2. 最近3根bar内有成交量激增（volume spike）
+      3. ATR[i] > SMA(ATR, 20)[i]（ATR在扩张，波动率支持趋势）
     出场条件：
-      - 价格跌破 Donchian(10) 下轨（更快的出场通道）
+      - Close < Donchian(10) 下轨（更快出场通道）
       - ATR追踪止损
       - 分层止盈（3ATR / 5ATR）
-    优点：趋势起点入场，持仓时间长，利润空间大
-    缺点：突破假信号多，震荡市连续止损；入场不够精确
+    优点：短通道+4h频率产生大量交易机会；三重过滤保持信号质量
+    缺点：短通道假突破率较高；4h频率噪音多于daily
     """
     name = "boss_v2"
-    warmup = 120
-    freq = "daily"
+    warmup = 200
+    freq = "4h"
 
     # Tunable parameters (<=5)
-    don_entry: int = 20
+    don_entry: int = 15
     don_exit: int = 10
-    atr_expand_mult: float = 1.1
     atr_stop_mult: float = 3.0
 
     def __init__(self):
         super().__init__()
         self._don_entry_upper = None
-        self._don_entry_lower = None
         self._don_exit_lower = None
         self._atr = None
+        self._atr_sma = None
         self._vol_spikes = None
         self._avg_vol = None
 
@@ -85,7 +87,10 @@ class BossV2(TimeSeriesStrategy):
         _, exit_lower, _ = donchian(highs, lows, self.don_exit)
         self._don_exit_lower = exit_lower
         self._atr = atr(highs, lows, closes, period=14)
-        self._vol_spikes = volume_spike(volumes, period=20, threshold=2.0)
+        # SMA of ATR for expansion detection
+        self._atr_sma = sma(self._atr, period=20)
+        # Lower threshold for volume spike (1.5x instead of 2.0x) = more signals
+        self._vol_spikes = volume_spike(volumes, period=20, threshold=1.5)
 
         # avg volume
         n = len(volumes)
@@ -110,7 +115,8 @@ class BossV2(TimeSeriesStrategy):
 
         don_upper = self._don_entry_upper[i]
         don_exit_low = self._don_exit_lower[i]
-        if np.isnan(don_upper) or np.isnan(don_exit_low):
+        atr_sma_val = self._atr_sma[i]
+        if np.isnan(don_upper) or np.isnan(don_exit_low) or np.isnan(atr_sma_val):
             return
 
         self.bars_since_last_scale += 1
@@ -144,15 +150,13 @@ class BossV2(TimeSeriesStrategy):
                 self._reset_state()
                 return
 
-        # 4. ENTRY: Donchian breakout + ATR expanding + volume spike
+        # 4. ENTRY: Donchian breakout + volume surge + ATR expanding
         if side == 0:
+            # Price above Donchian upper
             if price <= don_upper:
                 return
-            # ATR expanding
-            if i < 5:
-                return
-            atr_prev = self._atr[i - 5]
-            if np.isnan(atr_prev) or atr_val < atr_prev * self.atr_expand_mult:
+            # ATR expanding: current ATR > its 20-period SMA
+            if atr_val <= atr_sma_val:
                 return
             # Volume spike in last 3 bars
             start_idx = max(0, i - 2)
@@ -183,14 +187,13 @@ class BossV2(TimeSeriesStrategy):
             return False
         if price < self.entry_price + atr_val:
             return False
-        # Strategy-specific: new Donchian high and ATR still expanding
+        # Strategy-specific: still above Donchian upper + ATR still expanding
         don_upper = self._don_entry_upper[i]
         if np.isnan(don_upper) or price <= don_upper:
             return False
-        if i >= 5:
-            atr_prev = self._atr[i - 5]
-            if not np.isnan(atr_prev) and self._atr[i] < atr_prev:
-                return False
+        atr_sma_val = self._atr_sma[i]
+        if not np.isnan(atr_sma_val) and self._atr[i] <= atr_sma_val:
+            return False
         return True
 
     def _calc_add_lots(self, base_lots):
