@@ -81,6 +81,10 @@ def parse_args():
                         help="Optimization results JSON (default: strategy_dir/optimization_results.json)")
     parser.add_argument("--output", default=None,
                         help="Output weights JSON path (default: strategy_dir/portfolio/weights_{symbol}.json)")
+    parser.add_argument("--stability-test", type=int, default=0, metavar="N",
+                        help="Run N stability test iterations after building (default: 0 = off, recommended: 50)")
+    parser.add_argument("--stability-subsample", type=float, default=0.8,
+                        help="Subsample fraction for stability test (default: 0.8)")
     return parser.parse_args()
 
 
@@ -1139,6 +1143,34 @@ def main():
     best_single = max(valid, key=lambda x: x["primary_sharpe"] or -999)
     print(f"\n  Best single ({symbol}): {best_single['version']} Sharpe={best_single['primary_sharpe']:.3f}")
     print(f"  Portfolio / Best single: {port_sharpe / max(best_single['primary_sharpe'], 0.001):.2f}x")
+
+    # ---- Optional: Stability Test ----
+    if args.stability_test > 0:
+        from portfolio.stability_test import (
+            run_stability_test, print_stability_report, save_stability_result,
+        )
+        # Build full aligned returns DataFrame for stability test
+        pool_with_returns = [d["version"] for d in all_data if d["version"] in returns_dict]
+        full_returns_df = pd.DataFrame(
+            {v: returns_dict[v] for v in pool_with_returns}
+        ).fillna(0)
+
+        stability_result = run_stability_test(
+            returns_df=full_returns_df,
+            pool_versions=pool_with_returns,
+            strategy_sharpes=strategy_sharpes,
+            n_runs=args.stability_test,
+            frac=args.stability_subsample,
+            penalty_weight=penalty_weight,
+            max_weight=max_weight,
+            seed=42,
+        )
+        stability_result["symbol"] = symbol
+
+        print_stability_report(stability_result)
+
+        stability_path = save_stability_result(stability_result, symbol)
+        print(f"\n  Stability results saved to {stability_path}")
 
 
 if __name__ == "__main__":
