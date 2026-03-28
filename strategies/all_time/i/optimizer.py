@@ -108,7 +108,7 @@ def optimize_single(version, n_trials=30, phase="coarse",
             # Coarse phase (tanh) always uses basic (speed priority)
             # Fine phase (linear): daily → basic, 4h+ → industrial
             if scoring_mode == "linear":
-                config_mode = "industrial" if freq in _INTRADAY_FREQS else "basic"
+                config_mode = "industrial"  # V6: all freqs use Industrial for fine phase
             else:
                 config_mode = "basic"
             r = run_single_backtest(strategy, SYMBOL, start=None, end=TRAIN_END,

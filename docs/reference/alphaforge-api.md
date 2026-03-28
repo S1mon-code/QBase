@@ -313,8 +313,7 @@ config = BacktestConfig(
 |------|:-------:|------|
 | 策略开发/快速迭代 | Basic | 速度快 |
 | 粗调优化（Coarse） | Basic | 方向对即可 |
-| 精调优化（1h+ 策略） | **Industrial** | Basic 结果不可靠 |
-| 精调优化（daily 策略） | Basic | 衰减 < 10% |
+| **精调优化（所有频率）** | **Industrial** | **确保参数在真实成本下有效** |
 | Portfolio 验证/入选前 | **Industrial** | 必须用真实数字 |
 | Portfolio 组合回测 | **Industrial** | 真实 Sharpe |
 

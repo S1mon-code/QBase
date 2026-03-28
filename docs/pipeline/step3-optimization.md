@@ -438,7 +438,7 @@ config = BacktestConfig(
 
 ## 回测模式选择（Basic vs Industrial）
 
-V6 引擎提供两种回测模式，对优化结果影响显著。**选错模式会导致 1h+ 策略优化结果完全不可靠。**
+V6 引擎提供两种回测模式，对优化结果影响显著。**精调阶段所有频率都必须使用 Industrial 模式。**
 
 ### 实测 Sharpe 衰减数据
 
@@ -453,21 +453,20 @@ V6 引擎提供两种回测模式，对优化结果影响显著。**选错模式
 
 | 频率 | 粗调（Coarse） | 精调（Fine） | 最终验证 |
 |------|:-------------:|:-----------:|:--------:|
-| daily | Basic（快速） | Basic（衰减 < 10%） | **Industrial（一次验证）** |
-| 4h | Basic（快速） | **Industrial** | **Industrial** |
-| 1h | Basic（快速） | **Industrial（必须）** | **Industrial（必须）** |
-| 5min | Basic（快速） | **Industrial（必须）** | **Industrial（必须）** |
+| daily | Basic（快速） | **Industrial（必须）** | **Industrial** |
+| 4h | Basic（快速） | **Industrial（必须）** | **Industrial** |
+| 1h | Basic（快速） | **Industrial（必须）** | **Industrial** |
+| 5min | Basic（快速） | **Industrial（必须）** | **Industrial** |
 
 ### 优化流程（含 Industrial 验证）
 
 ```
-粗调 (Basic, 快速)
-  → Probe 验证
-    → 精调 (daily: Basic / 1h+: Industrial)
+粗调 (Basic, 快速筛选)
+  → Probe 验证（跳过死区）
+    → 精调 (所有频率均用 Industrial 模式)
       → 稳健性检查
-        → ⭐ Industrial 验证（所有频率必须）
-          → 通过 → 进入 Step 4
-          → 失败（Industrial Sharpe < 0）→ 策略不可靠，不进入 Portfolio
+        → 通过 → 进入 Step 4
+        → 失败（Industrial Sharpe < 0）→ 策略不可靠，不进入 Portfolio
 ```
 
 ### Industrial 验证判定标准
@@ -482,9 +481,9 @@ V6 引擎提供两种回测模式，对优化结果影响显著。**选错模式
 ### 注意事项
 
 - **粗调阶段所有频率都可以用 Basic**（速度优先，只要方向对就行）
-- **精调后必须做一次 Industrial 验证**，无论频率
-- Daily 策略可以全程 Basic，最后验证一次（衰减通常 5-10%）
-- 1h+ 策略如果只在 Basic 下优化，精调结果可能完全无效（v9 案例：261 笔→43 笔）
+- **精调阶段所有频率都必须用 Industrial**（确保参数在真实成本下仍然有效）
+- Daily 策略在 Industrial 下衰减通常 5-10%，属正常
+- 1h+ 策略在 Basic 下的精调结果完全不可靠（v9 案例：261 笔→43 笔，Sharpe -54%）
 
 ---
 
