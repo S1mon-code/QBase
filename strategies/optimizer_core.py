@@ -209,22 +209,29 @@ MIN_TRADES_BY_FREQ = {
 
 # ── Dimension Scoring Functions (each returns 0-10) ──
 
-def _score_sharpe(sharpe):
-    """Score Sharpe using tanh curve — smooth, no hard benchmark.
+def _score_sharpe(sharpe, mode="tanh"):
+    """Score Sharpe ratio on a 0-10 scale.
 
-    Uses 10 * tanh(0.7 * sharpe) for natural diminishing returns:
-    low Sharpe improvements are heavily rewarded, high Sharpe gains taper off.
-
-    Examples:
+    Two modes:
+    - 'tanh' (default, coarse phase): diminishing returns curve.
+      Prevents optimizer from chasing extreme Sharpe at the cost of robustness.
         Sharpe 0.0 → 0.0     Sharpe 0.5 → 3.4
         Sharpe 1.0 → 6.0     Sharpe 1.5 → 7.8
         Sharpe 2.0 → 8.9     Sharpe 3.0 → 9.7
-        Sharpe ≤ 0  → 0.0
+
+    - 'linear' (fine phase): linear scaling, capped at 10.
+      Rewards absolute Sharpe improvements equally, pushing optimizer to
+      maximize Sharpe within the already-validated parameter neighborhood.
+        Sharpe 0.0 → 0.0     Sharpe 0.5 → 1.7
+        Sharpe 1.0 → 3.3     Sharpe 1.5 → 5.0
+        Sharpe 2.0 → 6.7     Sharpe 3.0 → 10.0
 
     Returns: float 0-10
     """
     if sharpe <= 0:
         return 0.0
+    if mode == "linear":
+        return float(min(10.0, sharpe * 10.0 / 3.0))
     return float(10.0 * np.tanh(0.7 * sharpe))
 
 
@@ -328,7 +335,7 @@ W_QUALITY = 0.15
 W_STABILITY = 0.10
 
 
-def composite_objective(results, min_valid=1, freq=None):
+def composite_objective(results, min_valid=1, freq=None, scoring_mode="tanh"):
     """Weighted multi-dimensional objective function (0-10 scale).
 
     Scores each dimension 0-10, then computes weighted sum:
@@ -336,8 +343,9 @@ def composite_objective(results, min_valid=1, freq=None):
         score = 0.60 × S_sharpe + 0.15 × S_risk + 0.15 × S_quality + 0.10 × S_stability
 
     Dimensions:
-    - **S_sharpe (60%)**: tanh curve — rewards Sharpe with diminishing returns,
-      no fixed benchmark. Sharpe 1.0 → 6.0, Sharpe 2.0 → 8.9.
+    - **S_sharpe (60%)**: Sharpe scoring (mode depends on optimization phase).
+      'tanh' (coarse): diminishing returns, prevents chasing extreme Sharpe.
+      'linear' (fine): equal reward for each Sharpe increment, maximizes absolute Sharpe.
     - **S_risk (15%)**: MaxDD scoring — |dd|≤5% → 10, |dd|=20% → 4, |dd|≥40% → 0.
     - **S_quality (15%)**: profit concentration — conc≤0.3 → 10, conc=0.7 → 4, conc≥0.95 → 0.
     - **S_stability (10%)**: monthly win rate — wr≥65% → 10, wr=45% → 4, wr≤30% → 0.
@@ -353,6 +361,7 @@ def composite_objective(results, min_valid=1, freq=None):
                  'max_drawdown', 'n_trades', 'profit_concentration', 'monthly_win_rate'.
         min_valid: minimum valid results after filtering.
         freq: strategy frequency for trade count threshold.
+        scoring_mode: 'tanh' (coarse phase, default) or 'linear' (fine phase).
 
     Returns:
         float: weighted score (0-10 range), or -10.0 if insufficient valid results.
@@ -387,7 +396,7 @@ def composite_objective(results, min_valid=1, freq=None):
     else:
         effective_sharpe = mean_sharpe
 
-    s_sharpe = _score_sharpe(effective_sharpe)
+    s_sharpe = _score_sharpe(effective_sharpe, mode=scoring_mode)
 
     # ── S_risk (15%) ──
     drawdowns = [r["max_drawdown"] for r in valid if r.get("max_drawdown") is not None]
@@ -788,7 +797,7 @@ def optimize_two_phase(
 
     def _objective(trial):
         params = suggest_params(trial, param_specs)
-        return objective_fn(params)
+        return objective_fn(params, scoring_mode="tanh")
 
     # Probe: run a few trials first to detect broken strategies
     actual_probe = min(probe_trials, coarse_trials)
@@ -849,7 +858,7 @@ def optimize_two_phase(
 
     def _fine_objective(trial):
         params = suggest_params(trial, fine_specs)
-        return objective_fn(params)
+        return objective_fn(params, scoring_mode="linear")
 
     study_fine.optimize(_fine_objective, n_trials=fine_trials, show_progress_bar=verbose)
 

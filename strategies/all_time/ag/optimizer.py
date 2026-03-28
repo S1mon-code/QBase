@@ -106,12 +106,12 @@ def optimize_single(version: str, n_trials: int = 30, phase: str = "coarse",
         t0 = time.time()
         data_dir = get_data_dir()
 
-        def objective_fn(params):
+        def objective_fn(params, scoring_mode="tanh"):
             strategy = create_strategy_with_params(strategy_cls, params)
             r = run_single_backtest(strategy, SYMBOL, start=None, end=TRAIN_END,
                                     freq=freq, data_dir=data_dir,
                                     initial_capital=DEFAULT_CAPITAL)
-            return composite_objective([r], min_valid=1, freq=freq)
+            return composite_objective([r], min_valid=1, freq=freq, scoring_mode=scoring_mode)
 
         if phase == "fine":
             # Fine phase: load coarse results, narrow search

@@ -75,7 +75,7 @@ def load_strategy_class(version: str):
     return getattr(mod, class_name)
 
 
-def evaluate_strategy(version, params, data_dir):
+def evaluate_strategy(version, params, data_dir, scoring_mode="tanh"):
     """Evaluate strategy across all training symbols with composite objective."""
     strategy_cls = load_strategy_class(version)
     strategy = create_strategy_with_params(strategy_cls, params)
@@ -90,7 +90,7 @@ def evaluate_strategy(version, params, data_dir):
 
     if len(results) < 3:  # Need at least 3 valid symbols
         return -10.0
-    return composite_objective(results, min_valid=3, freq=freq)
+    return composite_objective(results, min_valid=3, freq=freq, scoring_mode=scoring_mode)
 
 
 def optimize_strategy(version, n_trials=80, verbose=True, use_multi_seed=False):
@@ -112,8 +112,8 @@ def optimize_strategy(version, n_trials=80, verbose=True, use_multi_seed=False):
 
     data_dir = DATA_DIR
 
-    def objective_fn(params):
-        return evaluate_strategy(version, params, data_dir)
+    def objective_fn(params, scoring_mode="tanh"):
+        return evaluate_strategy(version, params, data_dir, scoring_mode=scoring_mode)
 
     if use_multi_seed:
         result = optimize_multi_seed(
