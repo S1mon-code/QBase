@@ -998,6 +998,17 @@ reporter.generate_portfolio_report(
 | 震荡/均值回归 | 30min / 5min | 快进快出，需要精确时机 |
 | 多周期协作 | 5min（主频）+ 4h（方向） | 精确入场 + 趋势过滤 |
 
+**回测模式与频率的关系（V6 Industrial 模式验证结果）：**
+
+| 频率 | 开发模式 | 优化模式 | Industrial 衰减 | 说明 |
+|------|:-------:|:-------:|:---------------:|------|
+| daily | Basic | Basic | 5-10% | 衰减极小，全程 Basic 开发，最终 Industrial 验证一次 |
+| 4h | Basic | Basic/Industrial | 10-25% | 建议精调用 Industrial |
+| 1h | Basic | **Industrial（必须）** | 25-55% | **Basic 下优化结果不可靠**（v9: Sharpe 2.15→1.00） |
+| 5min | Basic | **Industrial（必须）** | > 60% 可能 | 仅适用 A 级高流动性品种（AG, RB, I 等） |
+
+**重要提示：** 1h 及更高频率的策略，如果只在 Basic 模式下优化，精调结果可能完全无效。V6 Industrial 模式会过滤不真实成交（volume-adaptive spread、locked-limit detection），导致大量在 Basic 下"有效"的交易实际不会发生。
+
 ## 品种筛选器
 
 ```python

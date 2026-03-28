@@ -123,6 +123,63 @@ python strategies/walk_forward.py --strategy v12.py --symbol AG --quick
 
 ---
 
+## Industrial 模式验证（必须）
+
+**任何策略进入 Portfolio 前，必须通过 Industrial 模式验证。** 这是 Basic 模式验证之外的额外步骤。
+
+### 验证流程
+
+1. 用 Step 3 锁定的参数，在 Industrial 模式下重跑测试集回测
+2. 记录 Industrial Sharpe、与 Basic Sharpe 的衰减比
+3. 根据衰减程度判定策略可靠性
+
+### Industrial 验证配置
+
+```python
+config = BacktestConfig(
+    initial_capital=10_000_000,
+    volume_adaptive_spread=True,
+    dynamic_margin=True,
+    time_varying_spread=True,
+    rollover_window_bars=20,
+    asymmetric_impact=True,
+    detect_locked_limit=True,
+    margin_check_mode="daily",
+    margin_call_grace_bars=3,
+)
+```
+
+### 判定矩阵
+
+| Industrial 衰减 | 判定 | 动作 |
+|:---------------:|------|------|
+| < 10% | 正常 | 通过，正常入 Portfolio |
+| 10-30% | 可接受 | 通过，记录衰减比 |
+| 30-50% | 警告 | 需要在 Industrial 模式下重新优化 |
+| **> 50%** | **不可靠** | **策略不入 Portfolio — alpha 来自不真实成交假设** |
+
+### 实测参考数据
+
+| 策略 | 频率 | Basic Sharpe | Industrial Sharpe | 衰减 | 成交量变化 |
+|------|------|:-----------:|:-----------------:|:----:|:----------:|
+| v12 | daily | 3.09 | 2.84 | -8.1% | 18→18 |
+| v9 | 1h | 2.15 | 1.00 | -53.7% | 261→43 |
+
+### 验证记录模板补充
+
+在标准验证记录模板中增加以下字段：
+
+```markdown
+### Industrial 模式验证
+- **Industrial Sharpe**: X.XX
+- **Basic Sharpe**: X.XX
+- **衰减**: X.X%
+- **Industrial 交易次数**: N（Basic: M）
+- **判定**: 正常 / 可接受 / 警告 / 不可靠
+```
+
+---
+
 ## 结果解读（仅标注，不淘汰）
 
 | 训练集 vs 测试集 | 解读 | 标注 |

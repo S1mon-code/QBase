@@ -346,6 +346,7 @@ for strategy in portfolio:
 | 归因分析 | 已完成（信号归因 + 行情归因） |
 | 交易次数 | 达到频率门槛（daily≥10, 4h≥20, 1h≥30, 5min≥80） |
 | Walk-Forward Win Rate | ≥ 50%（对关键策略） |
+| **Industrial 模式验证** | **Industrial Sharpe > 0，衰减 < 50%** |
 
 **Tier 2: Portfolio 级门槛（组合上线的最低标准）**
 
@@ -369,6 +370,25 @@ for strategy in portfolio:
 - 相关性过高？→ 扩大策略池（加入不同频率/指标类型）
 - 某策略权重过高？→ 降低权重上限
 - Bootstrap CI 跨零？→ 数据不足或过拟合，简化组合
+
+---
+
+## Industrial 模式要求
+
+**Portfolio 构建回测必须使用 Industrial 模式。** Basic 模式下的 Portfolio Sharpe 会虚高，不反映真实表现。
+
+### Checklist
+
+- [ ] 所有入选策略已通过 Industrial 模式单策略验证（Step 4）
+- [ ] Portfolio 组合回测使用 Industrial 模式配置
+- [ ] 记录 Portfolio 的 Industrial Sharpe（这是真实数字）
+- [ ] 如果 Portfolio 中包含 1h+ 策略，确认该策略在 Industrial 模式下精调过
+
+### 注意
+
+- Portfolio 在 Industrial 模式下的 Sharpe 会低于 Basic 模式 — **这是正常的，Industrial 数字才是真实的**
+- 高频策略（1h+）的 Industrial 衰减最大，可能显著拉低组合表现
+- 如果 Portfolio Industrial Sharpe 远低于 Basic（衰减 > 30%），说明组合过度依赖高频策略的不真实成交假设
 
 ---
 

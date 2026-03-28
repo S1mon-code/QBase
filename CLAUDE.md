@@ -62,6 +62,44 @@ QBase/
 
 ## 全局规则（所有阶段适用）
 
+### 回测模式（Basic vs Industrial）
+
+QBase 回测有两种模式，适用场景不同：
+
+**Basic 模式**（默认）— 开发和快速迭代用：
+```python
+config = BacktestConfig(initial_capital=10_000_000)
+# 固定 1-tick 滑点，总是成交，瞬时换仓，仅开盘时检查保证金
+```
+
+**Industrial 模式**（V6 真实仿真）— 进 Portfolio 前必须验证：
+```python
+config = BacktestConfig(
+    initial_capital=10_000_000,
+    volume_adaptive_spread=True,     # 低量→更宽价差
+    dynamic_margin=True,             # 交割月阶梯保证金
+    time_varying_spread=True,        # 开盘/收盘时段更宽价差
+    rollover_window_bars=20,         # 20 bar 渐进换仓
+    asymmetric_impact=True,          # 顺势冲击低，逆势冲击高
+    detect_locked_limit=True,        # 涨跌停 + 低量→拒绝全部订单
+    margin_check_mode="daily",       # 每日结算价检查保证金
+    margin_call_grace_bars=3,        # 追保宽限 3 bar
+)
+```
+
+**实测 Sharpe 衰减（V6 真实数据）：**
+
+| 策略 | 频率 | Basic Sharpe | Industrial Sharpe | 衰减 | 成交量变化 |
+|------|------|:-----------:|:-----------------:|:----:|:----------:|
+| v12 | daily | 3.09 | 2.84 | -8.1% | 18→18 |
+| v9 | 1h | 2.15 | 1.00 | -53.7% | 261→43 |
+
+**规则：**
+- **任何策略进入 Portfolio 前，必须在 Industrial 模式下验证 Sharpe 仍为正**
+- **高频策略（1h 及以上）必须在 Industrial 模式下优化，不能只用 Basic**
+- Daily 策略可全程用 Basic 开发（衰减 < 10%），最终 Industrial 验证一次即可
+- 1h+ 策略 Basic 模式下的优化结果不可靠，必须在 Industrial 模式下精调
+
 ### 预计算模式（必须）
 
 **所有策略必须使用 `on_init_arrays` 预计算模式。** 指标在初始化时一次性全数组计算，`on_bar` 通过 `context.bar_index` 查表。

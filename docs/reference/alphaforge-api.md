@@ -264,23 +264,59 @@ config = BacktestConfig(
 | `auction_spread` | bool | `False` | 集合竞价时段价差扩大 |
 | `broker` | BrokerConfig | `None` | 券商级别配置 |
 
-### Industrial-Grade 推荐配置
+### 两种回测模式
 
-生产级回测建议使用以下配置，最大程度接近真实交易环境：
+V6 引擎有两种使用模式，选择不当会导致优化结果不可靠。
 
+**Basic 模式**（默认，开发用）：
+```python
+config = BacktestConfig(initial_capital=10_000_000)
+# 固定 1-tick 滑点，总是成交，瞬时换仓，仅开盘时检查保证金
+```
+
+**Industrial 模式**（生产级验证用）：
 ```python
 config = BacktestConfig(
-    volume_adaptive_spread=True,
-    dynamic_margin=True,
-    time_varying_spread=True,
-    rollover_window_bars=20,
-    margin_check_mode="daily",
-    asymmetric_impact=True,
-    detect_locked_limit=True,
+    initial_capital=10_000_000,
+    volume_adaptive_spread=True,     # 低量→更宽价差
+    dynamic_margin=True,             # 交割月阶梯保证金
+    time_varying_spread=True,        # 开盘/收盘时段更宽价差
+    rollover_window_bars=20,         # 20 bar 渐进换仓
+    asymmetric_impact=True,          # 顺势冲击低，逆势冲击高
+    detect_locked_limit=True,        # 涨跌停 + 低量→拒绝全部订单
+    margin_check_mode="daily",       # 每日结算价检查保证金
+    margin_call_grace_bars=3,        # 追保宽限 3 bar
 )
 ```
 
-此配置启用了所有 V6 关键仿真特性，回测结果更接近实盘表现。
+### 实测 Sharpe 衰减基准
+
+以下为 Basic→Industrial 的真实衰减数据，作为各频率预期参考：
+
+| 策略 | 频率 | Basic Sharpe | Industrial Sharpe | 衰减 | 成交量变化 |
+|------|------|:-----------:|:-----------------:|:----:|:----------:|
+| v12 | daily | 3.09 | 2.84 | -8.1% | 18→18 |
+| v9 | 1h | 2.15 | 1.00 | -53.7% | 261→43 |
+
+**各频率预期衰减范围：**
+
+| 频率 | 预期衰减 | 说明 |
+|------|:-------:|------|
+| daily | 5-10% | 几乎不受影响 |
+| 4h | 10-25% | 需要关注 |
+| 1h | 25-55% | 必须在 Industrial 下优化 |
+| 5min | > 60% 可能 | 高风险，仅适用 A 级流动性品种 |
+
+### 使用场景
+
+| 场景 | 推荐模式 | 理由 |
+|------|:-------:|------|
+| 策略开发/快速迭代 | Basic | 速度快 |
+| 粗调优化（Coarse） | Basic | 方向对即可 |
+| 精调优化（1h+ 策略） | **Industrial** | Basic 结果不可靠 |
+| 精调优化（daily 策略） | Basic | 衰减 < 10% |
+| Portfolio 验证/入选前 | **Industrial** | 必须用真实数字 |
+| Portfolio 组合回测 | **Industrial** | 真实 Sharpe |
 
 ---
 
