@@ -1,4 +1,5 @@
 """Tests for attribution analysis modules."""
+import os
 import sys
 import importlib
 from pathlib import Path
@@ -158,3 +159,54 @@ class TestRegimeAttribution:
         assert len(result.by_activity) > 0
         assert result.best_regime != ""
         assert result.worst_regime != ""
+
+
+class TestReportGenerator:
+    """Test Markdown report generation."""
+
+    def test_generates_report_file(self, tmp_path):
+        """Should generate a Markdown file with all required sections."""
+        from attribution.signal import SignalAttributionResult
+        from attribution.regime import RegimeAttributionResult, RegimeStats
+        from attribution.report import generate_attribution_report
+
+        signal = SignalAttributionResult(
+            strategy_version="strong_trend_v12",
+            symbol="AG",
+            period="2025-01-01 ~ 2026-03-01",
+            baseline_sharpe=3.09,
+            baseline_trades=18,
+            contributions={
+                'Aroon Oscillator': {'ablated_sharpe': 1.2, 'contribution': 1.89, 'pct_contribution': 61.2, 'role': 'trend'},
+                'PPO Histogram': {'ablated_sharpe': 2.1, 'contribution': 0.99, 'pct_contribution': 32.0, 'role': 'momentum'},
+                'Volume Momentum': {'ablated_sharpe': 2.9, 'contribution': 0.19, 'pct_contribution': 6.1, 'role': 'volume'},
+            },
+            dominant_indicator='Aroon Oscillator',
+            redundant_indicators=[],
+        )
+
+        regime = RegimeAttributionResult(
+            strategy_version="strong_trend_v12",
+            symbol="AG",
+            period="2025-01-01 ~ 2026-03-01",
+            total_trades=18,
+            total_sharpe=3.09,
+            by_trend={'strong': RegimeStats(n_trades=12, win_rate=75.0, avg_pnl_pct=2.5, total_pnl_pct=30.0, avg_holding_bars=15, best_trade_pnl=8.0, worst_trade_pnl=-1.5)},
+            by_volatility={'high': RegimeStats(n_trades=10, win_rate=70.0, avg_pnl_pct=2.0, total_pnl_pct=20.0, avg_holding_bars=12, best_trade_pnl=7.0, worst_trade_pnl=-2.0)},
+            by_activity={'active': RegimeStats(n_trades=8, win_rate=62.5, avg_pnl_pct=1.5, total_pnl_pct=12.0, avg_holding_bars=10, best_trade_pnl=5.0, worst_trade_pnl=-3.0)},
+            cross_trend_vol={('strong', 'high'): RegimeStats(n_trades=8, win_rate=75.0, avg_pnl_pct=3.0, total_pnl_pct=24.0, avg_holding_bars=14, best_trade_pnl=8.0, worst_trade_pnl=-1.0)},
+            best_regime="trend=strong",
+            worst_regime="activity=quiet",
+        )
+
+        output = str(tmp_path / "test_report.md")
+        result_path = generate_attribution_report(signal, regime, output)
+
+        assert os.path.exists(result_path)
+        content = open(result_path).read()
+        assert "Signal Attribution" in content
+        assert "Regime Attribution" in content
+        assert "Aroon Oscillator" in content
+        assert "Dominant indicator" in content
+        assert "Trend Strength" in content
+        assert "Cross Analysis" in content
