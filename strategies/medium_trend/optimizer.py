@@ -1,25 +1,23 @@
 """
-Medium Trend 策略优化器
+Medium Trend 策略优化器（optimizer_core 版本）
 
-品种无关策略，在多品种训练集上优化，目标 = mean(Sharpe across training symbols)。
+品种无关策略，在多品种多时段训练集上优化。
 只做多，捕捉涨幅 20%-80%、持续 2-4 个月的中等趋势。
 
+使用 optimizer_core 的加权多维评分系统 (0-10):
+  score = 0.60×S_sharpe + 0.15×S_risk + 0.15×S_quality + 0.10×S_stability
+
 训练集：35 段中趋势行情（见 trend/MEDIUM_TRENDS.md）
-测试集（Simon 指定，不参与优化）：
-  - PG 2020-03-30 ~ 2020-07-27
-  - UR 2021-05-27 ~ 2021-10-12
-  - SC 2020-11-02 ~ 2021-02-24
-  - SN 2025-09-29 ~ 2026-01-24
-  - JM 2023-05-31 ~ 2023-09-16
+测试集（不参与优化）：PG, UR, SC, SN, JM
 
 用法:
-    python optimizer.py --strategy v1 --trials 30 --phase coarse
-    python optimizer.py --strategy all --trials 30 --phase coarse
-    python optimizer.py --strategy v1 --trials 50 --phase fine
+    python optimizer.py --strategy v1 --trials 50 --phase coarse
+    python optimizer.py --strategy all --trials 50 --phase coarse
+    python optimizer.py --strategy v1 --trials 100 --phase fine
+    python optimizer.py --strategy v1 --trials 50 --multi-seed
 """
 
 import sys
-import os
 import json
 import argparse
 import importlib.util
@@ -35,6 +33,13 @@ from config import get_data_dir
 
 import numpy as np
 
+from strategies.optimizer_core import (
+    auto_discover_params, create_strategy_with_params,
+    composite_objective, run_single_backtest,
+    optimize_two_phase, optimize_multi_seed,
+    narrow_param_space, map_freq, resample_bars,
+)
+
 logging.getLogger("alphaforge").setLevel(logging.ERROR)
 logging.getLogger("alphaforge.engine").setLevel(logging.ERROR)
 
@@ -42,7 +47,9 @@ MT_DIR = Path(__file__).resolve().parent
 COARSE_RESULTS_FILE = MT_DIR / "optimization_coarse.json"
 RESULTS_FILE = MT_DIR / "optimization_results.json"
 
-# ── Training segments: symbol, start, end ──
+DEFAULT_CAPITAL = 1_000_000
+
+# ── Training segments: (symbol, start, end) ──
 # All segments from MEDIUM_TRENDS.md EXCEPT the 5 test segments
 TRAIN_SEGMENTS = [
     ("EC", "2024-09-19", "2025-02-10"),
@@ -91,10 +98,8 @@ TEST_SEGMENTS = [
     ("JM", "2023-05-31", "2023-09-16"),
 ]
 
-# Frequency-adaptive segment selection
-# Higher frequency = fewer segments (for speed), lower frequency = all segments (for robustness)
-# Subset covers diverse sectors: black(J,I), energy(FU,SC), nonferrous(AG,NI), agri(CF,RU), building(SA,FG)
-OPTIM_SEGMENTS_SMALL = [  # 12 segments for 30min/1h (diverse but fast)
+# Frequency-adaptive segment selection (fewer segments for higher freq = faster)
+OPTIM_SEGMENTS_SMALL = [  # 12 segments for 30min/1h
     ("J", "2016-08-08", "2016-12-02"),
     ("I", "2019-03-11", "2019-07-03"),
     ("AG", "2020-04-17", "2020-08-11"),
@@ -109,19 +114,18 @@ OPTIM_SEGMENTS_SMALL = [  # 12 segments for 30min/1h (diverse but fast)
     ("LC", "2025-11-13", "2026-01-20"),
 ]
 
-def get_optim_segments(freq: str):
+
+def get_optim_segments(freq):
     """Select training segments based on strategy frequency."""
     if freq in ("daily", "4h"):
-        return TRAIN_SEGMENTS  # 35 segments
-    elif freq in ("1h", "30min"):
+        return TRAIN_SEGMENTS        # 35 segments
+    elif freq in ("1h", "30min", "60min"):
         return OPTIM_SEGMENTS_SMALL  # 12 segments
-    else:  # 5min, 10min — should be skipped but just in case
+    else:  # 5min, 10min
         return OPTIM_SEGMENTS_SMALL[:8]  # 8 segments
 
-DEFAULT_CAPITAL = 1_000_000
 
-
-def load_strategy_class(version: str):
+def load_strategy_class(version):
     filepath = MT_DIR / f"{version}.py"
     if not filepath.exists():
         raise FileNotFoundError(f"Strategy file not found: {filepath}")
@@ -142,153 +146,101 @@ def get_strategy_freq(strategy_cls):
     return getattr(strategy_cls, 'freq', 'daily')
 
 
-def discover_params(strategy_cls):
-    params = []
-    try:
-        discovered = strategy_cls.get_tunable_params()
-        if discovered:
-            return [(p.name, p.low, p.high, p.step) for p in discovered]
-    except (AttributeError, Exception):
-        pass
-    try:
-        discovered = strategy_cls.get_annotation_params()
-        if discovered:
-            return [(p.name, p.low, p.high, p.step) for p in discovered]
-    except (AttributeError, Exception):
-        pass
-    annotations = {}
-    for cls in reversed(strategy_cls.__mro__):
-        annotations.update(getattr(cls, '__annotations__', {}))
-    for name, type_hint in annotations.items():
-        if name.startswith('_') or name in ('name', 'warmup', 'freq'):
-            continue
-        default = getattr(strategy_cls, name, None)
-        if default is None:
-            continue
-        if type_hint == int or (isinstance(default, int) and not isinstance(default, bool)):
-            low = max(1, int(default * 0.3))
-            high = int(default * 3.0)
-            step = max(1, (high - low) // 20)
-            params.append((name, low, high, step))
-        elif type_hint == float or isinstance(default, float):
-            low = max(0.01, default * 0.3)
-            high = default * 3.0
-            step = round((high - low) / 20, 4)
-            params.append((name, low, high, step))
-    return params
-
-
-def optimize_single(version: str, n_trials: int = 30, phase: str = "coarse",
-                    seed: int = 42, probe_trials: int = 5):
-    from alphaforge.data.market import MarketDataLoader
-    from alphaforge.data.contract_specs import ContractSpecManager
-    from alphaforge.engine.event_driven import EventDrivenBacktester
-
+def optimize_single(version, n_trials=50, phase="coarse",
+                    seed=42, probe_trials=5, multi_seed=False):
+    """Optimize a single strategy using optimizer_core multi-dimensional scoring."""
     try:
         strategy_cls = load_strategy_class(version)
         freq = get_strategy_freq(strategy_cls)
-        t0 = time.time()
+        param_specs = auto_discover_params(strategy_cls)
 
         print(f"\n{'='*60}")
         print(f"Optimizing {version} | freq={freq} | phase={phase} | trials={n_trials}")
         print(f"{'='*60}")
 
-        params = discover_params(strategy_cls)
-        if not params:
-            print(f"  WARNING: No tunable parameters found for {version}, skipping")
+        if not param_specs:
+            print(f"  WARNING: No tunable params for {version}")
             return None
 
-        # Load coarse results for fine phase
-        if phase == "fine":
-            coarse = load_coarse_results()
-            if version in coarse and coarse[version].get("best_params"):
-                best = coarse[version]["best_params"]
-                narrowed = []
-                for name, low, high, step in params:
-                    if name in best:
-                        val = best[name]
-                        rng = (high - low) * 0.3
-                        narrowed.append((name, max(low, val - rng/2), min(high, val + rng/2), step/2 if step else None))
-                    else:
-                        narrowed.append((name, low, high, step))
-                params = narrowed
-                print(f"  Fine-tuning around coarse best: {best}")
+        print(f"  Parameters: {[(p['name'], round(p['low'],2), round(p['high'],2)) for p in param_specs]}")
 
-        print(f"  Parameters: {[(p[0], round(p[1],2), round(p[2],2)) for p in params]}")
         segments = get_optim_segments(freq)
         print(f"  Training on {len(segments)} segments (freq={freq})")
 
-        # Load data for all training segments
-        loader = MarketDataLoader(get_data_dir())
-        spec_mgr = ContractSpecManager()
+        t0 = time.time()
+        data_dir = get_data_dir()
 
-        try:
-            import optuna
-            optuna.logging.set_verbosity(optuna.logging.WARNING)
-        except ImportError:
-            raise ImportError("optuna required: pip install optuna")
-
-        def objective(trial):
-            # Sample parameters
-            trial_params = {}
-            for name, low, high, step in params:
-                if isinstance(getattr(strategy_cls, name, 0.0), int):
-                    trial_params[name] = trial.suggest_int(name, int(low), int(high),
-                                                           step=int(step) if step else 1)
-                else:
-                    trial_params[name] = trial.suggest_float(name, low, high, step=step)
-
-            sharpes = []
+        def objective_fn(params):
+            """Evaluate across multiple training segments using composite_objective."""
+            strategy = create_strategy_with_params(strategy_cls, params)
+            results = []
             for sym, start, end in segments:
-                try:
-                    bars = loader.load(sym, freq=freq, start=start, end=end)
-                    strat = strategy_cls()
-                    for k, v in trial_params.items():
-                        setattr(strat, k, v)
-                    engine = EventDrivenBacktester(
-                        spec_manager=spec_mgr, initial_capital=DEFAULT_CAPITAL)
-                    result = engine.run(strat, {sym: bars})
-                    s = result.sharpe if result.sharpe is not None and not np.isnan(result.sharpe) else -1.0
-                    sharpes.append(s)
-                except Exception:
-                    sharpes.append(-1.0)
+                r = run_single_backtest(
+                    strategy, sym, start, end,
+                    freq=freq, data_dir=data_dir,
+                    initial_capital=DEFAULT_CAPITAL,
+                )
+                if r['sharpe'] > -900:
+                    results.append(r)
 
-            if not sharpes:
-                return -999.0
-            # Objective: mean + consistency bonus
-            mean_s = np.mean(sharpes)
-            min_s = min(sharpes)
-            return mean_s + 0.3 * min_s
+            if len(results) < max(3, len(segments) // 3):
+                return -10.0
 
-        # Probe phase
-        sampler = optuna.samplers.TPESampler(seed=seed)
-        study = optuna.create_study(direction="maximize", sampler=sampler)
-        study.optimize(objective, n_trials=min(probe_trials, n_trials), show_progress_bar=False)
+            return composite_objective(results, min_valid=3, freq=freq)
 
-        probe_values = [t.value for t in study.trials if t.value is not None]
-        if all(v <= -900 for v in probe_values):
+        if phase == "fine":
+            coarse = load_coarse_results()
+            coarse_best = coarse.get(version, {}).get("best_params", {})
+            if coarse_best:
+                param_specs = narrow_param_space(param_specs, coarse_best)
+                print(f"  Fine-tuning around coarse best: {coarse_best}")
+            else:
+                print(f"  No coarse results for {version}, using full range")
+
+        if multi_seed:
+            result = optimize_multi_seed(
+                objective_fn, param_specs,
+                coarse_trials=max(15, n_trials // 2),
+                fine_trials=max(15, n_trials // 2),
+                seeds=(seed, seed + 100, seed + 200),
+                study_name=f"mt_{version}",
+                verbose=True, probe_trials=probe_trials,
+            )
             elapsed = time.time() - t0
-            print(f"  EARLY STOP: All probe trials failed. ({elapsed:.1f}s)")
-            return {"version": version, "phase": phase, "freq": freq,
-                    "best_params": {}, "best_sharpe": -999.0,
-                    "early_stopped": True, "elapsed_seconds": round(elapsed, 1)}
+            output = {
+                "version": version, "phase": phase, "freq": freq,
+                "best_params": result["best_params"],
+                "best_sharpe": result["best_value"],
+                "n_trials": result["n_trials_total"],
+                "robustness": result.get("robustness"),
+                "early_stopped": result.get("early_stopped", False),
+                "multi_seed": True,
+                "cross_seed_std": result.get("cross_seed_std"),
+                "is_consistent": result.get("is_consistent"),
+                "elapsed_seconds": round(elapsed, 1),
+            }
+        else:
+            result = optimize_two_phase(
+                objective_fn, param_specs,
+                coarse_trials=max(15, n_trials // 2),
+                fine_trials=max(15, n_trials // 2),
+                seed=seed,
+                study_name=f"mt_{version}",
+                verbose=True, probe_trials=probe_trials,
+            )
+            elapsed = time.time() - t0
+            output = {
+                "version": version, "phase": phase, "freq": freq,
+                "best_params": result["best_params"],
+                "best_sharpe": result["best_value"],
+                "n_trials": result["n_trials"],
+                "robustness": result.get("robustness"),
+                "early_stopped": result.get("early_stopped", False),
+                "elapsed_seconds": round(elapsed, 1),
+            }
 
-        # Main phase
-        remaining = n_trials - len(study.trials)
-        if remaining > 0:
-            study.optimize(objective, n_trials=remaining, show_progress_bar=False)
-
-        elapsed = time.time() - t0
-        best = study.best_trial
-        output = {
-            "version": version, "phase": phase, "freq": freq,
-            "best_params": best.params,
-            "best_sharpe": float(best.value),
-            "n_trials": n_trials,
-            "elapsed_seconds": round(elapsed, 1),
-        }
-        print(f"  Best Sharpe (mean+bonus): {best.value:.4f}")
-        print(f"  Best params: {best.params}")
+        print(f"  Best Score: {output['best_sharpe']:.4f}/10")
+        print(f"  Best params: {output['best_params']}")
         print(f"  Time: {elapsed:.1f}s")
         return output
 
@@ -322,12 +274,12 @@ def save_results(results, filepath):
     print(f"\nResults saved to {filepath} ({len(merged)} total, {len(results)} new)")
 
 
-def parse_strategy_range(s: str) -> list:
+def parse_strategy_range(s):
     if s == "all":
         return [f.stem for f in sorted(MT_DIR.glob("v*.py"))]
     if "-" in s and s.count("-") == 1:
         parts = s.split("-")
-        return [f"v{i}" for i in range(int(parts[0].replace("v","")), int(parts[1].replace("v",""))+1)]
+        return [f"v{i}" for i in range(int(parts[0].replace("v", "")), int(parts[1].replace("v", "")) + 1)]
     if "," in s:
         return [v.strip() for v in s.split(",")]
     return [s]
@@ -336,9 +288,11 @@ def parse_strategy_range(s: str) -> list:
 def main():
     parser = argparse.ArgumentParser(description="Medium Trend Strategy Optimizer")
     parser.add_argument("--strategy", required=True)
-    parser.add_argument("--trials", type=int, default=30)
+    parser.add_argument("--trials", type=int, default=50)
     parser.add_argument("--phase", choices=["coarse", "fine"], default="coarse")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--multi-seed", action="store_true",
+                        help="Run multi-seed optimization (3 seeds) for robustness")
     args = parser.parse_args()
 
     versions = parse_strategy_range(args.strategy)
@@ -354,6 +308,7 @@ def main():
             pass
 
     print(f"Medium Trend Optimizer | {len(versions)} strategies | phase={args.phase}")
+    print(f"Scoring: 0.60×Sharpe + 0.15×Risk + 0.15×Quality + 0.10×Stability")
     print(f"Training: 35 segments (daily/4h) / 12 segments (30min/1h) | Trials: {args.trials}")
 
     results = []
@@ -363,18 +318,25 @@ def main():
         if version in already_done:
             print(f"  Skipping {version}: already optimized")
             continue
-        r = optimize_single(version, n_trials=args.trials, phase=args.phase, seed=args.seed)
+        r = optimize_single(version, n_trials=args.trials, phase=args.phase,
+                           seed=args.seed, multi_seed=args.multi_seed)
         if r:
             results.append(r)
 
     save_results(results, result_file)
 
-    successful = [r for r in results if "error" not in r and r.get("best_sharpe", -999) > -900]
-    print(f"\nSUMMARY: {len(results)} processed | {len(successful)} valid | "
-          f"{sum(1 for r in successful if r['best_sharpe']>0)} positive Sharpe")
+    successful = [r for r in results if "error" not in r and r.get("best_sharpe", -999) > -9]
+    positive = [r for r in successful if r.get("best_sharpe", 0) > 0]
+    robust = [r for r in positive if r.get("robustness", {}).get("is_robust")]
+
+    print(f"\n{'='*60}")
+    print(f"OPTIMIZATION SUMMARY ({args.phase})")
+    print(f"{'='*60}")
+    print(f"Total: {len(results)} | Valid: {len(successful)} | Positive: {len(positive)} | Robust: {len(robust)}")
     if successful:
-        sharpes = [r["best_sharpe"] for r in successful]
-        print(f"Sharpe: [{min(sharpes):.3f}, {max(sharpes):.3f}] mean={np.mean(sharpes):.3f}")
+        scores = [r["best_sharpe"] for r in successful]
+        print(f"Score range: [{min(scores):.4f}, {max(scores):.4f}]")
+        print(f"Score mean: {np.mean(scores):.4f} | median: {np.median(scores):.4f}")
 
 
 if __name__ == "__main__":
