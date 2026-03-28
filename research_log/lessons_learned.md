@@ -63,6 +63,59 @@
 
 ---
 
+## 归因分析 — 首批发现 (2026-03-28)
+
+来源：v12 (Aroon + PPO + Volume Momentum) 在 AG 2025-01 ~ 2026-03 的归因报告。
+
+### 信号归因（Ablation Test）
+
+| 指标 | 去掉后 Sharpe | 贡献 | 占比 |
+|------|:-:|:-:|:-:|
+| Volume Momentum | 1.494 | +1.597 | **51.7%** |
+| PPO Histogram | 3.004 | +0.086 | 2.8% |
+| Aroon Oscillator | 3.087 | +0.003 | 0.1% |
+
+**关键发现：**
+- **Volume Momentum 是 v12 唯一真正的 alpha 来源**（51.7%）。去掉它 Sharpe 从 3.09 降到 1.49
+- **Aroon 和 PPO 几乎无贡献** — 之前认为 "Aroon 是最强趋势指标" 的结论需要修正。Aroon 的价值不在于提供 alpha，而可能在于过滤噪音交易（但 ablation 显示这个过滤几乎无效）
+- **PPO 贡献 2.8%** — 之前认为 "PPO 是最强动量指标" 同样需要修正。PPO 在 v12 中更像锦上添花而非核心
+- **此前的 "量价/OI 指标是 alpha 核心来源" 结论得到量化验证** — 不只是"重要"，而是 "几乎全部"
+- **启示：v12 可以极大简化** — 可能只需 Volume Momentum + ATR 止损
+
+### 行情归因（Regime Attribution）
+
+| Trend Regime | 交易数 | 胜率 | Avg PnL |
+|---|:---:|:---:|:---:|
+| Strong (ADX>25) | 3 | **100%** | +173% |
+| Weak (15-25) | 3 | **0%** | -6.8% |
+| None (<15) | 3 | 100% | +5.2% |
+
+| Volume Regime | 交易数 | 胜率 | Avg PnL |
+|---|:---:|:---:|:---:|
+| Active (>1.5x) | 3 | **100%** | +173% |
+| Normal | 5 | 60% | -0.7% |
+| Quiet (<0.7x) | 1 | 0% | -1.3% |
+
+**关键发现：**
+- **v12 在强趋势 + 高量能下赚所有钱** — 100% 胜率，平均 +173%
+- **弱趋势下 100% 亏损** — Portfolio 必须有策略覆盖弱趋势 regime
+- **行情依赖度极高** — 不是一个全天候策略，而是一个精确的强趋势捕手
+- **ATR 波动率维度显示 Unknown** — 因为测试期只有 1 年（252 bar rolling percentile 需要更多历史），下次用更长的测试期或降低 rolling window
+
+### 对 Portfolio 的启示
+
+1. **v12 在 Portfolio C 中占 25% 权重 — 这可能过高**，因为它本质上是一个单维度策略（Volume Momentum + 强趋势才有效）
+2. **需要确认其他 4 个策略 (v8, v11, v31, v34) 是否在弱趋势中盈利** — 如果它们也依赖强趋势，Portfolio 在弱趋势下会集体失效
+3. **归因分析应该成为 Portfolio 构建的前置条件** — 不只看 Sharpe 和相关性，还要看策略在哪些 regime 下有效，确保 Portfolio 覆盖所有 regime
+
+### 对策略简化的启示
+
+- 如果 Aroon 和 PPO 真的无贡献，可以创建一个 v12-lite（只用 Volume Momentum + ATR 止损），对比性能
+- 简化后参数从 5 个降到 2 个（vol_mom_period + atr_trail_mult），大幅降低过拟合空间
+- 但需要在更多品种 / 更长时间段上验证，避免在 AG 单品种上的结论不泛化
+
+---
+
 ## Portfolio 构建 Checklist (待执行)
 
 基于 50 策略结果，下一步：

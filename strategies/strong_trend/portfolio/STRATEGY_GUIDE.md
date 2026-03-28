@@ -59,6 +59,16 @@
 
 **特点：** 全 Portfolio 最高 Sharpe，在 AG 和 LC 上都极强，跨品种泛化能力最好。
 
+### 归因分析 (AG 2025-01 ~ 2026-03)
+
+| 指标 | 去掉后 Sharpe | 贡献 | 占比 |
+|------|:-:|:-:|:-:|
+| Volume Momentum | 1.494 | **+1.597** | **51.7%** |
+| PPO Histogram | 3.004 | +0.086 | 2.8% |
+| Aroon Oscillator | 3.087 | +0.003 | 0.1% |
+
+**Volume Momentum 是唯一核心 alpha 来源。** Aroon 和 PPO 几乎无贡献。策略在强趋势 + 高量能下 100% 胜率（+173% avg PnL），弱趋势下 0% 胜率。行情依赖度极高。
+
 ---
 
 ## v8 (20%) — Linear Regression + Choppiness Index + OBV | daily
