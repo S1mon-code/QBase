@@ -8,10 +8,14 @@ Provides:
 4. Parameter robustness checking (plateau vs spike detection)
 5. Multi-seed validation
 6. Unified backtest runner with freq mapping and bar resampling
+7. Unified result schema (build_result_entry, detect_strategy_status)
 
 Used by:
 - strategies/strong_trend/optimizer.py
 - strategies/all_time/ag/optimizer.py
+- strategies/all_time/i/optimizer.py
+- strategies/boss/optimizer.py
+- strategies/medium_trend/optimizer.py
 """
 import sys
 from pathlib import Path
@@ -171,16 +175,32 @@ def narrow_param_space(param_specs, best_params, shrink_ratio=0.3):
 
     Each parameter's range is shrunk to ±(shrink_ratio/2) of original range
     centered on the best value, clamped to original bounds.
+
+    Boundary protection: when best value is within 20% of a parameter boundary,
+    uses a wider range (40% of original) anchored at that boundary to avoid
+    getting trapped in a dead zone at the edge.
     """
     narrowed = []
     for spec in param_specs:
         name = spec["name"]
         orig_low, orig_high = spec["low"], spec["high"]
+        orig_range = orig_high - orig_low
+
         if name in best_params:
             val = best_params[name]
-            half_range = (orig_high - orig_low) * shrink_ratio / 2
+            half_range = orig_range * shrink_ratio / 2
             new_low = max(orig_low, val - half_range)
             new_high = min(orig_high, val + half_range)
+
+            # Boundary protection: if best is within 20% of boundary,
+            # use a wider range centered on the boundary to avoid dead zone
+            if (val - orig_low) < orig_range * 0.2:  # near low boundary
+                new_low = orig_low
+                new_high = min(orig_high, orig_low + orig_range * 0.4)
+            elif (orig_high - val) < orig_range * 0.2:  # near high boundary
+                new_high = orig_high
+                new_low = max(orig_low, orig_high - orig_range * 0.4)
+
             new_step = spec["step"] / 2 if spec["step"] else spec["step"]
             narrowed.append({**spec, "low": new_low, "high": new_high, "step": new_step})
         else:
@@ -198,8 +218,8 @@ def narrow_param_space(param_specs, best_params, shrink_ratio=0.3):
 MIN_TRADES_BY_FREQ = {
     "daily": 10,
     "4h": 20,
-    "1h": 30,
-    "60min": 30,
+    "1h": 30,      # V6: natively supported
+    "60min": 30,    # Legacy alias for 1h
     "30min": 50,
     "15min": 80,
     "10min": 80,
@@ -443,18 +463,19 @@ def composite_objective(results, min_valid=1, freq=None, scoring_mode="tanh"):
 def map_freq(freq):
     """Map strategy frequency to (AlphaForge load freq, resample factor).
 
-    AlphaForge native: 1min, 5min, 10min, 15min, 30min, 60min, daily.
+    AlphaForge V6 native: 1min, 5min, 10min, 15min, 30min, 60min, 1h, daily.
+    Note: V6 supports "1h" natively — no need to map to "60min".
     Non-native frequencies are loaded at a base freq and resampled.
 
     Returns:
         (load_freq, resample_factor) where factor=1 means no resample.
     """
-    NATIVE = {"1min", "5min", "10min", "15min", "30min", "60min", "daily"}
+    # V6: "1h" is now natively supported alongside "60min"
+    NATIVE = {"1min", "5min", "10min", "15min", "30min", "60min", "1h", "daily"}
     if freq in NATIVE:
         return freq, 1
 
     RESAMPLE_MAP = {
-        "1h": ("60min", 1),
         "20min": ("10min", 2),
         "4h": ("60min", 4),
     }
@@ -468,6 +489,12 @@ def resample_bars(bars, step):
     """Resample BarArray by grouping every ``step`` bars.
 
     E.g. step=4 converts 60min bars to 4h bars.
+
+    .. deprecated:: V6
+        AlphaForge V6 supports native multi-TF via ``resample_freqs`` and
+        ``context.get_resampled_bars()``.  This manual resample is kept for
+        backward compatibility with existing optimizer/attribution code that
+        loads bars outside of a strategy context.
     """
     from alphaforge.data.bardata import BarArray
 
@@ -572,6 +599,51 @@ def _compute_profit_concentration(equity_curve):
         return None
 
 
+def _build_backtest_config(config_mode, initial_capital, slippage_ticks, backtest_config):
+    """Build a BacktestConfig for V6, falling back to legacy kwargs.
+
+    Args:
+        config_mode: "basic" (legacy positional args), "industrial" (V6 recommended),
+                     or "custom" (caller provides a BacktestConfig instance).
+        initial_capital: Used for "basic" and "industrial" modes.
+        slippage_ticks: Used for "basic" and "industrial" modes.
+        backtest_config: A pre-built BacktestConfig instance (only used when
+                         config_mode="custom").
+
+    Returns:
+        A BacktestConfig instance, or None if V6 BacktestConfig is not available
+        (graceful fallback to legacy constructor).
+    """
+    try:
+        from alphaforge.engine.config import BacktestConfig
+    except ImportError:
+        # AlphaForge version < 6 — BacktestConfig not available
+        return None
+
+    if config_mode == "custom" and backtest_config is not None:
+        return backtest_config
+
+    if config_mode == "industrial":
+        return BacktestConfig(
+            initial_capital=initial_capital,
+            slippage_ticks=slippage_ticks,
+            volume_adaptive_spread=True,
+            dynamic_margin=True,
+            time_varying_spread=True,
+            rollover_window_bars=20,
+            margin_check_mode="daily",
+            margin_call_grace_bars=3,
+            asymmetric_impact=True,
+            detect_locked_limit=True,
+        )
+
+    # "basic" mode — minimal config, mirrors legacy behaviour
+    return BacktestConfig(
+        initial_capital=initial_capital,
+        slippage_ticks=slippage_ticks,
+    )
+
+
 def run_single_backtest(
     strategy,
     symbol,
@@ -581,8 +653,25 @@ def run_single_backtest(
     data_dir=None,
     initial_capital=1_000_000,
     slippage_ticks=1.0,
+    config_mode="basic",
+    backtest_config=None,
 ):
     """Run a single backtest and return a result dict.
+
+    Args:
+        strategy: Strategy instance.
+        symbol: Trading symbol string.
+        start: Start date string.
+        end: End date string.
+        freq: Frequency string ("daily", "1h", "4h", etc.).
+        data_dir: Data directory override.
+        initial_capital: Initial capital (used when config_mode != "custom").
+        slippage_ticks: Slippage in ticks (used when config_mode != "custom").
+        config_mode: "basic" (default, legacy), "industrial" (V6 recommended
+                     settings for realistic simulation), or "custom" (use the
+                     provided ``backtest_config`` instance directly).
+        backtest_config: A pre-built ``BacktestConfig`` instance.  Only used
+                         when ``config_mode="custom"``.
 
     Returns:
         dict with keys:
@@ -591,6 +680,7 @@ def run_single_backtest(
             n_trades (int|None): Total trade count
             total_return (float|None): Total return
             profit_concentration (float|None): 0=even, 1=concentrated in top 10% days
+            monthly_win_rate (float|None): Monthly win rate
     """
     FAIL = {
         "sharpe": -999.0,
@@ -620,11 +710,22 @@ def run_single_backtest(
         if bars is None or len(bars) < strategy.warmup + 20:
             return FAIL
 
-        engine = EventDrivenBacktester(
-            spec_manager=ContractSpecManager(),
-            initial_capital=initial_capital,
-            slippage_ticks=slippage_ticks,
+        # V6: Try to use BacktestConfig if available
+        bt_config = _build_backtest_config(
+            config_mode, initial_capital, slippage_ticks, backtest_config,
         )
+        if bt_config is not None:
+            engine = EventDrivenBacktester(
+                spec_manager=ContractSpecManager(),
+                config=bt_config,
+            )
+        else:
+            # Legacy fallback (AlphaForge < V6)
+            engine = EventDrivenBacktester(
+                spec_manager=ContractSpecManager(),
+                initial_capital=initial_capital,
+                slippage_ticks=slippage_ticks,
+            )
         result = engine.run(strategy, {symbol: bars}, warmup=strategy.warmup)
 
         sharpe = float(result.sharpe)
@@ -844,6 +945,22 @@ def optimize_two_phase(
             "early_stopped": False,
         }
 
+    # ── Probe validation: verify coarse best params before fine phase ──
+    coarse_probe_score = objective_fn(coarse_best_params, scoring_mode="tanh")
+    if coarse_probe_score <= -5.0:
+        if verbose:
+            print(f"  Skipping fine phase: coarse best params invalid (score={coarse_probe_score:.4f})")
+        return {
+            "best_params": coarse_best_params,
+            "best_value": coarse_best_value,
+            "coarse_best": coarse_best_value,
+            "fine_best": None,
+            "robustness": None,
+            "n_trials": coarse_trials,
+            "phase": "coarse_only",
+            "early_stopped": False,
+        }
+
     # ── Phase 2: Fine-tune ──
     if verbose:
         print(f"  Phase 2: Fine-tune ({fine_trials} trials)...")
@@ -1032,3 +1149,250 @@ def optimize_multi_seed(
         "n_trials_total": sum(r["n_trials"] for r in seed_results),
         "early_stopped": False,
     }
+
+
+# =====================================================================
+# 7. Unified Result Schema
+# =====================================================================
+
+# All required fields in a standardized optimization result entry.
+UNIFIED_SCHEMA_FIELDS = {
+    "version", "freq", "best_sharpe", "best_score", "best_params",
+    "n_trials", "phase", "status", "robustness", "elapsed_seconds",
+}
+
+
+def build_result_entry(
+    version: str,
+    freq: str,
+    best_params: dict,
+    sharpe: float = None,
+    score: float = None,
+    n_trials: int = 0,
+    phase: str = "two_phase",
+    robustness: dict = None,
+    elapsed: float = 0.0,
+    status: str = "active",
+    **extra_fields,
+) -> dict:
+    """Build a standardized optimization result entry.
+
+    All optimizers should call this to produce consistent output format.
+    Extra fields (e.g. early_stopped, multi_seed, cross_seed_std) are
+    preserved as-is for backward compatibility.
+
+    Args:
+        version: Strategy version (e.g. "v1", "v12").
+        freq: Strategy frequency ("daily", "4h", "1h", "5min").
+        best_params: Optimized parameter dict.
+        sharpe: Raw Sharpe ratio (best_sharpe).
+        score: Composite score 0-10 (best_score).
+        n_trials: Total optimization trials.
+        phase: Optimization phase ("coarse_only", "two_phase", "multi_seed", "probe_failed").
+        robustness: Robustness check result dict, or None.
+        elapsed: Wall-clock seconds.
+        status: "active", "dead", "error", "import_error".
+        **extra_fields: Additional fields preserved for backward compatibility.
+
+    Returns:
+        dict with all unified schema fields plus any extras.
+    """
+    entry = {
+        "version": version,
+        "freq": freq,
+        "best_sharpe": round(sharpe, 4) if sharpe is not None else None,
+        "best_score": round(score, 4) if score is not None else None,
+        "best_params": best_params,
+        "n_trials": n_trials,
+        "phase": phase,
+        "status": status,
+        "robustness": robustness,
+        "elapsed_seconds": round(elapsed, 1),
+    }
+    # Preserve extra fields for backward compatibility
+    entry.update(extra_fields)
+    return entry
+
+
+def detect_strategy_status(result: dict) -> str:
+    """Detect if a strategy is dead/error based on optimization results.
+
+    Returns:
+        "error" — if sharpe or score indicates complete failure (-999 etc.)
+        "import_error" — if the result contains an import error marker
+        "dead" — if the strategy produced 0 trades or negligible results
+        "active" — otherwise
+    """
+    # Check for explicit error markers
+    if result.get("error"):
+        error_msg = str(result["error"]).lower()
+        if "import" in error_msg or "module" in error_msg:
+            return "import_error"
+        return "error"
+
+    sharpe = result.get("best_sharpe")
+    score = result.get("best_score")
+
+    # Check for sentinel failure values
+    if sharpe is not None and sharpe <= -900:
+        return "error"
+    if score is not None and score <= -900:
+        return "error"
+
+    # Check for empty params (probe failed / no trades)
+    if not result.get("best_params"):
+        return "dead"
+
+    return "active"
+
+
+def save_results_atomic(results_file, new_results):
+    """Atomically append/update results to JSON file with file locking.
+
+    Uses fcntl.flock to prevent race conditions when multiple optimizer
+    processes write to the same results file simultaneously.
+
+    Args:
+        results_file: Path to the JSON results file (str or Path).
+        new_results: List of result dicts to merge into the file.
+                     Each must have a 'version' key.
+    """
+    import fcntl
+    import json
+    import os
+
+    results_file = str(results_file)
+    lock_file = results_file + ".lock"
+
+    with open(lock_file, 'w') as lock_fh:
+        fcntl.flock(lock_fh, fcntl.LOCK_EX)  # Exclusive lock
+        try:
+            # Read existing
+            existing = []
+            if os.path.exists(results_file):
+                try:
+                    with open(results_file) as f:
+                        existing = json.load(f)
+                except (json.JSONDecodeError, Exception):
+                    existing = []
+
+            # Merge: update existing entries, append new ones
+            existing_versions = {r['version']: i for i, r in enumerate(existing)}
+            for result in new_results:
+                if result is None:
+                    continue
+                ver = result['version']
+                if ver in existing_versions:
+                    existing[existing_versions[ver]] = result  # Update
+                else:
+                    existing.append(result)  # Append
+
+            # Sort by version number
+            try:
+                existing.sort(key=lambda r: int(r["version"][1:]))
+            except (ValueError, KeyError):
+                pass  # Keep current order if versions aren't standard vN format
+
+            # Write atomically (write to temp, rename)
+            tmp_file = results_file + ".tmp"
+            with open(tmp_file, 'w') as f:
+                json.dump(existing, f, indent=2, default=str)
+            os.replace(tmp_file, results_file)
+        finally:
+            fcntl.flock(lock_fh, fcntl.LOCK_UN)
+
+    print(f"\nResults saved to {results_file} ({len(existing)} total, "
+          f"{sum(1 for r in new_results if r is not None)} new/updated)")
+
+
+def auto_calibrate_params(strategy_cls, param_specs, symbol, start, end,
+                          freq="daily", data_dir=None, initial_capital=1_000_000):
+    """If default params produce zero trades, widen search ranges.
+
+    Runs a single backtest with the strategy's default parameters. If it
+    produces zero trades, threshold-type parameters likely have unrealistic
+    defaults, so the search ranges are widened aggressively.
+
+    Args:
+        strategy_cls: Strategy class (not instance).
+        param_specs: List of param spec dicts from auto_discover_params.
+        symbol: Symbol to test on (first training symbol).
+        start: Start date string (or None for all available data).
+        end: End date string.
+        freq: Frequency string.
+        data_dir: Data directory.
+        initial_capital: Initial capital for backtest.
+
+    Returns:
+        param_specs (possibly widened).
+    """
+    strategy = strategy_cls()
+    result = run_single_backtest(
+        strategy, symbol, start, end,
+        freq=freq, data_dir=data_dir,
+        initial_capital=initial_capital,
+        config_mode="basic",
+    )
+
+    n_trades = result.get('n_trades')
+    if n_trades is not None and n_trades > 0:
+        return param_specs  # Default params work, ranges are fine
+
+    # Zero trades — widen threshold ranges
+    widened = []
+    any_widened = False
+    for spec in param_specs:
+        name = spec['name']
+        # Widen threshold/mult params more aggressively
+        if any(kw in name.lower() for kw in ('threshold', 'thresh', 'entry', 'exit')):
+            new_low = spec['low'] * 0.1  # Much wider
+            new_high = spec['high'] * 2.0
+            if spec['dtype'] == 'int':
+                new_low = max(1, int(new_low))
+                new_high = int(new_high)
+            widened.append({**spec, 'low': new_low, 'high': new_high})
+            any_widened = True
+        else:
+            widened.append(spec)
+
+    if any_widened:
+        print(f"  AUTO-CALIBRATE: default params → 0 trades, widened threshold ranges")
+        for orig, new in zip(param_specs, widened):
+            if orig['low'] != new['low'] or orig['high'] != new['high']:
+                print(f"    {orig['name']}: [{orig['low']:.4f}, {orig['high']:.4f}] → "
+                      f"[{new['low']:.4f}, {new['high']:.4f}]")
+
+    return widened
+
+
+def is_strategy_dead(results_file: str, version: str) -> bool:
+    """Check if a strategy is marked dead/error in existing results.
+
+    Used by optimizer loops to skip dead strategies on re-runs.
+
+    Args:
+        results_file: Path to optimization_results.json.
+        version: Strategy version string (e.g. "v1").
+
+    Returns:
+        True if the strategy should be skipped.
+    """
+    import json
+    from pathlib import Path
+
+    path = Path(results_file)
+    if not path.exists():
+        return False
+
+    try:
+        with open(path) as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, Exception):
+        return False
+
+    for entry in data:
+        if entry.get("version") == version:
+            status = entry.get("status", "")
+            if status in ("dead", "error", "import_error"):
+                return True
+    return False

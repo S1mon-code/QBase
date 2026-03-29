@@ -25,11 +25,22 @@ class SignalAttributionResult:
     redundant_indicators: list = field(default_factory=list)
 
 
-def run_backtest_full(strategy, symbol, start, end, freq="daily", data_dir=None):
+def run_backtest_full(strategy, symbol, start, end, freq="daily", data_dir=None,
+                      config_mode="basic"):
     """Run backtest and return the full BacktestResult (with trades DataFrame).
 
     Unlike optimizer_core.run_single_backtest which returns a summary dict,
     this returns the raw BacktestResult object from AlphaForge.
+
+    Args:
+        strategy: Strategy instance.
+        symbol: Trading symbol.
+        start: Start date string.
+        end: End date string.
+        freq: Frequency string.
+        data_dir: Data directory override.
+        config_mode: "basic" (default), "industrial" (V6 recommended), or
+                     "custom" (not supported here — use run_single_backtest).
 
     Returns:
         BacktestResult or None on failure.
@@ -38,7 +49,7 @@ def run_backtest_full(strategy, symbol, start, end, freq="daily", data_dir=None)
         from alphaforge.data.market import MarketDataLoader
         from alphaforge.data.contract_specs import ContractSpecManager
         from alphaforge.engine.event_driven import EventDrivenBacktester
-        from strategies.optimizer_core import map_freq, resample_bars
+        from strategies.optimizer_core import map_freq, resample_bars, _build_backtest_config
 
         if data_dir is None:
             from config import get_data_dir
@@ -55,11 +66,20 @@ def run_backtest_full(strategy, symbol, start, end, freq="daily", data_dir=None)
         if bars is None or len(bars) < strategy.warmup + 20:
             return None
 
-        engine = EventDrivenBacktester(
-            spec_manager=ContractSpecManager(),
-            initial_capital=1_000_000,
-            slippage_ticks=1.0,
-        )
+        # V6: Try to use BacktestConfig if available
+        bt_config = _build_backtest_config(config_mode, 1_000_000, 1.0, None)
+        if bt_config is not None:
+            engine = EventDrivenBacktester(
+                spec_manager=ContractSpecManager(),
+                config=bt_config,
+            )
+        else:
+            # Legacy fallback (AlphaForge < V6)
+            engine = EventDrivenBacktester(
+                spec_manager=ContractSpecManager(),
+                initial_capital=1_000_000,
+                slippage_ticks=1.0,
+            )
         result = engine.run(strategy, {symbol: bars}, warmup=strategy.warmup)
         return result
     except Exception:

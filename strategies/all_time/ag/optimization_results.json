@@ -1,0 +1,1118 @@
+[
+  {
+    "version": "v3",
+    "phase": "fine",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 2.2789175730801405,
+      "measurement_noise": 1.259763151629058,
+      "process_noise": 0.036940765867746715,
+      "slope_thresh": 0.1420867383619147
+    },
+    "best_sharpe": 7.040425950977959,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 3.6156562440455717,
+      "neighbor_std": 2.6761951280098772,
+      "above_threshold_pct": 0.5
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 51.9
+  },
+  {
+    "version": "v7",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 13.598327971723187,
+      "st_multiplier": 5.6179606549110535,
+      "st_period": 5
+    },
+    "best_sharpe": 3.5100774297948023,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 2.6338297162121322,
+      "neighbor_std": 0.3697750914803052,
+      "above_threshold_pct": 1.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 14.1
+  },
+  {
+    "version": "v10",
+    "phase": "fine",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 3.753530783588195,
+      "ema_period": 41,
+      "oi_mom_thresh": 0.055655478883214204,
+      "oi_period": 34
+    },
+    "best_sharpe": 4.007244497649396,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 3.6051561287757288,
+      "neighbor_std": 0.25888936257775125,
+      "above_threshold_pct": 1.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 7.0
+  },
+  {
+    "version": "v16",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 2.16658244270175,
+      "confidence_thresh": 0.1188234246629043,
+      "hmm_period": 109,
+      "strength_thresh": 0.13504982480803732
+    },
+    "best_sharpe": 2.217035116814701,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 1.3126493096432776,
+      "neighbor_std": 0.4945885108385672,
+      "above_threshold_pct": 0.7
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 21.6
+  },
+  {
+    "version": "v18",
+    "phase": "fine",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 0.7193733570273778,
+      "measurement_noise": 1.469245422075058,
+      "process_noise": 0.01269201954727869,
+      "slope_thresh": 0.8968184469795021
+    },
+    "best_sharpe": 6.934984049007833,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 6.191846755437526,
+      "neighbor_std": 0.790722095977853,
+      "above_threshold_pct": 1.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 79.6
+  },
+  {
+    "version": "v26",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 2.2878328014093494,
+      "cp_period": 74,
+      "cp_threshold": 0.39068408670616656,
+      "vol_period": 106
+    },
+    "best_sharpe": 3.8598122380822923,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 3.1159843888118433,
+      "neighbor_std": 0.5210720942809365,
+      "above_threshold_pct": 1.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 539.7
+  },
+  {
+    "version": "v32",
+    "phase": "fine",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 1.6499057959803,
+      "error_threshold": 0.6176526350813243,
+      "kalman_period": 34,
+      "mv_period": 76
+    },
+    "best_sharpe": 6.445391335138788,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 4.499173875080723,
+      "neighbor_std": 2.010021029298961,
+      "above_threshold_pct": 0.8
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 121.8
+  },
+  {
+    "version": "v38",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 2.2404615075866685,
+      "energy_entry": 0.7088817775192111,
+      "energy_exit": 1.3883229214510149,
+      "slope_lookback": 13,
+      "wavelet_level": 6
+    },
+    "best_sharpe": 2.5350369571481046,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 2.0896866838984187,
+      "neighbor_std": 0.22093561087267521,
+      "above_threshold_pct": 1.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 31.0
+  },
+  {
+    "version": "v41",
+    "phase": "fine",
+    "freq": "1h",
+    "best_params": {
+      "atr_period": 14,
+      "atr_stop_mult": 1.0974318285853357,
+      "measurement_noise": 4.5353179757876285,
+      "obv_roc_period": 26,
+      "process_noise": 0.04017272565712309
+    },
+    "best_sharpe": 7.289365670087747,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 6.49336886385316,
+      "neighbor_std": 0.406729416003541,
+      "above_threshold_pct": 1.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 56.6
+  },
+  {
+    "version": "v44",
+    "phase": "fine",
+    "freq": "1h",
+    "best_params": {
+      "atr_period": 27,
+      "atr_stop_mult": 14.42484211541179,
+      "pca_period": 120,
+      "vi_period": 29,
+      "vi_threshold": 0.6597668286862332
+    },
+    "best_sharpe": 4.091057079717313,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 2.0510394383167134,
+      "neighbor_std": 3.58050025260289,
+      "above_threshold_pct": 0.92
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 124.7
+  },
+  {
+    "version": "v46",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_period": 35,
+      "atr_stop_mult": 2.3125058605335327,
+      "bb_period": 6,
+      "kc_mult": 5.883752091279525,
+      "rf_period": 220
+    },
+    "best_sharpe": 4.566137141723109,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 4.076679455833459,
+      "neighbor_std": 0.3729864306640091,
+      "above_threshold_pct": 1.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 316.9
+  },
+  {
+    "version": "v47",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_period": 14,
+      "atr_stop_mult": 0.6233718899409691,
+      "oi_period": 51,
+      "rls_forgetting": 1.3715863836616549,
+      "rls_order": 27
+    },
+    "best_sharpe": 6.820500667094801,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 6.039263949080952,
+      "neighbor_std": 0.7340380073470546,
+      "above_threshold_pct": 1.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 38.5
+  },
+  {
+    "version": "v48",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_period": 25,
+      "atr_stop_mult": 8.138963644698693,
+      "st_mult": 2.460787973118595,
+      "st_period": 4,
+      "svm_period": 46,
+      "svm_threshold": 0.9655859887693207
+    },
+    "best_sharpe": 4.227760799273835,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 2.354395008635328,
+      "neighbor_std": 0.6196916694408064,
+      "above_threshold_pct": 0.6333333333333333
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 65.7
+  },
+  {
+    "version": "v51",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "ae_period": 202,
+      "amihud_period": 6,
+      "anomaly_threshold": 9.77561644643823,
+      "atr_period": 40,
+      "atr_stop_mult": 2.2688824738282207
+    },
+    "best_sharpe": 4.075498616479372,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 3.2133392095502153,
+      "neighbor_std": 0.36668957094750887,
+      "above_threshold_pct": 1.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 63.8
+  },
+  {
+    "version": "v56",
+    "phase": "fine",
+    "freq": "1h",
+    "best_params": {
+      "atr_period": 10,
+      "atr_stop_mult": 2.0656614079033386,
+      "sgd_lr": 0.04380340331570648,
+      "sgd_period": 19,
+      "weekday_lookback": 706
+    },
+    "best_sharpe": 5.762364092708884,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 5.321171706658245,
+      "neighbor_std": 0.22934166436073952,
+      "above_threshold_pct": 1.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 136.9
+  },
+  {
+    "version": "v59",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_period": 5,
+      "atr_stop_mult": 1.4557301463599672,
+      "l1_lambda": 3.8124849739814866,
+      "pec_period": 50,
+      "pec_threshold": 1.2240099144814736
+    },
+    "best_sharpe": 6.539501072765041,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 6.165771118248999,
+      "neighbor_std": 0.22791839802066924,
+      "above_threshold_pct": 1.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 64.0
+  },
+  {
+    "version": "v60",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_period": 14,
+      "atr_stop_mult": 12.945339301799113,
+      "rsi_period": 41,
+      "state_period": 19
+    },
+    "best_sharpe": 3.0448289605582364,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": -0.11021116637485351,
+      "neighbor_std": 4.947968557586282,
+      "above_threshold_pct": 0.8
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 29.4
+  },
+  {
+    "version": "v61",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_period": 28,
+      "atr_stop_mult": 0.6000000000000001,
+      "bb_period": 60,
+      "bb_std": 6.546457675331886,
+      "regime_period": 143
+    },
+    "best_sharpe": 4.827420714540263,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 3.676561783797114,
+      "neighbor_std": 0.9536663881595995,
+      "above_threshold_pct": 0.84
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 46.2
+  },
+  {
+    "version": "v63",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_period": 18,
+      "atr_stop_mult": 0.6083891152721703,
+      "fd_period": 107,
+      "fd_random": 4.860792983984604,
+      "fd_trending": 5.472009788619642,
+      "macd_fast": 22,
+      "macd_signal": 21,
+      "macd_slow": 51
+    },
+    "best_sharpe": 5.451450257446687,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 4.132870745329979,
+      "neighbor_std": 1.1914468912538683,
+      "above_threshold_pct": 0.8
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 1031.8
+  },
+  {
+    "version": "v68",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_period": 14,
+      "atr_stop_mult": 0.6000000000000001,
+      "fresh_threshold": 56,
+      "regime_period": 61,
+      "st_mult": 13.909642826600424,
+      "st_period": 19,
+      "stale_threshold": 173
+    },
+    "best_sharpe": 5.91232248594137,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 4.144754634138385,
+      "neighbor_std": 1.7152339441579796,
+      "above_threshold_pct": 0.7142857142857143
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 48.2
+  },
+  {
+    "version": "v70",
+    "phase": "fine",
+    "freq": "1h",
+    "best_params": {
+      "atr_period": 4,
+      "atr_stop_mult": 3.7776986431901634,
+      "dispersed_threshold": 0.22053467073053318,
+      "herd_threshold": 0.3829773096478046,
+      "stoch_d": 7,
+      "stoch_k": 13,
+      "stoch_overbought": 177.12048172150065,
+      "stoch_oversold": 40.79298194114064,
+      "vc_period": 172
+    },
+    "best_sharpe": 6.745662266325327,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 6.274659046645938,
+      "neighbor_std": 0.3083772115190352,
+      "above_threshold_pct": 1.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 92.2
+  },
+  {
+    "version": "v74",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_period": 41,
+      "atr_stop_mult": 0.6000000000000001,
+      "mr_fast": 6,
+      "mr_slow": 60,
+      "smi_period": 51
+    },
+    "best_sharpe": 5.211784851152489,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 2.5965381750931424,
+      "neighbor_std": 1.1798456785883071,
+      "above_threshold_pct": 0.76
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 17.8
+  },
+  {
+    "version": "v77",
+    "phase": "fine",
+    "freq": "1h",
+    "best_params": {
+      "atr_period": 38,
+      "atr_stop_mult": 2.148698967389909,
+      "ms_period": 53,
+      "range_imb_threshold": 0.2675215506556855,
+      "trend_imb_threshold": 0.5745939088740887,
+      "vi_period": 16
+    },
+    "best_sharpe": 7.425518885838845,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 6.617775977290121,
+      "neighbor_std": 0.3710305389390684,
+      "above_threshold_pct": 1.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 123.6
+  },
+  {
+    "version": "v80",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_period": 7,
+      "atr_stop_mult": 0.6000000000000001,
+      "bb_period": 10,
+      "bb_std": 7.584598421777677,
+      "rsi_exit_high": 300.0,
+      "rsi_exit_low": 169.3464679148731,
+      "rsi_overbought": 219.76540218885236,
+      "rsi_oversold": 141.56073002109568,
+      "rsi_period": 36
+    },
+    "best_sharpe": 5.292731228046804,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 4.391884746022473,
+      "neighbor_std": 0.9190345704425739,
+      "above_threshold_pct": 0.8888888888888888
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 26.6
+  },
+  {
+    "version": "v81",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 6.117746297106878,
+      "macd_fast": 7,
+      "macd_signal": 4,
+      "macd_slow": 38,
+      "obv_fast": 12,
+      "obv_slow": 17
+    },
+    "best_sharpe": 4.699279773860367,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 4.066282012473029,
+      "neighbor_std": 0.29989579481023165,
+      "above_threshold_pct": 1.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 16.0
+  },
+  {
+    "version": "v83",
+    "phase": "fine",
+    "freq": "30min",
+    "best_params": {
+      "atr_stop_mult": 1.7871836453855232,
+      "d_period": 6,
+      "k_period": 10,
+      "kl_fast": 37,
+      "kl_signal": 11,
+      "kl_slow": 82,
+      "stoch_overbought": 115.92153907850387,
+      "stoch_oversold": 100.23743795856431
+    },
+    "best_sharpe": 7.216756922141287,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 6.643787944734202,
+      "neighbor_std": 0.24709627107893978,
+      "above_threshold_pct": 1.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 90.5
+  },
+  {
+    "version": "v84",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_breakout_mult": 8.265184062638028,
+      "atr_stop_mult": 4.787280261196743,
+      "cci_period": 51,
+      "cci_threshold": 369.81613023963104,
+      "sma_period": 35
+    },
+    "best_sharpe": 3.844599958961786,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": -0.7349760015808046,
+      "neighbor_std": 6.357955478025108,
+      "above_threshold_pct": 0.68
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 15.4
+  },
+  {
+    "version": "v85",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 12.73233182049314,
+      "cmf_period": 32,
+      "roc_period": 6,
+      "roc_threshold": 5.506377573039607
+    },
+    "best_sharpe": 4.159765826561677,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 3.3069304568353113,
+      "neighbor_std": 0.5274728070095986,
+      "above_threshold_pct": 1.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 12.2
+  },
+  {
+    "version": "v86",
+    "phase": "fine",
+    "freq": "1h",
+    "best_params": {
+      "amihud_period": 31,
+      "atr_stop_mult": 1.3528133259076147,
+      "fade_threshold": 5.198577718401812,
+      "illiquidity_threshold": 4.703642370129152,
+      "kama_fast": 3,
+      "kama_period": 4,
+      "kama_slope_len": 9,
+      "kama_slow": 68
+    },
+    "best_sharpe": 5.759691402624098,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 3.17557027081174,
+      "neighbor_std": 1.7865482886915713,
+      "above_threshold_pct": 0.625
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 77.8
+  },
+  {
+    "version": "v88",
+    "phase": "fine",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 1.935675789639944,
+      "macd_fast": 29,
+      "macd_signal": 9,
+      "macd_slow": 78,
+      "weekday_filter": 2.4762960178344198,
+      "weekday_lookback": 735
+    },
+    "best_sharpe": 5.196523618136907,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 4.44576380957658,
+      "neighbor_std": 0.4315048080088215,
+      "above_threshold_pct": 1.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 11.7
+  },
+  {
+    "version": "v90",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 4.718973266983264,
+      "cci_period": 54,
+      "cci_threshold": 395.7777139016613,
+      "smi_period": 6,
+      "smi_slope_len": 13
+    },
+    "best_sharpe": 3.8309990155128353,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 0.826753700862555,
+      "neighbor_std": 5.416619010663962,
+      "above_threshold_pct": 0.8
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 17.7
+  },
+  {
+    "version": "v94",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 0.6016858751396761,
+      "displacement": 53,
+      "kijun": 16,
+      "rsi_long_entry": 94.45406840666323,
+      "rsi_period": 32,
+      "rsi_short_entry": 24.32562898844536,
+      "senkou_b_period": 138,
+      "tenkan": 24
+    },
+    "best_sharpe": 5.522854561610142,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 3.891665400389671,
+      "neighbor_std": 1.6222643884816754,
+      "above_threshold_pct": 0.575
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 24.7
+  },
+  {
+    "version": "v104",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "adx_period": 5,
+      "adx_threshold": 48.60051030203001,
+      "atr_stop_mult": 2.1002173289171258,
+      "squeeze_period": 38
+    },
+    "best_sharpe": 3.3645415953722067,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 2.3482648501102372,
+      "neighbor_std": 0.4434428941215839,
+      "above_threshold_pct": 1.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 20.7
+  },
+  {
+    "version": "v106",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 0.6000000000000001,
+      "crowding_period": 52,
+      "crowding_threshold": 1.3758323696990113,
+      "hma_period": 6
+    },
+    "best_sharpe": 4.865311100348789,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 3.549341116536047,
+      "neighbor_std": 0.8473283832714735,
+      "above_threshold_pct": 0.95
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 37.5
+  },
+  {
+    "version": "v108",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 0.6000000000000001,
+      "bb_period": 48,
+      "bb_width_pctl": 0.738919788041215,
+      "klinger_fast": 81,
+      "klinger_signal": 29,
+      "klinger_slow": 165
+    },
+    "best_sharpe": 3.7750100839916367,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 2.7040961781485104,
+      "neighbor_std": 0.5219052566448005,
+      "above_threshold_pct": 0.9333333333333333
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 27.0
+  },
+  {
+    "version": "v109",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 9.669958177245686,
+      "bb_mult": 3.9632990434906947,
+      "bb_period": 51,
+      "cmf_period": 28,
+      "cmf_thresh": 0.1846670389067673,
+      "kc_mult": 4.336225587877917
+    },
+    "best_sharpe": 4.166571237729698,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": -0.09803884465458897,
+      "neighbor_std": 5.989360699088635,
+      "above_threshold_pct": 0.7333333333333333
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 35.7
+  },
+  {
+    "version": "v112",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 6.998720234697465,
+      "re_period": 26,
+      "re_thresh": 5.266048567255725,
+      "smi_period": 37
+    },
+    "best_sharpe": 3.811026119645217,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 2.8755476078892954,
+      "neighbor_std": 0.7643491611794742,
+      "above_threshold_pct": 0.9
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 15.3
+  },
+  {
+    "version": "v114",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 13.642260384043732,
+      "div_thresh": 1.611301911932109,
+      "kc_atr": 17,
+      "kc_ema": 58,
+      "kc_mult": 3.6242368711580917,
+      "oi_period": 41
+    },
+    "best_sharpe": 4.684400803889748,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 4.308082487905335,
+      "neighbor_std": 0.30339159221175704,
+      "above_threshold_pct": 1.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 30.3
+  },
+  {
+    "version": "v116",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 2.8051402016768705,
+      "fd_period": 90,
+      "fd_thresh": 5.857918484517671,
+      "km_period": 51,
+      "st_mult": 5.287607656915465,
+      "st_period": 27
+    },
+    "best_sharpe": 2.8638581205437204,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 1.166070746106376,
+      "neighbor_std": 0.6405947943651673,
+      "above_threshold_pct": 0.3
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 781.2
+  },
+  {
+    "version": "v134",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "accel_period": 10,
+      "atr_stop_mult": 7.371950830725825,
+      "cci_period": 49,
+      "cci_thresh": 313.88738156646866,
+      "fi_period": 245,
+      "importance_thresh": 0.08622203333493295
+    },
+    "best_sharpe": 4.620034486595266,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 3.9344195206510166,
+      "neighbor_std": 0.33335271857251847,
+      "above_threshold_pct": 1.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 334.1
+  },
+  {
+    "version": "v139",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 1.7929971408755065,
+      "pca_components": 8,
+      "roc_period": 5,
+      "roc_thresh": 3.990351939566221,
+      "ts_period": 33,
+      "ts_thresh": 45.225635827326975
+    },
+    "best_sharpe": 4.609020305759813,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 3.653629963652209,
+      "neighbor_std": 0.4472432403201064,
+      "above_threshold_pct": 1.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 34.7
+  },
+  {
+    "version": "v142",
+    "phase": "fine",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 13.503560892017024,
+      "km_period": 316,
+      "persistence_threshold": 0.638333903408531,
+      "tp_period": 176,
+      "vi_period": 57
+    },
+    "best_sharpe": 4.307405740799304,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 2.7429445396486285,
+      "neighbor_std": 0.6803708187600743,
+      "above_threshold_pct": 0.8
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 340.2
+  },
+  {
+    "version": "v152",
+    "phase": "fine",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 0.7077812002536793,
+      "hma_period": 53
+    },
+    "best_sharpe": 6.61576504568662,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 6.4091838871520554,
+      "neighbor_std": 0.1327813786494948,
+      "above_threshold_pct": 1.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 195.0
+  },
+  {
+    "version": "v157",
+    "phase": "fine",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 0.8299320177759097,
+      "stoch_entry_long": 133.74681292132558,
+      "stoch_entry_short": 285.01944274835057,
+      "stoch_k_period": 9
+    },
+    "best_sharpe": 6.959488579386775,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 6.840607708592435,
+      "neighbor_std": 0.1697692461646988,
+      "above_threshold_pct": 1.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 66.0
+  },
+  {
+    "version": "v159",
+    "phase": "fine",
+    "freq": "daily",
+    "best_params": {
+      "adx_threshold": 21.753805022848567,
+      "atr_stop_mult": 5.512809121331063,
+      "bb_width_lookback": 4
+    },
+    "best_sharpe": 5.01394289979352,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 4.168095011909353,
+      "neighbor_std": 0.422437176404255,
+      "above_threshold_pct": 1.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 18.6
+  },
+  {
+    "version": "v162",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 0.6131378550395084,
+      "cci_period": 31,
+      "cci_thresh": 362.8588084488782,
+      "klinger_fast": 54,
+      "klinger_signal": 13,
+      "klinger_slow": 70
+    },
+    "best_sharpe": 4.30557647662322,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 3.795456113084021,
+      "neighbor_std": 0.3576210263283086,
+      "above_threshold_pct": 1.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 25.0
+  },
+  {
+    "version": "v168",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 0.6000000000000001,
+      "crowding_period": 36,
+      "crowding_thresh": 1.3288046392262851,
+      "roc_period": 60
+    },
+    "best_sharpe": 4.271327352435767,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 2.9564196070548197,
+      "neighbor_std": 1.1553838433948616,
+      "above_threshold_pct": 0.75
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 77.6
+  },
+  {
+    "version": "v189",
+    "phase": "fine",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 1.1502464075134482,
+      "kelt_atr": 23,
+      "kelt_ema": 57,
+      "kelt_mult": 5.801348856037363,
+      "stoch_d": 7,
+      "stoch_k": 36
+    },
+    "best_sharpe": 6.374678967803488,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 5.766917826067933,
+      "neighbor_std": 0.40019942825637494,
+      "above_threshold_pct": 1.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 83.9
+  },
+  {
+    "version": "v195",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 11.952081000692333,
+      "cmf_period": 35,
+      "hmm_period": 479,
+      "hmm_states": 7,
+      "st_multiplier": 4.346703783141093,
+      "st_period": 23
+    },
+    "best_sharpe": 4.4272721763975635,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": false,
+      "neighbor_mean": 2.28789725879485,
+      "neighbor_std": 0.7663969114791395,
+      "above_threshold_pct": 0.5
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 4835.0
+  },
+  {
+    "version": "v196",
+    "phase": "fine",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 0.8120774720630849,
+      "kalman_mn": 2.1778284033955497,
+      "kalman_pn": 0.006587145530263479,
+      "rsi_period": 6,
+      "rsi_pullback_hi": 189.9620571159498,
+      "rsi_pullback_lo": 20.696031367439517
+    },
+    "best_sharpe": 7.300220861371095,
+    "n_trials": 100,
+    "robustness": {
+      "is_robust": true,
+      "neighbor_mean": 6.788568206195293,
+      "neighbor_std": 0.48227718621629584,
+      "above_threshold_pct": 1.0
+    },
+    "early_stopped": false,
+    "elapsed_seconds": 76.2
+  }
+]

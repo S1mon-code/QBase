@@ -1,6 +1,6 @@
-# QBase 指标库（320 个）
+# QBase 指标库（328 个）
 
-10 大类 320 个指标，纯 numpy 函数（numpy in → numpy out）。所有指标位于 `indicators/` 目录下对应分类文件夹中。
+10 大类 328 个指标，纯 numpy 函数（numpy in → numpy out）。所有指标位于 `indicators/` 目录下对应分类文件夹中。
 
 ---
 
@@ -85,7 +85,7 @@
 | MESA Adaptive MA | `mesa_adaptive_ma.py` | `mama(closes, fast_limit=0.5, slow_limit=0.05)` |
 | TRIX | `trix.py` | `trix(closes, period=15)` |
 
-## Volatility — 波动率类（35个）
+## Volatility — 波动率类（36个）
 
 | 指标 | 文件 | 函数签名 |
 |------|------|---------|
@@ -98,6 +98,7 @@
 | VoV | `vov.py` | `vov(closes, vol_period=20, vov_period=20)` |
 | NR7 | `nr7.py` | `nr7(highs, lows)` / `nr4(highs, lows)` |
 | Range Expansion | `range_expansion.py` | `range_expansion(highs, lows, closes, period=14)` |
+| Range Expansion Signal | `range_expansion_signal.py` | `range_expansion_signal(opens, highs, lows, closes, range_period=25, range_mult=1.9, atr_period=20)` → (signal, expansion_ratio, atr) |
 | NATR | `natr.py` | `natr(highs, lows, closes, period=14)` |
 | Chaikin Volatility | `chaikin_vol.py` | `chaikin_volatility(highs, lows, ema=10, roc=10)` |
 | Ulcer Index | `ulcer_index.py` | `ulcer_index(closes, period=14)` |
@@ -125,7 +126,7 @@
 | Realized Skew | `realized_skew.py` | `realized_skewness(highs, lows, closes, period=20)` |
 | Price Acceleration | `price_acceleration.py` | `price_acceleration(closes, period=14)` |
 
-## Volume — 成交量/持仓类（39个）
+## Volume — 成交量/持仓类（40个）
 
 | 指标 | 文件 | 函数签名 |
 |------|------|---------|
@@ -168,6 +169,7 @@
 | OI Flow | `oi_flow.py` | `oi_flow(closes, oi, volumes, period=14)` |
 | OI Accumulation | `oi_accumulation.py` | `oi_accumulation(closes, oi, period=20)` |
 | OI Climax | `oi_climax.py` | `oi_climax(oi, volumes, period=20, threshold=2.0)` |
+| Wyckoff Divergence | `wyckoff_divergence.py` | `wyckoff_divergence(highs, lows, closes, volumes, lookback=20)` → (bullish_div, bearish_div, ad_line) |
 
 ## Microstructure — 市场微观结构（15个）
 
@@ -189,7 +191,7 @@
 | Trade Clustering | `trade_clustering.py` | `trade_clustering(volumes, period=20)` |
 | Adverse Selection | `adverse_selection.py` | `adverse_selection(closes, volumes, period=20)` |
 
-## ML — 机器学习/统计学习（65个）
+## ML — 机器学习/统计学习（67个）
 
 | 指标 | 文件 | 函数签名 |
 |------|------|---------|
@@ -258,8 +260,10 @@
 | OI Prediction | `oi_prediction.py` | `oi_predicted_return(closes, oi, volumes, period=120)` |
 | OI Cluster | `oi_cluster.py` | `oi_cluster(closes, oi, volumes, period=120, n_clusters=4)` |
 | OI Kalman | `oi_kalman.py` | `oi_kalman_trend(oi, process_noise=0.01, measurement_noise=1.0)` |
+| OU Model | `ou_model.py` | `ou_params(closes, period=120, dt=1/252)` → (theta, mu, sigma, ou_std, half_life) |
+| OU Deviation | `ou_model.py` | `ou_deviation(closes, period=120, dt=1/252, min_hl=3, max_hl=30)` → (deviation, valid_regime) |
 
-## Regime — 行情状态识别（33个）
+## Regime — 行情状态识别（34个）
 
 | 指标 | 文件 | 函数签名 |
 |------|------|---------|
@@ -296,6 +300,7 @@
 | OI Regime | `oi_regime.py` | `oi_regime(closes, oi, volumes, period=60)` |
 | OI Cycle | `oi_cycle.py` | `oi_cycle(oi, period=60)` |
 | OI Stress | `oi_stress.py` | `oi_stress(closes, oi, volumes, period=20)` |
+| Macro Regime Filter | `macro_regime_filter.py` | `macro_regime_filter(closes, volumes, ma_period=60, vol_period=20, vol_lookback=120, oi_period=20)` → (score, signal, trend, vol) |
 
 ## Seasonality — 季节性/日历效应（15个）
 
@@ -317,7 +322,7 @@
 | Volatility Seasonality | `volatility_seasonality.py` | `vol_seasonality(closes, datetimes, vol_period=20)` |
 | Expiry Week | `expiry_week.py` | `expiry_week_effect(closes, datetimes, lookback=52)` |
 
-## Spread — 跨品种价差/比值（25个）
+## Spread — 跨品种价差/比值（26个）
 
 | 指标 | 文件 | 函数签名 |
 |------|------|---------|
@@ -346,8 +351,9 @@
 | Dynamic Hedge Ratio | `dynamic_hedge_ratio.py` | `dynamic_hedge(closes_a, closes_b, period=60)` |
 | Carry Signal | `carry.py` | `carry_signal(front_closes, back_closes, period=20)` |
 | Relative Value Z-Score | `relative_value_zscore.py` | `rv_zscore(closes_a, closes_b, closes_c, period=60)` |
+| SMA Ratio Z-Score | `sma_ratio_zscore.py` | `sma_ratio_zscore(closes, lookback=120)` → (ratio_z, price_z, ratio) |
 
-## Structure — 持仓结构分析（23个）
+## Structure — 持仓结构分析（25个）
 
 | 指标 | 文件 | 函数签名 |
 |------|------|---------|
@@ -374,6 +380,8 @@
 | OI Momentum-Price Divergence | `oi_momentum_divergence.py` | `oi_momentum_price_divergence(closes, oi, period=20)` |
 | OI Weighted Price | `oi_weighted_price.py` | `oi_weighted_price(closes, oi, period=20)` |
 | OI Persistence | `oi_persistence.py` | `oi_persistence(oi, period=20)` |
+| Rollover Detector | `rollover_detector.py` | `rollover_detector(volumes, factors, vol_threshold=0.18)` → (is_rollover, vol_change) |
+| Post-Rollover Momentum | `rollover_detector.py` | `post_rollover_momentum(closes, is_rollover, settle_bars=4, mom_period=20)` → (post_roll_return, post_roll_mom) |
 
 ---
 
@@ -383,12 +391,12 @@
 |------|:---:|------|
 | momentum | 35 | 动量/振荡类 |
 | trend | 35 | 趋势类 |
-| volatility | 35 | 波动率类 |
-| volume | 39 | 成交量/持仓类 |
+| volatility | 36 | 波动率类（+1 range_expansion_signal） |
+| volume | 40 | 成交量/持仓类（+1 wyckoff_divergence） |
 | microstructure | 15 | 市场微观结构 |
-| ml | 65 | 机器学习/统计学习 |
-| regime | 33 | 行情状态识别 |
+| ml | 67 | 机器学习/统计学习（+2 ou_model） |
+| regime | 34 | 行情状态识别（+1 macro_regime_filter） |
 | seasonality | 15 | 季节性/日历效应 |
-| spread | 25 | 跨品种价差/比值 |
-| structure | 23 | 持仓结构分析 |
-| **总计** | **320** | |
+| spread | 26 | 跨品种价差/比值（+1 sma_ratio_zscore） |
+| structure | 25 | 持仓结构分析（+2 rollover_detector） |
+| **总计** | **328** | |

@@ -38,6 +38,11 @@ from strategies.optimizer_core import (
     run_single_backtest,
     optimize_two_phase,
     optimize_multi_seed,
+    build_result_entry,
+    detect_strategy_status,
+    is_strategy_dead,
+    save_results_atomic,
+    auto_calibrate_params,
 )
 
 # =========================================================================
@@ -60,7 +65,7 @@ TRAINING_PERIODS = {
 }
 
 # Strategy class names mapping
-STRATEGY_CLASSES = {f"v{i}": f"StrongTrendV{i}" for i in range(1, 51)}
+STRATEGY_CLASSES = {f"v{i}": f"StrongTrendV{i}" for i in range(1, 201)}
 STRATEGY_CLASSES["v3"] = "DonchianADXChandelierStrategy"  # v3 has non-standard name
 
 
@@ -75,16 +80,29 @@ def load_strategy_class(version: str):
     return getattr(mod, class_name)
 
 
+_INTRADAY_FREQS = frozenset({"4h", "1h", "60min", "30min", "15min", "10min", "5min"})
+
+
 def evaluate_strategy(version, params, data_dir, scoring_mode="tanh"):
     """Evaluate strategy across all training symbols with composite objective."""
     strategy_cls = load_strategy_class(version)
     strategy = create_strategy_with_params(strategy_cls, params)
     freq = strategy.freq
 
+    # V6: Select backtest mode based on frequency and phase
+    # Coarse phase (tanh) always uses basic (speed priority)
+    # Fine phase (linear): daily → basic, 4h+ → industrial
+    if scoring_mode == "linear":
+        config_mode = "industrial"  # V6: all freqs use Industrial for fine phase
+    else:
+        config_mode = "basic"
+
     results = []
     for symbol in TRAINING_SYMBOLS:
         start, end = TRAINING_PERIODS[symbol]
-        r = run_single_backtest(strategy, symbol, start, end, freq=freq, data_dir=data_dir)
+        r = run_single_backtest(strategy, symbol, start, end,
+                                freq=freq, data_dir=data_dir,
+                                config_mode=config_mode)
         if r['sharpe'] > -900:
             results.append(r)
 
@@ -93,14 +111,48 @@ def evaluate_strategy(version, params, data_dir, scoring_mode="tanh"):
     return composite_objective(results, min_valid=3, freq=freq, scoring_mode=scoring_mode)
 
 
-def optimize_strategy(version, n_trials=80, verbose=True, use_multi_seed=False):
+def optimize_strategy(version, n_trials=80, verbose=True, use_multi_seed=False, force=False):
     """Optimize a single strategy version."""
-    strategy_cls = load_strategy_class(version)
+    import time
+
+    # Skip dead strategies
+    results_path = os.path.join(
+        QBASE_ROOT, "strategies", "strong_trend", "optimization_results.json"
+    )
+    if not force and is_strategy_dead(results_path, version):
+        if verbose:
+            print(f"  Skipping {version}: marked dead/error in results (use --force to re-run)")
+        return None
+
+    try:
+        strategy_cls = load_strategy_class(version)
+    except (ImportError, ModuleNotFoundError) as e:
+        print(f"  ERROR: {version} import failed: {e}")
+        return build_result_entry(
+            version=version, freq="daily", best_params={},
+            sharpe=-999.0, score=-999.0, status="import_error",
+        )
+    except Exception as e:
+        print(f"  ERROR: {version} load failed: {e}")
+        return build_result_entry(
+            version=version, freq="daily", best_params={},
+            sharpe=-999.0, score=-999.0, status="error",
+        )
+
+    freq = getattr(strategy_cls, 'freq', 'daily')
     param_specs = auto_discover_params(strategy_cls)
 
     if not param_specs:
         print(f"  WARNING: No tunable params for {version}")
         return None
+
+    # Auto-calibrate: widen ranges if default params produce zero trades
+    first_symbol = TRAINING_SYMBOLS[0]
+    first_start, first_end = TRAINING_PERIODS[first_symbol]
+    param_specs = auto_calibrate_params(
+        strategy_cls, param_specs, first_symbol, first_start, first_end,
+        freq=freq, data_dir=DATA_DIR,
+    )
 
     if verbose:
         print(f"\n{'='*60}")
@@ -111,6 +163,7 @@ def optimize_strategy(version, n_trials=80, verbose=True, use_multi_seed=False):
         print(f"{'='*60}")
 
     data_dir = DATA_DIR
+    t0 = time.time()
 
     def objective_fn(params, scoring_mode="tanh"):
         return evaluate_strategy(version, params, data_dir, scoring_mode=scoring_mode)
@@ -134,19 +187,30 @@ def optimize_strategy(version, n_trials=80, verbose=True, use_multi_seed=False):
             study_name=f"strong_trend_{version}",
         )
 
-    return {
-        "version": version,
-        "best_sharpe": result["best_value"],
-        "best_params": result["best_params"],
-        "n_trials": result.get("n_trials_total", result.get("n_trials", n_trials)),
-        "robustness": result.get("robustness"),
-        "is_consistent": result.get("is_consistent"),
-        "phase": result.get("phase"),
-    }
+    elapsed = time.time() - t0
+    best_value = result["best_value"]
+    n_total = result.get("n_trials_total", result.get("n_trials", n_trials))
+    phase = result.get("phase", "two_phase")
+
+    # best_value is the composite score (0-10 scale)
+    output = build_result_entry(
+        version=version,
+        freq=freq,
+        best_params=result["best_params"],
+        sharpe=best_value,      # legacy: composite score stored as best_sharpe
+        score=best_value,       # also store as best_score
+        n_trials=n_total,
+        phase=phase,
+        robustness=result.get("robustness"),
+        elapsed=elapsed,
+        is_consistent=result.get("is_consistent"),
+    )
+    output["status"] = detect_strategy_status(output)
+    return output
 
 
 def save_results(results: list, output_path: str = None):
-    """Save optimization results to JSON."""
+    """Save optimization results to JSON with file locking."""
     if output_path is None:
         output_path = os.path.join(
             QBASE_ROOT, "strategies", "strong_trend", "optimization_results.json"
@@ -166,9 +230,7 @@ def save_results(results: list, output_path: str = None):
             }
         clean.append(entry)
 
-    with open(output_path, "w") as f:
-        json.dump(clean, f, indent=2)
-    print(f"\nResults saved to {output_path}")
+    save_results_atomic(output_path, clean)
 
 
 # =========================================================================
@@ -181,10 +243,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Optimize strong trend strategies")
     parser.add_argument(
         "--strategy", default="v1",
-        help="Strategy version (v1-v50) or 'all' for all strategies"
+        help="Strategy version (v1-v200) or 'all' for all strategies"
     )
     parser.add_argument("--trials", type=int, default=80, help="Optuna trials per strategy")
     parser.add_argument("--quiet", action="store_true", help="Suppress progress output")
+    parser.add_argument("--force", action="store_true", help="Force re-optimization, ignore existing results")
     parser.add_argument(
         "--multi-seed", action="store_true",
         help="Enable multi-seed validation (3 seeds, 3x compute — for final top candidates)"
@@ -195,14 +258,22 @@ if __name__ == "__main__":
     use_multi_seed = args.multi_seed
 
     if args.strategy == "all":
-        versions = [f"v{i}" for i in range(1, 51)]
+        versions = [f"v{i}" for i in range(1, 201)]
+    elif "," in args.strategy:
+        versions = [v.strip() for v in args.strategy.split(",")]
+    elif "-" in args.strategy and args.strategy.count("-") == 1:
+        # Range: v51-v75 → [v51, v52, ..., v75]
+        parts = args.strategy.split("-")
+        start = int(parts[0].replace("v", ""))
+        end = int(parts[1].replace("v", ""))
+        versions = [f"v{i}" for i in range(start, end + 1)]
     else:
         versions = [args.strategy]
 
     all_results = []
     for ver in versions:
         result = optimize_strategy(ver, n_trials=args.trials, verbose=verbose,
-                                   use_multi_seed=use_multi_seed)
+                                   use_multi_seed=use_multi_seed, force=args.force)
         all_results.append(result)
         if result:
             tag = ""

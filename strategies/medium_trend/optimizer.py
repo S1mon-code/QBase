@@ -38,6 +38,8 @@ from strategies.optimizer_core import (
     composite_objective, run_single_backtest,
     optimize_two_phase, optimize_multi_seed,
     narrow_param_space, map_freq, resample_bars,
+    build_result_entry, detect_strategy_status, is_strategy_dead,
+    save_results_atomic, auto_calibrate_params,
 )
 
 logging.getLogger("alphaforge").setLevel(logging.ERROR)
@@ -147,10 +149,24 @@ def get_strategy_freq(strategy_cls):
 
 
 def optimize_single(version, n_trials=50, phase="coarse",
-                    seed=42, probe_trials=5, multi_seed=False):
+                    seed=42, probe_trials=5, multi_seed=False, force=False):
     """Optimize a single strategy using optimizer_core multi-dimensional scoring."""
+    # Skip dead strategies
+    result_file = COARSE_RESULTS_FILE if phase == "coarse" else RESULTS_FILE
+    if not force and is_strategy_dead(str(result_file), version):
+        print(f"  Skipping {version}: marked dead/error in results (use --force to re-run)")
+        return None
+
     try:
         strategy_cls = load_strategy_class(version)
+    except (ImportError, ModuleNotFoundError) as e:
+        print(f"  ERROR: {version} import failed: {e}")
+        return build_result_entry(
+            version=version, freq="daily", best_params={}, phase=phase,
+            sharpe=-999.0, score=-999.0, status="import_error",
+        )
+
+    try:
         freq = get_strategy_freq(strategy_cls)
         param_specs = auto_discover_params(strategy_cls)
 
@@ -162,23 +178,40 @@ def optimize_single(version, n_trials=50, phase="coarse",
             print(f"  WARNING: No tunable params for {version}")
             return None
 
+        # Auto-calibrate: widen ranges if default params produce zero trades
+        segments = get_optim_segments(freq)
+        data_dir = get_data_dir()
+        first_sym, first_start, first_end = segments[0]
+        param_specs = auto_calibrate_params(
+            strategy_cls, param_specs, first_sym, first_start, first_end,
+            freq=freq, data_dir=data_dir, initial_capital=DEFAULT_CAPITAL,
+        )
+
         print(f"  Parameters: {[(p['name'], round(p['low'],2), round(p['high'],2)) for p in param_specs]}")
 
-        segments = get_optim_segments(freq)
         print(f"  Training on {len(segments)} segments (freq={freq})")
 
         t0 = time.time()
-        data_dir = get_data_dir()
 
-        def objective_fn(params):
+        _INTRADAY_FREQS = frozenset({"4h", "1h", "60min", "30min", "15min", "10min", "5min"})
+
+        def objective_fn(params, scoring_mode="tanh"):
             """Evaluate across multiple training segments using composite_objective."""
             strategy = create_strategy_with_params(strategy_cls, params)
+            # V6: Select backtest mode based on frequency and phase
+            # Coarse phase (tanh) always uses basic (speed priority)
+            # Fine phase (linear): daily → basic, 4h+ → industrial
+            if scoring_mode == "linear":
+                config_mode = "industrial"  # V6: all freqs use Industrial for fine phase
+            else:
+                config_mode = "basic"
             results = []
             for sym, start, end in segments:
                 r = run_single_backtest(
                     strategy, sym, start, end,
                     freq=freq, data_dir=data_dir,
                     initial_capital=DEFAULT_CAPITAL,
+                    config_mode=config_mode,
                 )
                 if r['sharpe'] > -900:
                     results.append(r)
@@ -186,7 +219,7 @@ def optimize_single(version, n_trials=50, phase="coarse",
             if len(results) < max(3, len(segments) // 3):
                 return -10.0
 
-            return composite_objective(results, min_valid=3, freq=freq)
+            return composite_objective(results, min_valid=3, freq=freq, scoring_mode=scoring_mode)
 
         if phase == "fine":
             coarse = load_coarse_results()
@@ -207,18 +240,18 @@ def optimize_single(version, n_trials=50, phase="coarse",
                 verbose=True, probe_trials=probe_trials,
             )
             elapsed = time.time() - t0
-            output = {
-                "version": version, "phase": phase, "freq": freq,
-                "best_params": result["best_params"],
-                "best_sharpe": result["best_value"],
-                "n_trials": result["n_trials_total"],
-                "robustness": result.get("robustness"),
-                "early_stopped": result.get("early_stopped", False),
-                "multi_seed": True,
-                "cross_seed_std": result.get("cross_seed_std"),
-                "is_consistent": result.get("is_consistent"),
-                "elapsed_seconds": round(elapsed, 1),
-            }
+            best_value = result["best_value"]
+            output = build_result_entry(
+                version=version, freq=freq, best_params=result["best_params"],
+                sharpe=best_value, score=best_value,
+                n_trials=result["n_trials_total"],
+                phase=phase, robustness=result.get("robustness"),
+                elapsed=elapsed,
+                early_stopped=result.get("early_stopped", False),
+                multi_seed=True,
+                cross_seed_std=result.get("cross_seed_std"),
+                is_consistent=result.get("is_consistent"),
+            )
         else:
             result = optimize_two_phase(
                 objective_fn, param_specs,
@@ -229,17 +262,19 @@ def optimize_single(version, n_trials=50, phase="coarse",
                 verbose=True, probe_trials=probe_trials,
             )
             elapsed = time.time() - t0
-            output = {
-                "version": version, "phase": phase, "freq": freq,
-                "best_params": result["best_params"],
-                "best_sharpe": result["best_value"],
-                "n_trials": result["n_trials"],
-                "robustness": result.get("robustness"),
-                "early_stopped": result.get("early_stopped", False),
-                "elapsed_seconds": round(elapsed, 1),
-            }
+            best_value = result["best_value"]
+            output = build_result_entry(
+                version=version, freq=freq, best_params=result["best_params"],
+                sharpe=best_value, score=best_value,
+                n_trials=result["n_trials"],
+                phase=phase, robustness=result.get("robustness"),
+                elapsed=elapsed,
+                early_stopped=result.get("early_stopped", False),
+            )
 
-        print(f"  Best Score: {output['best_sharpe']:.4f}/10")
+        output["status"] = detect_strategy_status(output)
+
+        print(f"  Best Score: {output['best_score']:.4f}/10")
         print(f"  Best params: {output['best_params']}")
         print(f"  Time: {elapsed:.1f}s")
         return output
@@ -247,7 +282,11 @@ def optimize_single(version, n_trials=50, phase="coarse",
     except Exception as e:
         print(f"  ERROR optimizing {version}: {e}")
         traceback.print_exc()
-        return {"version": version, "phase": phase, "error": str(e)}
+        status = "import_error" if "import" in str(e).lower() else "error"
+        return build_result_entry(
+            version=version, freq="daily", best_params={}, phase=phase,
+            sharpe=-999.0, score=-999.0, status=status, error=str(e),
+        )
 
 
 def load_coarse_results():
@@ -258,20 +297,8 @@ def load_coarse_results():
 
 
 def save_results(results, filepath):
-    existing = []
-    if filepath.exists():
-        try:
-            with open(filepath) as f:
-                existing = json.load(f)
-        except Exception:
-            existing = []
-    existing_map = {r["version"]: r for r in existing}
-    for r in results:
-        existing_map[r["version"]] = r
-    merged = sorted(existing_map.values(), key=lambda r: int(r["version"][1:]))
-    with open(filepath, 'w') as f:
-        json.dump(merged, f, indent=2, default=str)
-    print(f"\nResults saved to {filepath} ({len(merged)} total, {len(results)} new)")
+    """Save optimization results with file locking."""
+    save_results_atomic(str(filepath), results)
 
 
 def parse_strategy_range(s):
@@ -293,6 +320,7 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--multi-seed", action="store_true",
                         help="Run multi-seed optimization (3 seeds) for robustness")
+    parser.add_argument("--force", action="store_true", help="Force re-optimization, ignore existing results")
     args = parser.parse_args()
 
     versions = parse_strategy_range(args.strategy)
@@ -315,11 +343,12 @@ def main():
     for version in versions:
         if not (MT_DIR / f"{version}.py").exists():
             continue
-        if version in already_done:
-            print(f"  Skipping {version}: already optimized")
+        if version in already_done and not args.force:
+            print(f"  Skipping {version}: already optimized (use --force to re-run)")
             continue
         r = optimize_single(version, n_trials=args.trials, phase=args.phase,
-                           seed=args.seed, multi_seed=args.multi_seed)
+                           seed=args.seed, multi_seed=args.multi_seed,
+                           force=args.force)
         if r:
             results.append(r)
 

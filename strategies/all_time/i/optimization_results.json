@@ -154,6 +154,23 @@
     "elapsed_seconds": 8.1
   },
   {
+    "version": "v11",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "adx_period": 16,
+      "adx_threshold": 123.82136796425982,
+      "atr_stop_mult": 12.142926590709504,
+      "st_mult": 9.646886824168524,
+      "st_period": 4
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 50,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 3.8
+  },
+  {
     "version": "v12",
     "phase": "fine",
     "freq": "4h",
@@ -238,6 +255,33 @@
     },
     "early_stopped": false,
     "elapsed_seconds": 13.8
+  },
+  {
+    "version": "v16",
+    "phase": "fine",
+    "error": "cannot import name 'fractal' from 'indicators.trend.fractal' (/Users/simon/Desktop/QBase/indicators/trend/fractal.py)"
+  },
+  {
+    "version": "v18",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.451391024822625,
+      "ribbon_fast": 24,
+      "ribbon_slow": 52,
+      "stoch_ob": 257.2503153111607,
+      "stoch_period": 5
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 50,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 3.4
+  },
+  {
+    "version": "v19",
+    "phase": "fine",
+    "error": "cannot import name 'trix_indicator' from 'indicators.trend.trix' (/Users/simon/Desktop/QBase/indicators/trend/trix.py)"
   },
   {
     "version": "v20",
@@ -326,6 +370,23 @@
     "elapsed_seconds": 17.0
   },
   {
+    "version": "v25",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.451391024822625,
+      "cci_period": 60,
+      "oi_period": 25,
+      "psar_af_max": 0.6431257882779017,
+      "psar_af_step": 0.009071126327216078
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 50,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 3.4
+  },
+  {
     "version": "v26",
     "phase": "fine",
     "freq": "1h",
@@ -412,6 +473,40 @@
     },
     "early_stopped": false,
     "elapsed_seconds": 38.0
+  },
+  {
+    "version": "v31",
+    "phase": "fine",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.451391024822625,
+      "kama_period": 30,
+      "tsi_long": 62,
+      "tsi_short": 26,
+      "tsi_threshold": 2.2677815818040195
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 50,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 8.0
+  },
+  {
+    "version": "v32",
+    "phase": "fine",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.451391024822625,
+      "cci_period": 42,
+      "cci_threshold": 323.8113757522534,
+      "lr_period": 39,
+      "r2_threshold": 0.1814225265443216
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 50,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 6.3
   },
   {
     "version": "v33",
@@ -694,6 +789,21 @@
     "elapsed_seconds": 17.3
   },
   {
+    "version": "v59",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "adx_threshold": 45.428258540188544,
+      "atr_stop_mult": 14.858564155711179,
+      "oi_period": 25
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 50,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 3.9
+  },
+  {
     "version": "v61",
     "phase": "fine",
     "freq": "1h",
@@ -760,6 +870,23 @@
     "elapsed_seconds": 31.1
   },
   {
+    "version": "v65",
+    "phase": "fine",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.451391024822625,
+      "kc_mult": 7.429282077855589,
+      "kc_period": 50,
+      "stoch_overbought": 273.3284600181082,
+      "stoch_oversold": 6.8033447454120575
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 50,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 7.2
+  },
+  {
     "version": "v66",
     "phase": "fine",
     "freq": "1h",
@@ -823,6 +950,23 @@
     "elapsed_seconds": 17.1
   },
   {
+    "version": "v71",
+    "phase": "fine",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.451391024822625,
+      "bb_period": 60,
+      "mfi_threshold": 101.1910549225792,
+      "rvi_period": 19,
+      "rvi_threshold": 0.06803344745412057
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 50,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 11.8
+  },
+  {
     "version": "v72",
     "phase": "fine",
     "freq": "1h",
@@ -863,6 +1007,22 @@
     },
     "early_stopped": false,
     "elapsed_seconds": 51.2
+  },
+  {
+    "version": "v76",
+    "phase": "fine",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.451391024822625,
+      "bb_period": 60,
+      "srsi_overbought": 3.4404958673676926,
+      "srsi_oversold": 0.48234434120842623
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 50,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 2.9
   },
   {
     "version": "v77",
@@ -908,6 +1068,40 @@
     "elapsed_seconds": 29.0
   },
   {
+    "version": "v83",
+    "phase": "fine",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 5.451391024822625,
+      "kc_mult": 9.905709437140786,
+      "kc_period": 50,
+      "mfi_threshold": 160.7814470694754,
+      "roc_period": 5
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 50,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 1.9
+  },
+  {
+    "version": "v84",
+    "phase": "fine",
+    "freq": "daily",
+    "best_params": {
+      "atr_stop_mult": 5.451391024822625,
+      "bb_period": 60,
+      "bb_std": 8.095284393806335,
+      "fi_period": 26,
+      "nr7_lookback": 1
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 50,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 2.0
+  },
+  {
     "version": "v85",
     "phase": "fine",
     "freq": "daily",
@@ -927,6 +1121,11 @@
     },
     "early_stopped": false,
     "elapsed_seconds": 8.6
+  },
+  {
+    "version": "v86",
+    "phase": "fine",
+    "error": "cannot import name 'choppiness' from 'indicators.volatility.chop' (/Users/simon/Desktop/QBase/indicators/volatility/chop.py)"
   },
   {
     "version": "v89",
@@ -1037,6 +1236,11 @@
     "elapsed_seconds": 13.4
   },
   {
+    "version": "v98",
+    "phase": "fine",
+    "error": "cannot import name 'choppiness' from 'indicators.volatility.chop' (/Users/simon/Desktop/QBase/indicators/volatility/chop.py)"
+  },
+  {
     "version": "v100",
     "phase": "fine",
     "freq": "4h",
@@ -1059,6 +1263,22 @@
     "elapsed_seconds": 13.1
   },
   {
+    "version": "v101",
+    "phase": "fine",
+    "freq": "4h",
+    "best_params": {
+      "atr_stop_mult": 5.451391024822625,
+      "cmf_period": 60,
+      "squeeze_period": 50,
+      "stoch_period": 28
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 50,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 3.2
+  },
+  {
     "version": "v105",
     "phase": "fine",
     "freq": "4h",
@@ -1078,6 +1298,23 @@
     },
     "early_stopped": false,
     "elapsed_seconds": 13.8
+  },
+  {
+    "version": "v107",
+    "phase": "fine",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.451391024822625,
+      "macd_fast": 36,
+      "macd_slow": 64,
+      "mfi_threshold": 160.7814470694754,
+      "squeeze_period": 8
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 50,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 2.5
   },
   {
     "version": "v109",
@@ -1143,6 +1380,40 @@
     "elapsed_seconds": 23.5
   },
   {
+    "version": "v113",
+    "phase": "fine",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.451391024822625,
+      "cci_period": 42,
+      "cci_threshold": 404.7642196903168,
+      "chand_mult": 9.646886824168524,
+      "chand_period": 9
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 50,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 2.5
+  },
+  {
+    "version": "v117",
+    "phase": "fine",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.451391024822625,
+      "bb_period": 60,
+      "bb_std": 8.095284393806335,
+      "st_mult": 9.646886824168524,
+      "st_period": 4
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 50,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 2.5
+  },
+  {
     "version": "v118",
     "phase": "fine",
     "freq": "1h",
@@ -1161,6 +1432,22 @@
     },
     "early_stopped": false,
     "elapsed_seconds": 27.2
+  },
+  {
+    "version": "v119",
+    "phase": "fine",
+    "freq": "1h",
+    "best_params": {
+      "atr_stop_mult": 5.451391024822625,
+      "nr7_lookback": 15,
+      "tsi_long": 62,
+      "tsi_short": 26
+    },
+    "best_sharpe": -10.0,
+    "n_trials": 50,
+    "robustness": null,
+    "early_stopped": false,
+    "elapsed_seconds": 5.2
   },
   {
     "version": "v120",
