@@ -25,3 +25,4 @@ from .trade_volume_index import tvi
 from .volume_momentum import volume_momentum, relative_volume
 from .money_flow import money_flow, money_flow_ratio
 from .demand_index import demand_index
+from .wyckoff_divergence import wyckoff_divergence
